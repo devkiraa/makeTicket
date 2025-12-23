@@ -2,8 +2,19 @@ import express from 'express';
 import { createEvent, getEvent, getMyEvents, updateEvent, checkEventSlug } from '../controllers/eventController';
 import { registerTicket, validateTicket, getEventAttendees, checkRegistration } from '../controllers/ticketController';
 import { verifyToken } from '../middleware/auth';
-import { googleAuthRedirect, googleAuthCallback, getProfile, getSessions, revokeSession, updateProfile, checkUsernameAvailability } from '../controllers/authController'; // Add import
+import { googleAuthRedirect, googleAuthCallback, getProfile, getSessions, revokeSession, updateProfile, checkUsernameAvailability } from '../controllers/authController';
 import { getPublicUserProfile } from '../controllers/userController';
+import { getDashboardStats, getAllAttendees } from '../controllers/dashboardController';
+import {
+    addCoordinator,
+    acceptInvite,
+    getInviteDetails,
+    getEventCoordinators,
+    updateCoordinator,
+    removeCoordinator,
+    getMyCoordinatedEvents,
+    scanQRCheckIn
+} from '../controllers/coordinatorController';
 
 export const apiRouter = express.Router();
 
@@ -29,10 +40,11 @@ apiRouter.get('/events/check-slug', verifyToken, checkEventSlug); // Check slug 
 apiRouter.patch('/events/update/:id', verifyToken, updateEvent); // Explicit update route
 apiRouter.put('/events/update/:id', verifyToken, updateEvent); // Also support PUT
 
-// Tickets (MUST be before :username/:slug to avoid conflicts)
+// Tickets & Coordinators (MUST be before :username/:slug to avoid conflicts)
 apiRouter.post('/events/:eventId/register', registerTicket);
 apiRouter.get('/events/:eventId/check-registration', checkRegistration); // Check if email already registered
 apiRouter.get('/events/:eventId/attendees', verifyToken, getEventAttendees);
+apiRouter.get('/events/:eventId/coordinators', verifyToken, getEventCoordinators); // Get coordinators for event
 
 // Public Event Page (LAST - catch-all pattern)
 apiRouter.get('/events/:username/:slug', getEvent);
@@ -40,6 +52,49 @@ apiRouter.get('/events/:username/:slug', getEvent);
 apiRouter.post('/validate', verifyToken, validateTicket);
 
 // Dashboard
-import { getDashboardStats, getAllAttendees } from '../controllers/dashboardController';
 apiRouter.get('/dashboard/stats', verifyToken, getDashboardStats);
 apiRouter.get('/dashboard/attendees', verifyToken, getAllAttendees);
+
+// Coordinators
+
+apiRouter.post('/coordinators', verifyToken, addCoordinator); // Host adds coordinator
+apiRouter.get('/coordinators/my-events', verifyToken, getMyCoordinatedEvents); // Get events I'm coordinating
+apiRouter.get('/coordinators/invite/:token', getInviteDetails); // Public - get invite details
+apiRouter.post('/coordinators/invite/:token/accept', verifyToken, acceptInvite); // Accept invite
+apiRouter.patch('/coordinators/:coordinatorId', verifyToken, updateCoordinator); // Update permissions
+apiRouter.delete('/coordinators/:coordinatorId', verifyToken, removeCoordinator); // Remove coordinator
+
+// QR Scanning
+apiRouter.post('/scan/check-in', verifyToken, scanQRCheckIn); // Scan and check-in
+
+// Email System
+import {
+    getGmailAuthUrl,
+    gmailCallback,
+    getEmailAccounts,
+    setActiveEmailAccount,
+    deleteEmailAccount,
+    sendTestEmail,
+    createEmailTemplate,
+    getEmailTemplates,
+    getEmailTemplate,
+    updateEmailTemplate,
+    deleteEmailTemplate,
+    getPlaceholders
+} from '../controllers/emailController';
+
+// Email Accounts (Gmail OAuth)
+apiRouter.get('/email/gmail/auth', verifyToken, getGmailAuthUrl);
+apiRouter.get('/email/gmail/callback', gmailCallback); // No auth - redirect from Google with state param
+apiRouter.get('/email/accounts', verifyToken, getEmailAccounts);
+apiRouter.patch('/email/accounts/:accountId/activate', verifyToken, setActiveEmailAccount);
+apiRouter.post('/email/accounts/:accountId/test', verifyToken, sendTestEmail);
+apiRouter.delete('/email/accounts/:accountId', verifyToken, deleteEmailAccount);
+
+// Email Templates
+apiRouter.post('/email/templates', verifyToken, createEmailTemplate);
+apiRouter.get('/email/templates', verifyToken, getEmailTemplates);
+apiRouter.get('/email/templates/placeholders', verifyToken, getPlaceholders);
+apiRouter.get('/email/templates/:templateId', verifyToken, getEmailTemplate);
+apiRouter.patch('/email/templates/:templateId', verifyToken, updateEmailTemplate);
+apiRouter.delete('/email/templates/:templateId', verifyToken, deleteEmailTemplate);

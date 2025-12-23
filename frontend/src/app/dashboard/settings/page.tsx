@@ -599,6 +599,28 @@ export default function ProfilePage() {
                 </CardContent>
             </Card>
 
+            {/* Email Settings */}
+            <Card className="border-slate-200 shadow-sm">
+                <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-indigo-100 rounded-lg">
+                                <Mail className="w-6 h-6 text-indigo-600" />
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-slate-900">Email Configuration</h3>
+                                <p className="text-sm text-slate-500">Connect Gmail accounts and manage email templates</p>
+                            </div>
+                        </div>
+                        <a href="/dashboard/settings/emails">
+                            <Button variant="outline" className="border-slate-200">
+                                Manage Emails
+                            </Button>
+                        </a>
+                    </div>
+                </CardContent>
+            </Card>
+
             {/* Logged In Devices Section */}
             <div className="space-y-4">
                 <div className="flex items-center justify-between px-1">

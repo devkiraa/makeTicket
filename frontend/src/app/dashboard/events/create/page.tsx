@@ -33,7 +33,9 @@ export default function CreateEventPage() {
         slug: '',
         price: 0,
         maxRegistrations: 0, // 0 = unlimited
-        allowMultipleRegistrations: true // Allow same email to register multiple times
+        allowMultipleRegistrations: true, // Allow same email to register multiple times
+        emailTemplateId: '', // Selected email template
+        sendConfirmationEmail: true // Send confirmation emails
     });
 
     // Step 2: Form Builder
@@ -41,6 +43,9 @@ export default function CreateEventPage() {
         { id: 'q1', itemType: 'question', type: 'text', label: 'Full Name', required: true, placeholder: 'John Doe' },
         { id: 'q2', itemType: 'question', type: 'email', label: 'Email Address', required: true, placeholder: 'john@example.com' }
     ]);
+
+    // Email Templates
+    const [emailTemplates, setEmailTemplates] = useState<Array<{ _id: string; name: string; subject: string; type: string }>>([]);
 
     // Validations & Async
     const [username, setUsername] = useState('');
@@ -64,7 +69,31 @@ export default function CreateEventPage() {
                 console.error(e);
             }
         };
+
+        // Fetch Email Templates
+        const fetchTemplates = async () => {
+            const token = localStorage.getItem('auth_token');
+            if (!token) return;
+            try {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/email/templates?type=registration`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const templates = await res.json();
+                    setEmailTemplates(templates);
+                    // Auto-select default template if available
+                    const defaultTemplate = templates.find((t: any) => t.isDefault);
+                    if (defaultTemplate && !formData.emailTemplateId) {
+                        setFormData(prev => ({ ...prev, emailTemplateId: defaultTemplate._id }));
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to fetch templates', e);
+            }
+        };
+
         fetchUser();
+        fetchTemplates();
     }, []);
 
     // Debounced Slug Check
@@ -141,7 +170,9 @@ export default function CreateEventPage() {
                             slug: draft.slug,
                             price: draft.price || 0,
                             maxRegistrations: draft.maxRegistrations || 0,
-                            allowMultipleRegistrations: draft.allowMultipleRegistrations !== false
+                            allowMultipleRegistrations: draft.allowMultipleRegistrations !== false,
+                            emailTemplateId: draft.emailTemplateId || '',
+                            sendConfirmationEmail: draft.sendConfirmationEmail !== false
                         });
                         if (draft.formSchema) setQuestions(draft.formSchema);
                         if (!draft.date) setNoDate(true);
@@ -507,6 +538,70 @@ export default function CreateEventPage() {
                                         }`}
                                 />
                             </button>
+                        </div>
+
+                        {/* Email Settings Section */}
+                        <div className="space-y-4 p-4 bg-indigo-50/50 rounded-lg border border-indigo-100">
+                            <div className="flex items-center gap-2">
+                                <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                                </svg>
+                                <Label className="text-base font-semibold text-indigo-900">Email Configuration</Label>
+                            </div>
+
+                            {/* Send Confirmation Toggle */}
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                    <Label htmlFor="sendConfirmationEmail" className="cursor-pointer">
+                                        Send Confirmation Emails
+                                    </Label>
+                                    <p className="text-xs text-slate-500">
+                                        Automatically email attendees when they register
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    role="switch"
+                                    aria-checked={formData.sendConfirmationEmail}
+                                    onClick={() => setFormData(prev => ({
+                                        ...prev,
+                                        sendConfirmationEmail: !prev.sendConfirmationEmail
+                                    }))}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${formData.sendConfirmationEmail ? 'bg-indigo-600' : 'bg-slate-300'
+                                        }`}
+                                >
+                                    <span
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${formData.sendConfirmationEmail ? 'translate-x-6' : 'translate-x-1'
+                                            }`}
+                                    />
+                                </button>
+                            </div>
+
+                            {/* Email Template Selector */}
+                            {formData.sendConfirmationEmail && (
+                                <div className="grid gap-2">
+                                    <Label htmlFor="emailTemplateId">Email Template</Label>
+                                    <select
+                                        id="emailTemplateId"
+                                        value={formData.emailTemplateId}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, emailTemplateId: e.target.value }))}
+                                        className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                                    >
+                                        <option value="">Use default email layout</option>
+                                        {emailTemplates.map((template) => (
+                                            <option key={template._id} value={template._id}>
+                                                {template.name} - {template.subject}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-slate-500">
+                                        Select a custom template or use the default.
+                                        <a href="/dashboard/settings/email-templates" className="text-indigo-600 hover:underline ml-1">
+                                            Create templates →
+                                        </a>
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

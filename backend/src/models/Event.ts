@@ -24,7 +24,11 @@ const EventSchema = new mongoose.Schema({
         options: [String], // For select, radio
         validationRegex: String
     }],
-    authorizedHelpers: [{ type: String }] // List of Helper Emails or IDs
+    authorizedHelpers: [{ type: String }], // List of Helper Emails or IDs
+
+    // Email Configuration
+    emailTemplateId: { type: mongoose.Schema.Types.ObjectId, ref: 'EmailTemplate' },
+    sendConfirmationEmail: { type: Boolean, default: true }
 }, { timestamps: true });
 
 EventSchema.index({ hostId: 1, slug: 1 }, { unique: true });

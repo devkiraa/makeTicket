@@ -11,7 +11,10 @@ import {
     Users,
     TrendingUp,
     ChevronRight,
-    Bell
+    Bell,
+    QrCode,
+    Mail,
+    FileText
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -19,6 +22,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const router = useRouter();
     const pathname = usePathname();
     const [userEmail, setUserEmail] = useState('');
+    const [hasCoordinatorEvents, setHasCoordinatorEvents] = useState(false);
+    const [coordinatorCount, setCoordinatorCount] = useState(0);
 
     useEffect(() => {
         // Parse token from URL (if redirected from Google Auth)
@@ -39,6 +44,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             } catch (e) {
                 // ignore
             }
+
+            // Check if user has any coordinated events
+            const checkCoordinatorEvents = async () => {
+                try {
+                    const res = await fetch(
+                        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/coordinators/my-events`,
+                        { headers: { 'Authorization': `Bearer ${token}` } }
+                    );
+                    if (res.ok) {
+                        const events = await res.json();
+                        setHasCoordinatorEvents(events.length > 0);
+                        setCoordinatorCount(events.length);
+                    }
+                } catch (e) {
+                    console.error('Failed to check coordinator events', e);
+                }
+            };
+            checkCoordinatorEvents();
         }
     }, [router]);
 
@@ -60,7 +83,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </div>
                 </div>
 
-                <nav className="flex-1 p-4 space-y-1">
+                <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+                    {/* Main Navigation */}
+                    <div className="mb-2">
+                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3">Main</span>
+                    </div>
                     {navItems.map((item) => {
                         const Icon = item.icon;
                         const isActive = pathname === item.href;
@@ -76,6 +103,60 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             </Button>
                         )
                     })}
+
+                    {/* Coordinator Section - Only visible if user is a coordinator */}
+                    {hasCoordinatorEvents && (
+                        <>
+                            <div className="pt-4 mt-4 border-t border-slate-100">
+                                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3">
+                                    Coordinating
+                                </span>
+                            </div>
+                            <Button
+                                variant="ghost"
+                                className={`w-full justify-start font-medium ${pathname === '/dashboard/coordinator'
+                                    ? 'bg-purple-50 text-purple-700'
+                                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                                    }`}
+                                onClick={() => router.push('/dashboard/coordinator')}
+                            >
+                                <QrCode className="mr-3 h-5 w-5" />
+                                Co-Events
+                                <span className="ml-auto bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                                    {coordinatorCount}
+                                </span>
+                            </Button>
+                        </>
+                    )}
+
+                    {/* Communications Section */}
+                    <div className="pt-4 mt-4 border-t border-slate-100">
+                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3">
+                            Communications
+                        </span>
+                    </div>
+                    <Button
+                        variant="ghost"
+                        className={`w-full justify-start font-medium ${pathname === '/dashboard/settings/emails'
+                                ? 'bg-indigo-50 text-indigo-700'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                            }`}
+                        onClick={() => router.push('/dashboard/settings/emails')}
+                    >
+                        <Mail className="mr-3 h-5 w-5" />
+                        Email Accounts
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        className={`w-full justify-start font-medium ${pathname === '/dashboard/settings/email-templates'
+                                ? 'bg-indigo-50 text-indigo-700'
+                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                            }`}
+                        onClick={() => router.push('/dashboard/settings/email-templates')}
+                    >
+                        <FileText className="mr-3 h-5 w-5" />
+                        Email Templates
+                    </Button>
                 </nav>
 
                 <div className="p-4 border-t border-slate-100 space-y-1">
@@ -134,3 +215,4 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
     );
 }
+

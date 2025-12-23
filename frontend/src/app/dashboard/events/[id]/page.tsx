@@ -26,6 +26,7 @@ import {
     SheetHeader,
     SheetTitle,
 } from "@/components/ui/sheet";
+import { CoordinatorManager } from '@/components/CoordinatorManager';
 
 interface Attendee {
     id: string;
@@ -386,6 +387,9 @@ export default function EventDetailPage() {
                     </CardContent>
                 </Card>
             )}
+
+            {/* Coordinators Section */}
+            <CoordinatorManager eventId={eventId} />
 
             {/* Attendees Table */}
             <Card className="border-slate-200">
