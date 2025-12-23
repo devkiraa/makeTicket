@@ -264,7 +264,7 @@ export default function ProfilePage() {
 
     const handleCopyProfileLink = () => {
         if (!user.username) return;
-        const url = `${window.location.origin}/u/${user.username}`;
+        const url = `${window.location.origin}/${user.username}`;
         navigator.clipboard.writeText(url);
         setMessage({ type: 'success', text: 'Profile link copied!' });
         setTimeout(() => setMessage({ type: '', text: '' }), 3000);
@@ -363,12 +363,12 @@ export default function ProfilePage() {
                                     {user.username && (
                                         <div className="flex items-center gap-2 text-xs md:text-sm text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full w-fit">
                                             <span className="truncate max-w-[150px] md:max-w-xs font-medium">
-                                                {typeof window !== 'undefined' ? `${window.location.host}/u/${user.username}` : `/u/${user.username}`}
+                                                {typeof window !== 'undefined' ? `${window.location.host}/${user.username}` : `/${user.username}`}
                                             </span>
                                             <button onClick={handleCopyProfileLink} className="p-1 hover:bg-white rounded-full transition-colors" title="Copy Link">
                                                 <Copy className="w-3.5 h-3.5" />
                                             </button>
-                                            <a href={`/u/${user.username}`} target="_blank" rel="noopener noreferrer" className="p-1 hover:bg-white rounded-full transition-colors" title="Open Public Profile">
+                                            <a href={`/${user.username}`} target="_blank" rel="noopener noreferrer" className="p-1 hover:bg-white rounded-full transition-colors" title="Open Public Profile">
                                                 <ExternalLink className="w-3.5 h-3.5" />
                                             </a>
                                         </div>

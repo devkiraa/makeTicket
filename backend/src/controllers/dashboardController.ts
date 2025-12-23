@@ -8,39 +8,96 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         const userId = req.user.id;
 
         // 1. Get all events hosted by user
-        const events = await Event.find({ hostId: userId });
+        const events = await Event.find({ hostId: userId }).select('title slug date status price');
         const eventIds = events.map(e => e._id);
 
-        // 2. Count active events (future date)
-        // 2. Count active events (future date or active status)
+        // 2. Count active/draft/closed events
         const now = new Date();
-        const activeEventsCount = events.filter(e => {
-            // Consider active if explicit status is 'active' OR date is in future
-            if (e.status === 'active') return true;
-            // Fallback for logic where status might be missing or we heavily rely on date
-            return e.date && new Date(e.date) >= now;
-        }).length;
+        const activeEventsCount = events.filter(e => e.status === 'active').length;
+        const draftEventsCount = events.filter(e => e.status === 'draft').length;
+        const closedEventsCount = events.filter(e => e.status === 'closed').length;
 
-        // 3. Count total tickets sold (approx revenue)
-        // Note: We don't have a price field in Event yet, assuming free or static for now, or just ticket count.
-        // If we want revenue, we need to add price to the Event model.
-        // For now, let's just return ticket counts.
-        // 3. Count total tickets sold
-        const allTickets = await Ticket.find({ eventId: { $in: eventIds } }).select('pricePaid status');
+        // 3. Get all tickets with detailed info
+        const allTickets = await Ticket.find({ eventId: { $in: eventIds } })
+            .select('eventId pricePaid status createdAt')
+            .sort({ createdAt: -1 });
+
         const totalTickets = allTickets.length;
         const checkedInTickets = allTickets.filter(t => t.status === 'checked-in').length;
 
-        // Calculate Revenue from pricePaid field (default 0)
+        // Calculate Revenue (INR)
         // @ts-ignore
         const totalRevenue = allTickets.reduce((sum, ticket) => sum + (ticket.pricePaid || 0), 0);
+
+        // 4. Per-Event Stats
+        const eventStats = events.map(event => {
+            const eventTickets = allTickets.filter(t => t.eventId.toString() === event._id.toString());
+            // @ts-ignore
+            const eventRevenue = eventTickets.reduce((sum, t) => sum + (t.pricePaid || 0), 0);
+            return {
+                id: event._id,
+                title: event.title,
+                slug: event.slug,
+                date: event.date,
+                status: event.status,
+                ticketsSold: eventTickets.length,
+                checkedIn: eventTickets.filter(t => t.status === 'checked-in').length,
+                revenue: eventRevenue
+            };
+        }).sort((a, b) => b.ticketsSold - a.ticketsSold); // Sort by most tickets
+
+        // 5. Daily Registration Trend (last 30 days)
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const dailyRegistrations: { [key: string]: number } = {};
+        for (let i = 0; i < 30; i++) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const key = d.toISOString().split('T')[0];
+            dailyRegistrations[key] = 0;
+        }
+
+        allTickets.forEach(ticket => {
+            // @ts-ignore
+            const dateKey = new Date(ticket.createdAt).toISOString().split('T')[0];
+            if (dailyRegistrations[dateKey] !== undefined) {
+                dailyRegistrations[dateKey]++;
+            }
+        });
+
+        // Convert to sorted array
+        const registrationTrend = Object.entries(dailyRegistrations)
+            .map(([date, count]) => ({ date, count }))
+            .sort((a, b) => a.date.localeCompare(b.date));
+
+        // 6. Recent Registrations (last 10)
+        const recentTickets = allTickets.slice(0, 10).map(t => {
+            const event = events.find(e => e._id.toString() === t.eventId.toString());
+            return {
+                id: t._id,
+                eventTitle: event?.title || 'Unknown',
+                // @ts-ignore
+                date: t.createdAt,
+                amount: t.pricePaid || 0
+            };
+        });
 
         res.status(200).json({
             totalRevenue,
             totalTickets,
+            checkedInTickets,
             activeEventsCount,
-            totalEvents: events.length
+            draftEventsCount,
+            closedEventsCount,
+            totalEvents: events.length,
+            eventStats,
+            registrationTrend,
+            recentRegistrations: recentTickets,
+            checkInRate: totalTickets > 0 ? Math.round((checkedInTickets / totalTickets) * 100) : 0
         });
     } catch (error) {
+        console.error('Analytics Error:', error);
         res.status(500).json({ message: 'Failed to fetch dashboard stats', error });
     }
 };

@@ -119,8 +119,25 @@ export const googleAuthCallback = async (req: Request, res: Response) => {
             const randomPassword = crypto.randomBytes(16).toString('hex');
             const hashedPassword = await bcrypt.hash(randomPassword, 12);
 
+            // Generate unique username
+            let baseUsername = profile.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (baseUsername.length < 3) baseUsername = 'user' + baseUsername;
+            let username = baseUsername;
+            let counter = 1;
+
+            // Simple collision check (limit retries to avoid infinite loop)
+            while ((await User.findOne({ username })) && counter < 100) {
+                username = `${baseUsername}${counter}`;
+                counter++;
+            }
+            // Fallback if super crowded (very unlikely)
+            if (await User.findOne({ username })) {
+                username = `${baseUsername}${Date.now()}`;
+            }
+
             user = await User.create({
                 email: profile.email,
+                username: username,
                 password: hashedPassword,
                 googleId: profile.id,
                 avatar: profile.picture, // Save Google Avatar

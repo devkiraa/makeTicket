@@ -115,7 +115,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {events.map((event: any) => (
-                                <Link href={`/e/${event.slug}`} key={event._id} className="group">
+                                <Link href={`/${username}/${event.slug}`} key={event._id} className="group">
                                     <Card className="h-full hover:shadow-lg transition-shadow border-slate-200">
                                         <div className="h-40 bg-slate-100 relative overflow-hidden rounded-t-lg">
                                             {/* Placeholder for event banner if we had one, or abstract pattern */}
@@ -143,7 +143,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
                                         </CardContent>
                                         <CardFooter className="pt-0">
                                             <span className="text-indigo-600 font-semibold text-sm">
-                                                {event.price > 0 ? `$${event.price}` : 'Free'}
+                                                {event.price > 0 ? `₹${event.price}` : 'Free'}
                                             </span>
                                         </CardFooter>
                                     </Card>

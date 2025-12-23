@@ -13,6 +13,7 @@ export default function PublicEventPage() {
     const params = useParams();
     const pathname = usePathname();
     const slug = params?.slug as string;
+    const username = params?.username as string;
 
     const [event, setEvent] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -46,11 +47,11 @@ export default function PublicEventPage() {
     }, []);
 
     useEffect(() => {
-        if (!slug) return;
+        if (!slug || !username) return;
 
         const fetchEvent = async () => {
             try {
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/events/${slug}`);
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/events/${username}/${slug}`);
                 if (res.ok) {
                     const data = await res.json();
                     setEvent(data);
@@ -72,7 +73,7 @@ export default function PublicEventPage() {
         };
 
         fetchEvent();
-    }, [slug]);
+    }, [slug, username]);
 
     const handleInputChange = (label: string, value: any) => {
         setAnswers(prev => ({ ...prev, [label]: value }));
@@ -259,9 +260,9 @@ export default function PublicEventPage() {
                                     <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 flex items-center justify-between">
                                         <div>
                                             <p className="text-sm text-indigo-700 font-medium">Ticket Price</p>
-                                            <p className="text-2xl font-bold text-indigo-900">${event.price}</p>
+                                            <p className="text-2xl font-bold text-indigo-900">₹{event.price}</p>
                                         </div>
-                                        <div className="bg-white px-3 py-1 rounded-full text-xs font-semibold text-indigo-600 shadow-sm border border-indigo-100">USD</div>
+                                        <div className="bg-white px-3 py-1 rounded-full text-xs font-semibold text-indigo-600 shadow-sm border border-indigo-100">INR</div>
                                     </div>
                                 )}
 

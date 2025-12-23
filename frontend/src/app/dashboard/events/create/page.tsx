@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,7 +9,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import {
     ChevronRight,
     ChevronLeft,
+    Loader2,
+    CheckCircle2,
+    XCircle,
+    Save
 } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { Switch } from '@/components/ui/switch';
 import { FormBuilder } from '@/components/FormBuilder';
 
@@ -35,11 +40,240 @@ export default function CreateEventPage() {
         { id: 'q2', type: 'email', label: 'Email Address', required: true, placeholder: 'john@example.com' }
     ]);
 
+    // Validations & Async
+    const [username, setUsername] = useState('');
+    const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
+    const [checkingSlug, setCheckingSlug] = useState(false);
+
+    useEffect(() => {
+        // Fetch User for URL preview
+        const fetchUser = async () => {
+            const token = localStorage.getItem('auth_token');
+            if (!token) return;
+            try {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/me`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setUsername(data.username || 'user');
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        };
+        fetchUser();
+    }, []);
+
+    // Debounced Slug Check
+    useEffect(() => {
+        const checkSlug = async () => {
+            if (!formData.slug) {
+                setSlugAvailable(null);
+                return;
+            }
+            setCheckingSlug(true);
+            try {
+                const token = localStorage.getItem('auth_token');
+                // Use the new check-slug endpoint
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/events/check-slug?slug=${formData.slug}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const data = await res.json();
+                setSlugAvailable(data.available);
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setCheckingSlug(false);
+            }
+        };
+
+        const timeoutId = setTimeout(() => {
+            if (formData.slug) checkSlug();
+        }, 500);
+
+        return () => clearTimeout(timeoutId);
+    }, [formData.slug]);
+
+    // Auto-Save Server State
+    const searchParams = useSearchParams();
+    const draftIdParam = searchParams?.get('draftId');
+    const [draftId, setDraftId] = useState<string | null>(draftIdParam);
+    const [isSavingDraft, setIsSavingDraft] = useState(false);
+    const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+    const lastSavedData = useRef<string>('');
+    const [mounted, setMounted] = useState(false);
+    const [isDraftLoaded, setIsDraftLoaded] = useState(!draftIdParam);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    // Fetch existing draft if ID present
+    useEffect(() => {
+        if (!draftId) {
+            setIsDraftLoaded(true);
+            return;
+        }
+        const fetchDraft = async () => {
+            const token = localStorage.getItem('auth_token');
+            if (!token) return;
+            try {
+                // We reuse getMyEvents and filter, OR fetch specific event endpoint
+                // Assuming we can fetch specific event by ID or fetch all and find
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/events/my`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const events = await res.json();
+                    const draft = events.find((e: any) => e._id === draftId);
+                    if (draft) {
+                        setFormData({
+                            title: draft.title,
+                            description: draft.description || '',
+                            date: draft.date ? new Date(draft.date).toISOString().slice(0, 16) : '',
+                            location: draft.location || '',
+                            slug: draft.slug,
+                            price: draft.price || 0
+                        });
+                        if (draft.formSchema) setQuestions(draft.formSchema);
+                        if (!draft.date) setNoDate(true);
+                        lastSavedData.current = JSON.stringify({ ...draft, formSchema: draft.formSchema });
+                        setIsDraftLoaded(true);
+                    } else {
+                        // Draft not found
+                        alert('Draft not found.');
+                        router.push('/dashboard/events/create');
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to load draft", e);
+            }
+        };
+        fetchDraft();
+    }, [draftId]);
+
+    const performSave = async () => {
+        // Only save if we have a title (minimum requirement)
+        if (!formData.title) return;
+        // CRITICAL: Do not save if we are supposed to load a draft but haven't finished yet
+        if (draftId && !isDraftLoaded) return;
+
+        const token = localStorage.getItem('auth_token');
+        if (!token) return;
+
+        setIsSavingDraft(true);
+        try {
+            const payload = {
+                title: formData.title,
+                description: formData.description,
+                slug: formData.slug,
+                location: formData.location,
+                price: Number(formData.price) || 0,
+                date: (!noDate && formData.date) ? formData.date : null,
+                formSchema: questions,
+                status: 'draft'
+            };
+
+            if (draftId) {
+                // Update Draft
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/events/update/${draftId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+                if (!res.ok) {
+                    console.error('Draft update failed:', res.status, await res.text());
+                }
+            } else {
+                // Create Draft
+                // We need slug to create
+                if (!payload.slug) return;
+
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/events`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    const newEvent = await res.json();
+                    setDraftId(newEvent._id);
+                    setIsDraftLoaded(true); // Now we are working with a loaded/known draft
+                    // Update URL without reload
+                    router.replace(`/dashboard/events/create?draftId=${newEvent._id}`, { scroll: false });
+                } else {
+                    console.error('Draft create failed:', res.status, await res.text());
+                }
+            }
+            lastSavedData.current = JSON.stringify({ ...formData, questions, noDate });
+            setLastSavedAt(new Date());
+        } catch (e) {
+            console.error("Auto-save failed", e);
+        } finally {
+            setIsSavingDraft(false);
+        }
+    };
+
+    // Auto-Save Effect
+    useEffect(() => {
+        const currentData = JSON.stringify({ ...formData, questions, noDate });
+        // Prevent saving if no changes
+        if (currentData === lastSavedData.current) return;
+
+        const timeoutId = setTimeout(performSave, 2000); // 2s debounce
+        return () => clearTimeout(timeoutId);
+    }, [formData, questions, noDate, draftId, isDraftLoaded]);
+
+    // Portal for Header Actions
+    const HeaderActions = () => {
+        if (!mounted) return null;
+        const target = document.getElementById('header-actions');
+        if (!target) return null;
+
+        return createPortal(
+            <>
+                <div className="flex flex-col items-end mr-2">
+                    <span className="text-xs text-slate-500 font-medium">
+                        {isSavingDraft ? 'Saving...' : lastSavedAt ? `Saved ${lastSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Not saved'}
+                    </span>
+                    {draftId && (
+                        <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full border border-amber-200">
+                            Draft
+                        </span>
+                    )}
+                </div>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={performSave}
+                    disabled={isSavingDraft || !formData.title}
+                    className="h-8 border-slate-200"
+                >
+                    <Save className="w-3.5 h-3.5 mr-2 text-slate-500" />
+                    Save Draft
+                </Button>
+            </>,
+            target
+        );
+    };
+
+
+
+
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
 
-        // Auto-generate slug from title if slug is empty
+        // Auto-generate slug from title if slug is empty OR (currently empty)
+        // Only if user hasn't manually edited slug logic? 
+        // For simplicity, just auto-gen if slug is empty when title changes
         if (name === 'title' && !formData.slug) {
             setFormData(prev => ({
                 ...prev,
@@ -54,28 +288,56 @@ export default function CreateEventPage() {
 
         try {
             const payload = {
-                ...formData,
-                date: noDate ? null : formData.date,
-                formSchema: questions
+                title: formData.title,
+                description: formData.description,
+                slug: formData.slug,
+                location: formData.location,
+                price: Number(formData.price) || 0,
+                date: (!noDate && formData.date) ? formData.date : null,
+                formSchema: questions,
+                status: 'active' // Publish
             };
 
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/events`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(payload)
-            });
+            console.log('Publishing payload:', payload);
+            console.log('Draft ID:', draftId);
+
+            let res;
+            if (draftId) {
+                res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/events/update/${draftId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+            } else {
+                res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/events`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+            }
 
             if (res.ok) {
                 router.push('/dashboard/events');
             } else {
-                alert('Failed to create event. Please check your inputs.');
+                const text = await res.text();
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch {
+                    data = { message: text || `HTTP ${res.status}` };
+                }
+                alert(`Failed to publish event: ${data.message || data.error || 'Unknown error'}`);
+                console.error('Publish error:', res.status, data);
             }
-        } catch (error) {
-            console.error(error);
-            alert('Something went wrong.');
+        } catch (error: any) {
+            console.error('Network/Request error:', error);
+            alert(`Something went wrong: ${error.message}`);
         } finally {
             setLoading(false);
         }
@@ -83,6 +345,7 @@ export default function CreateEventPage() {
 
     return (
         <div className="max-w-4xl mx-auto space-y-8 pb-32">
+            <HeaderActions />
             {/* Steps Indicator */}
             <div className="flex items-center justify-center space-x-4 mb-8">
                 <div className={`flex items-center ${step >= 1 ? 'text-indigo-600' : 'text-slate-400'}`}>
@@ -110,9 +373,32 @@ export default function CreateEventPage() {
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="slug">Event URL Slug</Label>
-                        <div className="flex items-center">
-                            <span className="bg-slate-100 border border-r-0 border-slate-300 px-3 h-10 flex items-center text-slate-500 rounded-l-md text-sm">grabmypass.com/e/</span>
-                            <Input id="slug" name="slug" value={formData.slug} onChange={handleInputChange} placeholder="tech-conf-2024" className="bg-white rounded-l-none" />
+                        <div className="relative">
+                            <div className="flex items-center">
+                                <span className="bg-slate-100 border border-r-0 border-slate-300 px-3 h-10 flex items-center text-slate-500 rounded-l-md text-sm">
+                                    grabmypass.com/{username || '...'}/
+                                </span>
+                                <Input
+                                    id="slug"
+                                    name="slug"
+                                    value={formData.slug}
+                                    onChange={handleInputChange}
+                                    placeholder="tech-conf-2024"
+                                    className={`bg-white rounded-l-none ${slugAvailable === false ? 'border-red-500 focus:ring-red-500' : slugAvailable === true ? 'border-green-500 focus:ring-green-500' : ''}`}
+                                />
+                            </div>
+                            <div className="absolute right-3 top-2.5">
+                                {checkingSlug ? (
+                                    <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
+                                ) : slugAvailable === true ? (
+                                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+                                ) : slugAvailable === false ? (
+                                    <XCircle className="w-5 h-5 text-red-500" />
+                                ) : null}
+                            </div>
+                            {slugAvailable === false && (
+                                <p className="text-xs text-red-500 mt-1">Slug already taken by you. Please choose another.</p>
+                            )}
                         </div>
                     </div>
                     <div className="grid gap-2">
@@ -157,7 +443,7 @@ export default function CreateEventPage() {
                             <Input id="location" name="location" value={formData.location} onChange={handleInputChange} placeholder="e.g. Grand Hotel, New York or Online" className="bg-white" />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="price">Ticket Price (USD)</Label>
+                            <Label htmlFor="price">Ticket Price (INR)</Label>
                             <Input
                                 id="price"
                                 name="price"
@@ -209,7 +495,7 @@ export default function CreateEventPage() {
                                 </div>
                                 <div>
                                     <label className="text-xs font-semibold text-indigo-400 uppercase">URL</label>
-                                    <p className="font-medium text-slate-900">grabmypass.com/e/{formData.slug}</p>
+                                    <p className="font-medium text-slate-900">grabmypass.com/{username}/{formData.slug}</p>
                                 </div>
                             </div>
                         </CardContent>

@@ -1,5 +1,5 @@
 import express from 'express';
-import { createEvent, getEvent, getMyEvents, updateEvent } from '../controllers/eventController';
+import { createEvent, getEvent, getMyEvents, updateEvent, checkEventSlug } from '../controllers/eventController';
 import { registerTicket, validateTicket, getEventAttendees } from '../controllers/ticketController';
 import { verifyToken } from '../middleware/auth';
 import { googleAuthRedirect, googleAuthCallback, getProfile, getSessions, revokeSession, updateProfile, checkUsernameAvailability } from '../controllers/authController'; // Add import
@@ -25,12 +25,17 @@ apiRouter.delete('/auth/sessions/:sessionId', verifyToken, revokeSession);
 // Events
 apiRouter.post('/events', verifyToken, createEvent);
 apiRouter.get('/events/my', verifyToken, getMyEvents);
-apiRouter.put('/events/:id', verifyToken, updateEvent);
-apiRouter.get('/events/:slug', getEvent);
+apiRouter.get('/events/check-slug', verifyToken, checkEventSlug); // Check slug availability
+apiRouter.patch('/events/update/:id', verifyToken, updateEvent); // Explicit update route
+apiRouter.put('/events/update/:id', verifyToken, updateEvent); // Also support PUT
 
-// Tickets
+// Tickets (MUST be before :username/:slug to avoid conflicts)
 apiRouter.post('/events/:eventId/register', registerTicket);
 apiRouter.get('/events/:eventId/attendees', verifyToken, getEventAttendees);
+
+// Public Event Page (LAST - catch-all pattern)
+apiRouter.get('/events/:username/:slug', getEvent);
+
 apiRouter.post('/validate', verifyToken, validateTicket);
 
 // Dashboard

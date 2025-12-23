@@ -93,7 +93,7 @@ export default function EditEventPage() {
                 date: noDate ? null : (formData.date ? new Date(formData.date).toISOString() : null)
             };
 
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/events/${eventId}`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/events/update/${eventId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -210,7 +210,7 @@ export default function EditEventPage() {
                                 </div>
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="price">Price (USD)</Label>
+                                <Label htmlFor="price">Price (INR)</Label>
                                 <Input
                                     id="price"
                                     name="price"

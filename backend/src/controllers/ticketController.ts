@@ -13,12 +13,36 @@ export const registerTicket = async (req: Request, res: Response) => {
         const event = await Event.findById(eventId);
         if (!event) return res.status(404).json({ message: 'Event not found' });
 
-        // Heuristic to find name
+        // Better extraction of name and email from formData using form schema
         let guestName = 'Guest';
-        if (formData) {
+        let guestEmail = email || 'No Email';
+
+        if (formData && event.formSchema) {
+            // Match form questions to responses to get name and email by label
+            for (const question of event.formSchema) {
+                const value = formData[question.id];
+                if (!value) continue;
+
+                const label = (question.label || '').toLowerCase();
+                if (label.includes('name') && !guestName || guestName === 'Guest') {
+                    guestName = String(value);
+                }
+                if ((label.includes('email') || question.type === 'email') && (!guestEmail || guestEmail === 'No Email')) {
+                    guestEmail = String(value);
+                }
+            }
+        }
+
+        // Fallback: Check formData keys directly
+        if (guestName === 'Guest' && formData) {
             const keys = Object.keys(formData);
             const nameKey = keys.find(k => k.toLowerCase().includes('name'));
             if (nameKey) guestName = formData[nameKey];
+        }
+        if (guestEmail === 'No Email' && formData) {
+            const keys = Object.keys(formData);
+            const emailKey = keys.find(k => k.toLowerCase().includes('email'));
+            if (emailKey) guestEmail = formData[emailKey];
         }
 
         // Generate Unique QR Hash
@@ -55,7 +79,7 @@ export const registerTicket = async (req: Request, res: Response) => {
             userId: userId, // Link to user if available
             formData,
             guestName,
-            guestEmail: email || 'No Email',
+            guestEmail,
             pricePaid,
             paymentStatus,
             qrCodeHash
@@ -64,7 +88,7 @@ export const registerTicket = async (req: Request, res: Response) => {
         // Add to Email Queue
         await emailQueue.add('send-ticket', {
             eventHostId: event.hostId,
-            recipientEmail: email,
+            recipientEmail: guestEmail,
             ticketData: ticket,
             eventDetails: event
         });
@@ -113,11 +137,20 @@ export const getEventAttendees = async (req: Request, res: Response) => {
         // @ts-ignore
         const userId = req.user.id;
 
+        console.log('=== getEventAttendees Debug ===');
+        console.log('Event ID:', eventId);
+        console.log('User ID:', userId);
+
         // Verify ownership
         const event = await Event.findOne({ _id: eventId, hostId: userId });
-        if (!event) return res.status(403).json({ message: 'Event not found or unauthorized' });
+        if (!event) {
+            console.log('Event not found for this user');
+            return res.status(403).json({ message: 'Event not found or unauthorized' });
+        }
 
+        console.log('Event found:', event.title);
         const tickets = await Ticket.find({ eventId }).sort({ createdAt: -1 });
+        console.log('Tickets found:', tickets.length);
 
         // Map to neat structure
         const attendees = tickets.map(ticket => {

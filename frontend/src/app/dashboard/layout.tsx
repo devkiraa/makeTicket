@@ -115,6 +115,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </div>
 
                     <div className="flex items-center gap-4">
+                        <div id="header-actions" className="flex items-center gap-3"></div>
                         <Button variant="ghost" size="icon" className="text-slate-500 hover:text-indigo-600 relative">
                             <Bell className="h-5 w-5" />
                             <span className="absolute top-2 right-2 h-2 w-2 bg-red-500 rounded-full"></span>
