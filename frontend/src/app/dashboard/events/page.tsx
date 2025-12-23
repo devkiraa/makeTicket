@@ -168,6 +168,15 @@ export default function EventsPage() {
                                                     variant="ghost"
                                                     size="sm"
                                                     className="h-8 w-8 p-0 text-slate-400 hover:text-indigo-600"
+                                                    onClick={() => router.push(`/dashboard/events/${event._id}`)}
+                                                    title="View Details"
+                                                >
+                                                    <Eye className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-8 w-8 p-0 text-slate-400 hover:text-indigo-600"
                                                     onClick={() => {
                                                         if (status === 'draft') {
                                                             router.push(`/dashboard/events/create?draftId=${event._id}`);
