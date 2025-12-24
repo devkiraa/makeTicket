@@ -406,7 +406,7 @@ export default function PublicEventPage() {
                         </div>
 
                         {/* Confirmation Details */}
-                        <div className="space-y-3 mb-8">
+                        <div className="space-y-3 mb-6">
                             <div className="flex items-center justify-between py-3 border-b border-slate-100">
                                 <span className="text-slate-500 text-sm">Confirmation sent to</span>
                                 <span className="font-medium text-slate-900 text-sm">{userEmail}</span>
@@ -419,6 +419,26 @@ export default function PublicEventPage() {
                                 </span>
                             </div>
                         </div>
+
+                        {/* Add to Calendar */}
+                        {event.date && (
+                            <Button
+                                variant="outline"
+                                className="w-full h-12 mb-4 border-indigo-200 text-indigo-700 font-medium rounded-xl hover:bg-indigo-50 flex items-center justify-center gap-2"
+                                onClick={() => {
+                                    const startDate = new Date(event.date);
+                                    const endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000); // 2 hours
+                                    const formatDate = (d: Date) => d.toISOString().replace(/-|:|\.\d+/g, '').slice(0, 15) + 'Z';
+
+                                    const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.title)}&dates=${formatDate(startDate)}/${formatDate(endDate)}&details=${encodeURIComponent(event.description || 'Event registered via GrabMyPass')}&location=${encodeURIComponent(event.location || '')}`;
+
+                                    window.open(calendarUrl, '_blank');
+                                }}
+                            >
+                                <Calendar className="w-4 h-4" />
+                                Add to Google Calendar
+                            </Button>
+                        )}
 
                         {/* Actions */}
                         <div className="space-y-3">

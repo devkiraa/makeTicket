@@ -142,3 +142,21 @@ apiRouter.patch('/notifications/read-all', verifyToken, markAllAsRead);
 apiRouter.patch('/notifications/:notificationId/read', verifyToken, markAsRead);
 apiRouter.delete('/notifications/:notificationId', verifyToken, deleteNotification);
 apiRouter.delete('/notifications', verifyToken, clearAllNotifications);
+
+// Contacts & Marketing
+import {
+    getContacts,
+    syncContacts,
+    exportContacts,
+    sendBulkEmail,
+    deleteContact,
+    getContactStats
+} from '../controllers/contactController';
+
+apiRouter.get('/contacts', verifyToken, getContacts);
+apiRouter.get('/contacts/stats', verifyToken, getContactStats);
+apiRouter.post('/contacts/sync', verifyToken, syncContacts);
+apiRouter.get('/contacts/export', verifyToken, exportContacts);
+apiRouter.post('/contacts/email', verifyToken, sendBulkEmail);
+apiRouter.delete('/contacts/:contactId', verifyToken, deleteContact);
+

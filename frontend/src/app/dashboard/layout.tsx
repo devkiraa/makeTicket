@@ -15,7 +15,8 @@ import {
     QrCode,
     Mail,
     FileText,
-    CreditCard
+    CreditCard,
+    Contact
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -170,6 +171,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     >
                         <CreditCard className="mr-3 h-5 w-5" />
                         Ticket Designer
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        className={`w-full justify-start font-medium ${pathname === '/dashboard/contacts'
+                            ? 'bg-indigo-50 text-indigo-700'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                            }`}
+                        onClick={() => router.push('/dashboard/contacts')}
+                    >
+                        <Contact className="mr-3 h-5 w-5" />
+                        Contacts
                     </Button>
                 </nav>
 

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { Event } from '../models/Event';
 import { Ticket } from '../models/Ticket';
+import { Contact } from '../models/Contact';
 import crypto from 'crypto';
 import { sendTicketEmail } from '../services/emailService';
 import { createNotification } from './notificationController';
@@ -158,6 +159,38 @@ export const registerTicket = async (req: Request, res: Response) => {
             ticketId: ticket._id.toString(),
             data: { guestName, guestEmail, ticketCode: `TKT-${qrCodeHash.substring(0, 8).toUpperCase()}` }
         });
+
+        // Auto-save contact for marketing (async, non-blocking)
+        if (guestEmail && guestEmail !== 'No Email') {
+            Contact.findOneAndUpdate(
+                { hostId: event.hostId, email: guestEmail.toLowerCase() },
+                {
+                    $set: {
+                        name: guestName || 'Guest',
+                        phone: formData?.phone || formData?.Phone || formData?.mobile || '',
+                        source: 'registration',
+                        updatedAt: new Date()
+                    },
+                    $addToSet: { eventIds: eventId },
+                    $setOnInsert: {
+                        hostId: event.hostId,
+                        email: guestEmail.toLowerCase(),
+                        createdAt: new Date(),
+                        optedIn: true,
+                        totalEvents: 1
+                    }
+                },
+                { upsert: true, new: true }
+            ).then(contact => {
+                if (contact) {
+                    contact.totalEvents = contact.eventIds?.length || 1;
+                    contact.lastEventDate = event.date || new Date();
+                    contact.save().catch(() => { });
+                }
+            }).catch(err => {
+                console.error('Contact save error:', err.message);
+            });
+        }
 
         res.status(201).json({ message: 'Ticket registered successfully', ticket });
     } catch (error) {
