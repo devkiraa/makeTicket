@@ -238,10 +238,11 @@ export const validateTicket = async (req: Request, res: Response) => {
     }
 };
 
-// Get Attendees for Event
+// Get Attendees for Event (with optional pagination)
 export const getEventAttendees = async (req: Request, res: Response) => {
     try {
         const { eventId } = req.params;
+        const { limit, skip, search } = req.query;
         // @ts-ignore
         const userId = req.user.id;
 
@@ -257,7 +258,14 @@ export const getEventAttendees = async (req: Request, res: Response) => {
         }
 
         console.log('Event found:', event.title);
-        const tickets = await Ticket.find({ eventId }).sort({ createdAt: -1 });
+
+        // Build query - fetch all for now (frontend handles pagination)
+        // If search is provided, we need to fetch all and filter
+        let tickets = await Ticket.find({ eventId })
+            .sort({ createdAt: -1 })
+            .limit(limit ? parseInt(limit as string) : 500) // Max 500 to prevent overwhelming
+            .lean();
+
         console.log('Tickets found:', tickets.length);
 
         // Map to neat structure
@@ -276,7 +284,9 @@ export const getEventAttendees = async (req: Request, res: Response) => {
                 eventName: event.title,
                 status: ticket.status,
                 checkedIn: ticket.status === 'checked-in',
-                formData: fd // Pass full form data for frontend usage
+                registeredAt: ticket.createdAt,
+                checkedInAt: ticket.checkedInAt,
+                formData: fd
             };
         });
 

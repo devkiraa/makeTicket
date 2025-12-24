@@ -33,6 +33,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (tokenFromUrl) {
             localStorage.setItem('auth_token', tokenFromUrl);
             window.history.replaceState({}, document.title, window.location.pathname);
+            // Dispatch event to notify other components that token is ready
+            window.dispatchEvent(new Event('tokenReady'));
         }
 
         const token = localStorage.getItem('auth_token');
@@ -394,11 +396,10 @@ function ProfileDropdown({ userEmail }: { userEmail: string }) {
     const [isOpen, setIsOpen] = useState(false);
     const [profile, setProfile] = useState<{ name?: string; username?: string; avatar?: string; googleAvatar?: string } | null>(null);
 
-    useEffect(() => {
-        fetchProfile();
-    }, []);
-
     const fetchProfile = async () => {
+        // Small delay to ensure token is available after OAuth
+        await new Promise(resolve => setTimeout(resolve, 150));
+
         const token = localStorage.getItem('auth_token');
         if (!token) return;
         try {
@@ -414,6 +415,20 @@ function ProfileDropdown({ userEmail }: { userEmail: string }) {
             console.error('Failed to fetch profile');
         }
     };
+
+    useEffect(() => {
+        fetchProfile();
+
+        // Listen for token ready event (from OAuth callback)
+        const handleTokenReady = () => {
+            fetchProfile();
+        };
+        window.addEventListener('tokenReady', handleTokenReady);
+
+        return () => {
+            window.removeEventListener('tokenReady', handleTokenReady);
+        };
+    }, []);
 
     // Get the best available avatar
     const avatarUrl = profile?.avatar || profile?.googleAvatar;

@@ -302,7 +302,7 @@ export default function AnalyticsPage() {
                 <Card className="lg:col-span-2 border-slate-200 shadow-sm">
                     <CardHeader>
                         <CardTitle className="text-lg font-semibold text-slate-900">Recent Registrations</CardTitle>
-                        <CardDescription>Latest ticket purchases</CardDescription>
+                        <CardDescription>Latest 5 ticket purchases</CardDescription>
                     </CardHeader>
                     <CardContent>
                         {data.recentRegistrations.length === 0 ? (
@@ -312,7 +312,7 @@ export default function AnalyticsPage() {
                             </div>
                         ) : (
                             <div className="space-y-3">
-                                {data.recentRegistrations.map((reg) => (
+                                {data.recentRegistrations.slice(0, 5).map((reg) => (
                                     <div key={reg.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">

@@ -71,8 +71,8 @@ export const getDashboardStats = async (req: Request, res: Response) => {
             .map(([date, count]) => ({ date, count }))
             .sort((a, b) => a.date.localeCompare(b.date));
 
-        // 6. Recent Registrations (last 10)
-        const recentTickets = allTickets.slice(0, 10).map(t => {
+        // 6. Recent Registrations (last 5 for efficiency)
+        const recentTickets = allTickets.slice(0, 5).map(t => {
             const event = events.find(e => e._id.toString() === t.eventId.toString());
             return {
                 id: t._id,

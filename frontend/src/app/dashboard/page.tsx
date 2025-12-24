@@ -37,8 +37,24 @@ export default function Dashboard() {
 
     useEffect(() => {
         const fetchDashboardData = async () => {
+            // Check for token from URL first (OAuth callback)
+            const params = new URLSearchParams(window.location.search);
+            const tokenFromUrl = params.get('token');
+
+            if (tokenFromUrl) {
+                localStorage.setItem('auth_token', tokenFromUrl);
+                // Clean URL without reload
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+
+            // Small delay to ensure token is saved if coming from OAuth
+            await new Promise(resolve => setTimeout(resolve, 100));
+
             const token = localStorage.getItem('auth_token');
-            if (!token) return;
+            if (!token) {
+                router.push('/login');
+                return;
+            }
 
             try {
                 const headers = { 'Authorization': `Bearer ${token}` };
@@ -67,7 +83,7 @@ export default function Dashboard() {
         };
 
         fetchDashboardData();
-    }, []);
+    }, [router]);
 
     const copyEventLink = (slug: string) => {
         const url = `${window.location.origin}/e/${slug}`;
@@ -280,8 +296,8 @@ export default function Dashboard() {
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${new Date(event.date) > new Date()
-                                                    ? 'bg-green-100 text-green-700'
-                                                    : 'bg-slate-100 text-slate-600'
+                                                ? 'bg-green-100 text-green-700'
+                                                : 'bg-slate-100 text-slate-600'
                                                 }`}>
                                                 {new Date(event.date) > new Date() ? 'Active' : 'Ended'}
                                             </span>
@@ -366,7 +382,7 @@ export default function Dashboard() {
                                     {recentActivity.map((activity) => (
                                         <div key={activity._id} className="flex items-start gap-3">
                                             <div className={`h-8 w-8 rounded-full flex items-center justify-center text-white text-xs ${activity.type === 'registration' ? 'bg-green-500' :
-                                                    activity.type === 'check_in' ? 'bg-blue-500' : 'bg-slate-400'
+                                                activity.type === 'check_in' ? 'bg-blue-500' : 'bg-slate-400'
                                                 }`}>
                                                 {activity.type === 'registration' ? <Ticket className="w-3 h-3" /> :
                                                     activity.type === 'check_in' ? <QrCode className="w-3 h-3" /> :
