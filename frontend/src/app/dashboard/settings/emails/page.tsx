@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,7 @@ interface EmailAccount {
     createdAt: string;
 }
 
-export default function EmailSettingsPage() {
+function EmailSettingsContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -480,5 +480,17 @@ function EmailLogsSection() {
                 )}
             </CardContent>
         </Card>
+    );
+}
+
+export default function EmailSettingsPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex justify-center items-center h-64">
+                <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+            </div>
+        }>
+            <EmailSettingsContent />
+        </Suspense>
     );
 }

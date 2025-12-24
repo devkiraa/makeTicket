@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,7 +18,7 @@ import { createPortal } from 'react-dom';
 import { Switch } from '@/components/ui/switch';
 import { FormBuilder } from '@/components/FormBuilder';
 
-export default function CreateEventPage() {
+function CreateEventContent() {
     const router = useRouter();
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
@@ -788,5 +788,17 @@ export default function CreateEventPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function CreateEventPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex justify-center items-center h-64">
+                <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+            </div>
+        }>
+            <CreateEventContent />
+        </Suspense>
     );
 }
