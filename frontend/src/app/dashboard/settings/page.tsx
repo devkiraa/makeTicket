@@ -20,7 +20,9 @@ import {
     Linkedin,
     Instagram,
     Github,
-    Globe
+    Globe,
+    Trash2,
+    ChevronDown
 } from 'lucide-react';
 
 const getDeviceDetails = (ua: string) => {
@@ -59,6 +61,10 @@ export default function ProfilePage() {
 
     // Socials State
     const [socials, setSocials] = useState({ twitter: '', linkedin: '', instagram: '', website: '', github: '' });
+
+    // Session view state
+    const [showAllSessions, setShowAllSessions] = useState(false);
+    const [showAllHistory, setShowAllHistory] = useState(false);
 
     // Global Message
     const [message, setMessage] = useState({ type: '', text: '' });
@@ -628,7 +634,7 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="space-y-3">
-                    {activeSessions.map((session) => {
+                    {(showAllSessions ? activeSessions : activeSessions.slice(0, 2)).map((session) => {
                         const { browser, os } = getDeviceDetails(session.userAgent);
                         const ipDisplay = (session.ipAddress === '::1' || session.ipAddress === '127.0.0.1') ? 'Localhost' : session.ipAddress;
 
@@ -636,28 +642,31 @@ export default function ProfilePage() {
                             <Card key={session.id} className={`border-slate-200 shadow-sm transition-colors ${session.isCurrent ? 'border-indigo-200 ring-1 ring-indigo-100' : ''}`}>
                                 <CardContent className="p-4 flex items-center justify-between">
                                     <div className="flex items-center gap-4">
-                                        <div className="h-12 w-12 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500">
-                                            {os === 'Android' || os === 'iOS' ? <Monitor className="w-6 h-6" /> : <Monitor className="w-6 h-6" />}
+                                        <div className="h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500">
+                                            <Monitor className="w-5 h-5" />
                                         </div>
                                         <div>
-                                            <h3 className="font-semibold text-slate-900">
+                                            <h3 className="font-medium text-slate-900 text-sm">
                                                 {browser} on {os}
                                             </h3>
-                                            <div className="flex items-center gap-2 text-sm text-slate-500">
-                                                <span className="truncate max-w-[200px] md:max-w-md" title={session.userAgent}>{ipDisplay}</span>
-                                                <span>•</span>
-                                                <span className="text-slate-400">Last Active: {new Date(session.lastActiveAt).toLocaleString()}</span>
-                                            </div>
+                                            <p className="text-xs text-slate-500">
+                                                {ipDisplay} • {new Date(session.lastActiveAt).toLocaleDateString()}
+                                            </p>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         {session.isCurrent ? (
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
-                                                This Device
+                                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                Current
                                             </span>
                                         ) : (
-                                            <Button variant="outline" size="sm" onClick={() => handleRevokeSession(session.id)} className="border-slate-200 hover:bg-slate-50 text-slate-600">
-                                                Revoke
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleRevokeSession(session.id)}
+                                                className="text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
                                             </Button>
                                         )}
                                     </div>
@@ -666,16 +675,25 @@ export default function ProfilePage() {
                         );
                     })}
                 </div>
+
+                {activeSessions.length > 2 && (
+                    <Button
+                        variant="ghost"
+                        className="w-full text-slate-600 hover:text-slate-900"
+                        onClick={() => setShowAllSessions(!showAllSessions)}
+                    >
+                        <ChevronDown className={`w-4 h-4 mr-2 transition-transform ${showAllSessions ? 'rotate-180' : ''}`} />
+                        {showAllSessions ? 'Show Less' : `Show ${activeSessions.length - 2} More`}
+                    </Button>
+                )}
             </div>
 
             {/* Past Logouts */}
-            <div className="space-y-4 pt-4">
-                <h2 className="text-lg font-semibold text-slate-900 px-1">Session History</h2>
-                <div className="space-y-2">
-                    {pastSessions.length === 0 ? (
-                        <div className="text-sm text-slate-500 px-1">No recent history found.</div>
-                    ) : (
-                        pastSessions.map((session) => {
+            {pastSessions.length > 0 && (
+                <div className="space-y-4 pt-4">
+                    <h2 className="text-lg font-semibold text-slate-900 px-1">Session History ({pastSessions.length})</h2>
+                    <div className="space-y-2">
+                        {(showAllHistory ? pastSessions : pastSessions.slice(0, 2)).map((session) => {
                             const { browser, os } = getDeviceDetails(session.userAgent);
                             return (
                                 <div key={session.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100 text-sm">
@@ -687,13 +705,24 @@ export default function ProfilePage() {
                                             <span className="text-slate-500">{new Date(session.lastActiveAt).toLocaleDateString()}</span>
                                         </div>
                                     </div>
-                                    <span className="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded">Revoked / Expired</span>
+                                    <span className="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded">Expired</span>
                                 </div>
                             );
-                        })
+                        })}
+                    </div>
+
+                    {pastSessions.length > 2 && (
+                        <Button
+                            variant="ghost"
+                            className="w-full text-slate-600 hover:text-slate-900"
+                            onClick={() => setShowAllHistory(!showAllHistory)}
+                        >
+                            <ChevronDown className={`w-4 h-4 mr-2 transition-transform ${showAllHistory ? 'rotate-180' : ''}`} />
+                            {showAllHistory ? 'Show Less' : `Show ${pastSessions.length - 2} More`}
+                        </Button>
                     )}
                 </div>
-            </div>
+            )}
 
             {/* Footer Branding */}
             <div className="flex justify-between items-center pt-8 border-t border-slate-200 mt-12 mb-8">
