@@ -1,3 +1,4 @@
+// Updated Event model with waitlist and approval fields
 import mongoose from 'mongoose';
 
 const EventSchema = new mongoose.Schema({
@@ -32,7 +33,11 @@ const EventSchema = new mongoose.Schema({
 
     // Ticket Configuration
     ticketTemplateId: { type: mongoose.Schema.Types.ObjectId, ref: 'TicketTemplate' },
-    attachTicket: { type: Boolean, default: true }
+    attachTicket: { type: Boolean, default: true },
+
+    // New features
+    waitlistEnabled: { type: Boolean, default: false }, // Host can enable waitlist when event is full
+    approvalRequired: { type: Boolean, default: false }, // Host must approve registrations before ticket is issued
 }, { timestamps: true });
 
 EventSchema.index({ hostId: 1, slug: 1 }, { unique: true });
