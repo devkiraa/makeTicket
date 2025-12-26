@@ -113,7 +113,7 @@ function EmailSettingsContent() {
         setIsConnecting(true);
         try {
             const token = localStorage.getItem('auth_token');
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/google/url`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/email/gmail/auth`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
@@ -347,10 +347,10 @@ function EmailSettingsContent() {
                                         <div
                                             key={step}
                                             className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${wizardStep === step
-                                                    ? 'bg-indigo-600 text-white ring-2 ring-indigo-200 ring-offset-2'
-                                                    : wizardStep > step
-                                                        ? 'bg-emerald-500 text-white'
-                                                        : 'bg-slate-100 text-slate-400'
+                                                ? 'bg-indigo-600 text-white ring-2 ring-indigo-200 ring-offset-2'
+                                                : wizardStep > step
+                                                    ? 'bg-emerald-500 text-white'
+                                                    : 'bg-slate-100 text-slate-400'
                                                 }`}
                                         >
                                             {wizardStep > step ? <Check className="w-4 h-4" /> : step}
