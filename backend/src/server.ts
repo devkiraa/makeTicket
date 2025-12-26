@@ -19,9 +19,20 @@ const PORT = process.env.PORT || 5000;
 
 import fs from 'fs';
 import path from 'path';
+import * as rfs from 'rotating-file-stream';
+
+// Ensure logs directory exists
+const logsDir = path.join(process.cwd(), 'logs');
+if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true });
+}
 
 // Middleware
-const accessLogStream = fs.createWriteStream(path.join(__dirname, '../logs/access.log'), { flags: 'a' });
+// Create a rotating write stream
+const accessLogStream = rfs.createStream('access.log', {
+    interval: '1d', // rotate daily
+    path: logsDir
+});
 
 // Plain tokens for file
 morgan.token('time', () => new Date().toLocaleString());

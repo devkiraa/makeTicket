@@ -30,7 +30,8 @@
     "passkit-generator": "^3.5.7",
     "qrcode": "^1.5.4",
     "react-email": "^1.10.0",
-    "resend": "^6.6.0"
+    "resend": "^6.6.0",
+    "rotating-file-stream": "^3.2.7"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

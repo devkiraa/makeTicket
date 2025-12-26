@@ -201,16 +201,25 @@ export const impersonateUser = async (req: Request, res: Response) => {
 
 export const getServerLogs = async (req: Request, res: Response) => {
     try {
-        const logPath = path.join(__dirname, '../../logs/access.log');
+        const logsDir = path.join(process.cwd(), 'logs');
+        const requestedFile = (req.query.file as string) || 'access.log';
+        const logPath = path.join(logsDir, requestedFile);
+
+        // Get list of all log files
+        let availableFiles: string[] = [];
+        if (fs.existsSync(logsDir)) {
+            availableFiles = fs.readdirSync(logsDir).filter(f => f.endsWith('.log'));
+        }
+
         if (!fs.existsSync(logPath)) {
-            return res.json({ logs: [] });
+            return res.json({ logs: [], availableFiles });
         }
 
         const data = fs.readFileSync(logPath, 'utf8');
         // Split by newline and take last 100
         const logs = data.split('\n').filter(Boolean).reverse().slice(0, 100);
 
-        res.json({ logs });
+        res.json({ logs, availableFiles, currentFile: requestedFile });
     } catch (error) {
         console.error('Fetch logs error:', error);
         res.status(500).json({ message: 'Failed to fetch logs' });
@@ -219,7 +228,7 @@ export const getServerLogs = async (req: Request, res: Response) => {
 
 export const clearServerLogs = async (req: Request, res: Response) => {
     try {
-        const logPath = path.join(__dirname, '../../logs/access.log');
+        const logPath = path.join(process.cwd(), 'logs/access.log');
         fs.writeFileSync(logPath, ''); // Clear file
         res.json({ message: 'Logs cleared successfully' });
     } catch (error) {
