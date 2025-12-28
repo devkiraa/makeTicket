@@ -1,5 +1,5 @@
 import express from 'express';
-import { createEvent, getEvent, getMyEvents, updateEvent, checkEventSlug } from '../controllers/eventController';
+import { createEvent, getEvent, getMyEvents, updateEvent, checkEventSlug, deleteEvent } from '../controllers/eventController';
 import { registerTicket, validateTicket, getEventAttendees, checkRegistration, approveTicket, rejectTicket, getPendingTickets } from '../controllers/ticketController';
 import { verifyToken } from '../middleware/auth';
 import { googleAuthRedirect, googleAuthCallback, getProfile, getSessions, revokeSession, updateProfile, checkUsernameAvailability } from '../controllers/authController';
@@ -39,6 +39,8 @@ apiRouter.get('/events/my', verifyToken, getMyEvents);
 apiRouter.get('/events/check-slug', verifyToken, checkEventSlug); // Check slug availability
 apiRouter.patch('/events/update/:id', verifyToken, updateEvent); // Explicit update route
 apiRouter.put('/events/update/:id', verifyToken, updateEvent); // Also support PUT
+apiRouter.delete('/events/:id', verifyToken, deleteEvent); // Delete event
+
 
 // Tickets & Coordinators (MUST be before :username/:slug to avoid conflicts)
 apiRouter.post('/events/:eventId/register', registerTicket);

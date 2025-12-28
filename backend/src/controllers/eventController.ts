@@ -1,6 +1,7 @@
 import { User } from '../models/User';
 import { Request, Response } from 'express';
 import { Event } from '../models/Event';
+import { Ticket } from '../models/Ticket';
 
 // Create Event
 export const createEvent = async (req: Request, res: Response) => {
@@ -116,5 +117,31 @@ export const updateEvent = async (req: Request, res: Response) => {
     } catch (error: any) {
         console.error('Update Event Error:', error);
         res.status(500).json({ message: 'Failed to update event', error: error.message || error });
+    }
+};
+
+// Delete Event (Protected)
+export const deleteEvent = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const userId = req.user.id;
+        const { id } = req.params;
+
+        // Check ownership
+        const event = await Event.findOne({ _id: id, hostId: userId });
+        if (!event) {
+            return res.status(404).json({ message: 'Event not found or unauthorized' });
+        }
+
+        // Delete associated tickets (cleanup)
+        await Ticket.deleteMany({ eventId: id });
+
+        // Delete event
+        await Event.findByIdAndDelete(id);
+
+        res.status(200).json({ message: 'Event deleted successfully' });
+    } catch (error: any) {
+        console.error('Delete Event Error:', error);
+        res.status(500).json({ message: 'Failed to delete event', error: error.message || error });
     }
 };

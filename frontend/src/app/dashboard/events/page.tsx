@@ -5,7 +5,15 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Filter, Loader2, Calendar, MapPin, MoreHorizontal, ExternalLink, Edit2, Power, Eye, Copy } from 'lucide-react';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Plus, Search, Filter, Loader2, Calendar, MapPin, MoreHorizontal, ExternalLink, Edit2, Power, Eye, Copy, Trash2, AlertTriangle } from 'lucide-react';
 
 export default function EventsPage() {
     const router = useRouter();
@@ -68,6 +76,35 @@ export default function EventsPage() {
             }
         } catch (error) {
             console.error("Failed to update status", error);
+        }
+    };
+
+    const [eventToDelete, setEventToDelete] = useState<string | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    // ... rest of code ....
+
+    const confirmDelete = async () => {
+        if (!eventToDelete) return;
+        setIsDeleting(true);
+
+        const token = localStorage.getItem('auth_token');
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/events/${eventToDelete}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (res.ok) {
+                setEvents(events.filter(e => e._id !== eventToDelete));
+                setEventToDelete(null);
+            } else {
+                alert('Failed to delete event');
+            }
+        } catch (error) {
+            console.error('Delete failed', error);
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -261,6 +298,15 @@ export default function EventsPage() {
                                                 >
                                                     <Copy className="h-4 w-4" />
                                                 </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-8 w-8 p-0 text-slate-400 hover:text-red-600"
+                                                    onClick={() => setEventToDelete(event._id)}
+                                                    title="Delete Event"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
                                             </div>
                                         </div>
                                     </div>
@@ -270,6 +316,43 @@ export default function EventsPage() {
                     )}
                 </CardContent>
             </Card>
+
+            <Dialog open={!!eventToDelete} onOpenChange={(open: boolean) => !open && setEventToDelete(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-red-600">
+                            <AlertTriangle className="h-5 w-5" />
+                            Delete Event
+                        </DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to delete this event? This action will permanently remove the event and all associated tickets.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setEventToDelete(null)}
+                            disabled={isDeleting}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                            onClick={confirmDelete}
+                            disabled={isDeleting}
+                        >
+                            {isDeleting ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Deleting...
+                                </>
+                            ) : (
+                                'Delete Event'
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }
