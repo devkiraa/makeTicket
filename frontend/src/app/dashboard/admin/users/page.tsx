@@ -51,7 +51,7 @@ interface User {
     email: string;
     username?: string;
     name?: string;
-    role: 'admin' | 'host' | 'helper';
+    role: 'admin' | 'host' | 'user';
     status: 'active' | 'suspended';
     createdAt: string;
     avatar?: string;
@@ -74,7 +74,7 @@ export default function UserManagementPage() {
     const [suspensionModalOpen, setSuspensionModalOpen] = useState(false);
     const [suspensionReason, setSuspensionReason] = useState('');
     const [roleModalOpen, setRoleModalOpen] = useState(false);
-    const [newRole, setNewRole] = useState<'admin' | 'host' | 'helper'>('host');
+    const [newRole, setNewRole] = useState<'admin' | 'host' | 'user'>('user');
 
     const fetchUsers = useCallback(async () => {
         setLoading(true);
@@ -235,7 +235,7 @@ export default function UserManagementPage() {
                                     <SelectItem value="all">All Roles</SelectItem>
                                     <SelectItem value="admin">Admins</SelectItem>
                                     <SelectItem value="host">Hosts</SelectItem>
-                                    <SelectItem value="helper">Helpers</SelectItem>
+                                    <SelectItem value="user">Users</SelectItem>
                                 </SelectContent>
                             </Select>
                             <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -431,13 +431,13 @@ export default function UserManagementPage() {
                     </DialogHeader>
                     <div className="py-4">
                         <label className="text-sm font-medium mb-2 block text-slate-700">Select Role</label>
-                        <Select value={newRole} onValueChange={(v: string) => setNewRole(v as 'admin' | 'host' | 'helper')}>
+                        <Select value={newRole} onValueChange={(v: string) => setNewRole(v as 'admin' | 'host' | 'user')}>
                             <SelectTrigger>
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="host">Host (Standard User)</SelectItem>
-                                <SelectItem value="helper">Helper (Limited Access)</SelectItem>
+                                <SelectItem value="user">User (Attendee)</SelectItem>
+                                <SelectItem value="host">Host (Event Creator)</SelectItem>
                                 <SelectItem value="admin">Administrator (Full Access)</SelectItem>
                             </SelectContent>
                         </Select>

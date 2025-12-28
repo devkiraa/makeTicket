@@ -67,7 +67,16 @@ export default function Dashboard() {
                     fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/notifications?limit=5`, { headers })
                 ]);
 
-                if (profileRes.ok) setProfile(await profileRes.json());
+                if (profileRes.ok) {
+                    const profileData = await profileRes.json();
+                    setProfile(profileData);
+
+                    // Redirect users with 'user' role to the user dashboard
+                    if (profileData.role === 'user') {
+                        router.push('/dashboard/user');
+                        return;
+                    }
+                }
                 if (statsRes.ok) setStats(await statsRes.json());
                 if (eventsRes.ok) setEvents(await eventsRes.json());
                 if (notificationsRes.ok) {

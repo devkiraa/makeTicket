@@ -12,7 +12,7 @@ const EventSchema = new mongoose.Schema({
     maxRegistrations: { type: Number, default: 0 }, // 0 = unlimited
     allowMultipleRegistrations: { type: Boolean, default: true }, // Allow same person to register multiple times
     status: { type: String, enum: ['active', 'closed', 'draft'], default: 'draft' },
-    // Dynamic Form Schema
+    // Dynamic Form Schema - using Mixed for flexibility with images and validation
     formSchema: [{
         id: String,
         itemType: { type: String, enum: ['question', 'section'], default: 'question' },
@@ -23,7 +23,24 @@ const EventSchema = new mongoose.Schema({
         description: String,
         sectionDescription: String, // For section type
         options: [String], // For select, radio
-        validationRegex: String
+        validationRegex: String,
+        // Image support
+        hasImage: Boolean,
+        imageUrl: String, // Base64 or URL
+        // Validation settings
+        validation: {
+            minLength: Number,
+            maxLength: Number,
+            pattern: String,
+            patternError: String
+        },
+        min: Number,
+        max: Number,
+        // File upload settings
+        fileSettings: {
+            acceptedTypes: [String],
+            maxSizeMB: Number
+        }
     }],
     authorizedHelpers: [{ type: String }], // List of Helper Emails or IDs
 

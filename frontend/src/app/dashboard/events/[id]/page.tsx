@@ -33,6 +33,18 @@ import {
 } from "@/components/ui/sheet";
 import { CoordinatorManager } from '@/components/CoordinatorManager';
 
+// Helper to render form values safely (handles file upload objects)
+const renderFormValue = (value: any): string => {
+    if (value === null || value === undefined) return '-';
+    if (Array.isArray(value)) return value.join(', ');
+    // Check if it's a file upload object
+    if (typeof value === 'object' && value.name && value.data) {
+        return `📎 ${value.name}`;
+    }
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value) || '-';
+};
+
 interface Attendee {
     id: string;
     name: string;
@@ -452,61 +464,7 @@ export default function EventDetailPage() {
                         </div>
                     </CardContent>
                 </Card>
-                <Card className="border-slate-200">
-                    <CardContent className="pt-4">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-slate-500">Form Fields</p>
-                                <p className="text-2xl font-bold text-slate-900">{event.formSchema?.length || 0}</p>
-                            </div>
-                            <svg className="w-8 h-8 text-purple-500 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                        </div>
-                    </CardContent>
-                </Card>
             </div>
-
-            {/* Form Schema Preview */}
-            {event.formSchema && event.formSchema.length > 0 && (
-                <Card className="border-slate-200">
-                    <CardHeader>
-                        <CardTitle className="text-lg">Form Fields</CardTitle>
-                        <CardDescription>These are the questions attendees fill when registering</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {event.formSchema.map((field, i) => (
-                                <div key={field.id} className="p-4 bg-slate-50 rounded-lg border border-slate-100">
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <span className="text-xs text-slate-400 font-medium">Field {i + 1}</span>
-                                            <h4 className="font-medium text-slate-900 mt-1">{field.label}</h4>
-                                        </div>
-                                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium
-                                            ${field.type === 'text' ? 'bg-blue-50 text-blue-600' :
-                                                field.type === 'email' ? 'bg-green-50 text-green-600' :
-                                                    field.type === 'select' ? 'bg-purple-50 text-purple-600' :
-                                                        field.type === 'radio' ? 'bg-amber-50 text-amber-600' :
-                                                            field.type === 'textarea' ? 'bg-pink-50 text-pink-600' :
-                                                                'bg-slate-100 text-slate-600'}`}>
-                                            {field.type}
-                                        </span>
-                                    </div>
-                                    {field.required && (
-                                        <span className="text-xs text-red-500 mt-1 inline-block">Required</span>
-                                    )}
-                                    {field.options && field.options.length > 0 && (
-                                        <div className="mt-2 text-xs text-slate-500">
-                                            Options: {field.options.join(', ')}
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
 
             {/* Coordinators Section */}
             <CoordinatorManager eventId={eventId} />
@@ -676,9 +634,7 @@ export default function EventDetailPage() {
                                             </td>
                                             {formLabels.map(label => (
                                                 <td key={label} className="px-4 py-3 text-slate-600 max-w-[200px] truncate">
-                                                    {Array.isArray(attendee.formData[label])
-                                                        ? attendee.formData[label].join(', ')
-                                                        : attendee.formData[label] || '-'}
+                                                    {renderFormValue(attendee.formData[label])}
                                                 </td>
                                             ))}
                                             <td className="px-4 py-3">
@@ -747,7 +703,7 @@ export default function EventDetailPage() {
                                             <div key={key}>
                                                 <h4 className="text-sm font-medium text-slate-700 mb-1">{key}</h4>
                                                 <div className="p-3 bg-white border border-slate-200 rounded-md text-sm text-slate-800">
-                                                    {Array.isArray(value) ? value.join(', ') : value?.toString() || '-'}
+                                                    {renderFormValue(value)}
                                                 </div>
                                             </div>
                                         ))}

@@ -186,7 +186,9 @@ export default function AdminDashboard() {
                                         </td>
                                         <td className="p-4 align-middle">
                                             <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium 
-                                                    ${user.role === 'admin' ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}
+                                                    ${user.role === 'admin' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
+                                                    user.role === 'host' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' :
+                                                        'bg-slate-100 text-slate-600 border border-slate-200'}
                                                 `}>
                                                 {user.role}
                                             </span>

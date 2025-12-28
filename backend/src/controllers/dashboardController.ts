@@ -156,3 +156,77 @@ export const getAllAttendees = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Failed to fetch attendees', error });
     }
 };
+
+// Get registrations for the logged-in user (events they've registered for)
+export const getMyRegistrations = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const userEmail = req.user.email;
+
+        // Find all tickets where the form data email matches the user's email
+        const tickets = await Ticket.find({}).populate('eventId').sort({ createdAt: -1 });
+
+        // Filter tickets by email in formData
+        const userTickets = tickets.filter(ticket => {
+            const fd = ticket.formData instanceof Map ? Object.fromEntries(ticket.formData) : (ticket.formData || {});
+            const ticketEmail = fd.email || fd.Email || fd['Email Address'] || '';
+            return ticketEmail.toLowerCase() === userEmail.toLowerCase();
+        });
+
+        // Map to response format
+        const registrations = userTickets.map(ticket => {
+            const event = ticket.eventId as any;
+            const fd = ticket.formData instanceof Map ? Object.fromEntries(ticket.formData) : (ticket.formData || {});
+
+            return {
+                ticketId: ticket._id,
+                qrCodeHash: ticket.qrCodeHash,
+                status: ticket.status,
+                checkedIn: ticket.status === 'checked-in',
+                registeredAt: ticket.createdAt,
+                event: event ? {
+                    _id: event._id,
+                    title: event.title,
+                    slug: event.slug,
+                    date: event.date,
+                    location: event.location,
+                    description: event.description,
+                    status: event.status
+                } : null,
+                formData: fd
+            };
+        });
+
+        res.status(200).json(registrations);
+    } catch (error) {
+        console.error('Error fetching user registrations:', error);
+        res.status(500).json({ message: 'Failed to fetch registrations', error });
+    }
+};
+
+// Upgrade user from 'user' to 'host' role
+import { User } from '../models/User';
+
+export const upgradeToHost = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const userId = req.user.id;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        if (user.role === 'host' || user.role === 'admin') {
+            return res.status(400).json({ message: 'You are already a host or admin' });
+        }
+
+        user.role = 'host';
+        await user.save();
+
+        res.status(200).json({ message: 'You are now a host! You can create events.', role: 'host' });
+    } catch (error) {
+        console.error('Error upgrading to host:', error);
+        res.status(500).json({ message: 'Failed to upgrade to host', error });
+    }
+};

@@ -216,17 +216,13 @@ export function CoordinatorManager({ eventId }: CoordinatorManagerProps) {
     };
 
     return (
-        <Card>
-            <CardHeader>
+        <Card className="border-slate-200">
+            <CardHeader className="py-3 px-4">
                 <div className="flex items-center justify-between">
-                    <div>
-                        <CardTitle className="flex items-center gap-2">
-                            <UserPlus className="w-5 h-5" />
-                            Event Coordinators
-                        </CardTitle>
-                        <CardDescription>
-                            Add team members who can help manage check-ins and attendees
-                        </CardDescription>
+                    <div className="flex items-center gap-2">
+                        <UserPlus className="w-4 h-4 text-slate-500" />
+                        <CardTitle className="text-base">Event Coordinators</CardTitle>
+                        <span className="text-xs text-slate-400">({coordinators.length})</span>
                     </div>
                     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                         <DialogTrigger asChild>
@@ -350,44 +346,42 @@ export function CoordinatorManager({ eventId }: CoordinatorManagerProps) {
                 </div>
             </CardHeader>
 
-            <CardContent>
+            <CardContent className="py-2 px-4">
                 {loading ? (
-                    <div className="flex justify-center py-8">
-                        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+                    <div className="flex justify-center py-4">
+                        <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
                     </div>
                 ) : coordinators.length === 0 ? (
-                    <div className="text-center py-8 text-slate-500">
-                        <UserPlus className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                    <div className="text-center py-4 text-slate-400">
                         <p className="text-sm">No coordinators added yet</p>
-                        <p className="text-xs text-slate-400">Add team members to help manage this event</p>
                     </div>
                 ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                         {coordinators.map((coord) => (
                             <div
                                 key={coord.id}
-                                className={`flex items-center justify-between p-4 rounded-lg border ${coord.status === 'revoked' ? 'bg-slate-50 opacity-60' : 'bg-white'
+                                className={`flex items-center justify-between p-2 rounded-lg border ${coord.status === 'revoked' ? 'bg-slate-50 opacity-60' : 'bg-white'
                                     }`}
                             >
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
                                         {coord.user?.avatar ? (
                                             <img
                                                 src={coord.user.avatar}
                                                 alt=""
-                                                className="w-10 h-10 rounded-full object-cover"
+                                                className="w-8 h-8 rounded-full object-cover"
                                             />
                                         ) : (
-                                            <span className="text-sm font-bold text-indigo-600">
+                                            <span className="text-xs font-bold text-indigo-600">
                                                 {(coord.name?.[0] || coord.email[0]).toUpperCase()}
                                             </span>
                                         )}
                                     </div>
                                     <div>
-                                        <p className="font-medium text-slate-900">
+                                        <p className="text-sm font-medium text-slate-900">
                                             {coord.user?.name || coord.name || coord.email.split('@')[0]}
                                         </p>
-                                        <p className="text-sm text-slate-500">{coord.email}</p>
+                                        <p className="text-xs text-slate-500">{coord.email}</p>
                                     </div>
                                 </div>
 

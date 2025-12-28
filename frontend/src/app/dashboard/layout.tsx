@@ -32,6 +32,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [hasCoordinatorEvents, setHasCoordinatorEvents] = useState(false);
     const [coordinatorCount, setCoordinatorCount] = useState(0);
     const [isAdmin, setIsAdmin] = useState(false);
+    const [isUserRole, setIsUserRole] = useState(false); // Track if user has 'user' role (not host/admin)
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isImpersonating, setIsImpersonating] = useState(false);
 
@@ -108,6 +109,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     if (meRes.ok) {
                         const me = await meRes.json();
                         if (me.role === 'admin') setIsAdmin(true);
+                        if (me.role === 'user') setIsUserRole(true);
                     }
                 } catch (e) {
                     console.error('Failed to check user status', e);
@@ -117,12 +119,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }
     }, [router]);
 
-    const navItems = [
+    // Different nav items for user vs host/admin
+    const navItems = isUserRole ? [
+        { name: 'My Tickets', href: '/dashboard/user', icon: Ticket },
+        { name: 'Settings', href: '/dashboard/settings', icon: Settings },
+    ] : [
         { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
         { name: 'My Events', href: '/dashboard/events', icon: Calendar },
         { name: 'Attendees', href: '/dashboard/attendees', icon: Users },
         { name: 'Analytics', href: '/dashboard/analytics', icon: TrendingUp },
     ];
+
+    const isUserRoute = pathname.startsWith('/dashboard/user');
 
     const isAdminRoute = pathname.startsWith('/dashboard/admin');
 
@@ -280,44 +288,48 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 </>
                             )}
 
-                            {/* Communications Section */}
-                            <div className="pt-4 mt-4 border-t border-slate-100">
-                                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3">
-                                    Communications
-                                </span>
-                            </div>
-                            <Button
-                                variant="ghost"
-                                className={`w-full justify-start font-medium ${pathname === '/dashboard/settings/emails' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
-                                onClick={() => router.push('/dashboard/settings/emails')}
-                            >
-                                <Mail className="mr-3 h-5 w-5" />
-                                Email Accounts
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                className={`w-full justify-start font-medium ${pathname === '/dashboard/settings/email-templates' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
-                                onClick={() => router.push('/dashboard/settings/email-templates')}
-                            >
-                                <FileText className="mr-3 h-5 w-5" />
-                                Email Templates
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                className={`w-full justify-start font-medium ${pathname === '/dashboard/settings/ticket-templates' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
-                                onClick={() => router.push('/dashboard/settings/ticket-templates')}
-                            >
-                                <CreditCard className="mr-3 h-5 w-5" />
-                                Ticket Designer
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                className={`w-full justify-start font-medium ${pathname === '/dashboard/contacts' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
-                                onClick={() => router.push('/dashboard/contacts')}
-                            >
-                                <Contact className="mr-3 h-5 w-5" />
-                                Contacts
-                            </Button>
+                            {/* Communications Section - only for hosts/admins */}
+                            {!isUserRole && (
+                                <>
+                                    <div className="pt-4 mt-4 border-t border-slate-100">
+                                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3">
+                                            Communications
+                                        </span>
+                                    </div>
+                                    <Button
+                                        variant="ghost"
+                                        className={`w-full justify-start font-medium ${pathname === '/dashboard/settings/emails' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                                        onClick={() => router.push('/dashboard/settings/emails')}
+                                    >
+                                        <Mail className="mr-3 h-5 w-5" />
+                                        Email Accounts
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        className={`w-full justify-start font-medium ${pathname === '/dashboard/settings/email-templates' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                                        onClick={() => router.push('/dashboard/settings/email-templates')}
+                                    >
+                                        <FileText className="mr-3 h-5 w-5" />
+                                        Email Templates
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        className={`w-full justify-start font-medium ${pathname === '/dashboard/settings/ticket-templates' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                                        onClick={() => router.push('/dashboard/settings/ticket-templates')}
+                                    >
+                                        <CreditCard className="mr-3 h-5 w-5" />
+                                        Ticket Designer
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        className={`w-full justify-start font-medium ${pathname === '/dashboard/contacts' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                                        onClick={() => router.push('/dashboard/contacts')}
+                                    >
+                                        <Contact className="mr-3 h-5 w-5" />
+                                        Contacts
+                                    </Button>
+                                </>
+                            )}
                         </nav>
 
                         <div className="p-4 border-t border-slate-100 space-y-1">

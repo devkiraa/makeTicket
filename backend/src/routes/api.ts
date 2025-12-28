@@ -4,7 +4,7 @@ import { registerTicket, validateTicket, getEventAttendees, checkRegistration, a
 import { verifyToken } from '../middleware/auth';
 import { googleAuthRedirect, googleAuthCallback, getProfile, getSessions, revokeSession, updateProfile, checkUsernameAvailability } from '../controllers/authController';
 import { getPublicUserProfile } from '../controllers/userController';
-import { getDashboardStats, getAllAttendees } from '../controllers/dashboardController';
+import { getDashboardStats, getAllAttendees, getMyRegistrations, upgradeToHost } from '../controllers/dashboardController';
 import {
     addCoordinator,
     acceptInvite,
@@ -59,6 +59,8 @@ apiRouter.post('/validate', verifyToken, validateTicket);
 // Dashboard
 apiRouter.get('/dashboard/stats', verifyToken, getDashboardStats);
 apiRouter.get('/dashboard/attendees', verifyToken, getAllAttendees);
+apiRouter.get('/dashboard/my-registrations', verifyToken, getMyRegistrations); // Get events user has registered for
+apiRouter.post('/dashboard/upgrade-to-host', verifyToken, upgradeToHost); // Upgrade from user to host
 
 // Coordinators
 

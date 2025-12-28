@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import axios from 'axios';
 import { User } from '../models/User';
+import { createCanvas, loadImage } from 'canvas';
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -201,6 +202,53 @@ export const listGoogleForms = async (req: Request, res: Response) => {
     }
 };
 
+// Helper to download image and convert to base64 (with resizing)
+const downloadImageAsBase64 = async (url: string): Promise<string | null> => {
+    if (!url) return null;
+    try {
+        const response = await axios.get(url, {
+            responseType: 'arraybuffer',
+            timeout: 10000
+        });
+
+        // Resize image using canvas to avoid hitting MongoDB 16MB limit
+        try {
+            const buffer = Buffer.from(response.data);
+            const img = await loadImage(buffer);
+
+            const MAX_DIM = 800;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > MAX_DIM || height > MAX_DIM) {
+                if (width > height) {
+                    height = Math.round(height * (MAX_DIM / width));
+                    width = MAX_DIM;
+                } else {
+                    width = Math.round(width * (MAX_DIM / height));
+                    height = MAX_DIM;
+                }
+            }
+
+            const canvas = createCanvas(width, height);
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Return optimized JPEG
+            return canvas.toDataURL('image/jpeg', 0.7);
+        } catch (resizeError) {
+            console.warn('Image resize failed, falling back to original:', resizeError);
+            // Fallback to original if resize fails
+            const contentType = response.headers['content-type'] || 'image/jpeg';
+            const base64 = Buffer.from(response.data, 'binary').toString('base64');
+            return `data:${contentType};base64,${base64}`;
+        }
+    } catch (error) {
+        console.error('Failed to download Google Form image:', error);
+        return null;
+    }
+};
+
 // Get a specific Google Form's structure
 export const getGoogleForm = async (req: Request, res: Response) => {
     try {
@@ -223,19 +271,24 @@ export const getGoogleForm = async (req: Request, res: Response) => {
 
         const googleForm = response.data;
 
-        // Convert Google Form to our format
-        const convertedQuestions = convertGoogleFormToOurFormat(googleForm);
+        // Convert Google Form to our format (Async now)
+        const convertedQuestions = await convertGoogleFormToOurFormat(googleForm);
 
         // Extract banner/header image if present
-        let bannerImage = null;
+        let bannerImageUrl = null;
         if (googleForm.info?.documentTitle && googleForm.info?.documentTitle.image) {
-            bannerImage = googleForm.info.documentTitle.image.contentUri ||
+            bannerImageUrl = googleForm.info.documentTitle.image.contentUri ||
                 googleForm.info.documentTitle.image.sourceUri || null;
         }
         // Also check for header image in form settings
-        if (!bannerImage && googleForm.formSettings?.headerImage) {
-            bannerImage = googleForm.formSettings.headerImage.contentUri ||
+        if (!bannerImageUrl && googleForm.formSettings?.headerImage) {
+            bannerImageUrl = googleForm.formSettings.headerImage.contentUri ||
                 googleForm.formSettings.headerImage.sourceUri || null;
+        }
+
+        let bannerImage = null;
+        if (bannerImageUrl) {
+            bannerImage = await downloadImageAsBase64(bannerImageUrl);
         }
 
         res.json({
@@ -252,7 +305,7 @@ export const getGoogleForm = async (req: Request, res: Response) => {
 };
 
 // Convert Google Form format to our FormItem format
-function convertGoogleFormToOurFormat(googleForm: any): any[] {
+async function convertGoogleFormToOurFormat(googleForm: any): Promise<any[]> {
     const items: any[] = [];
 
     if (!googleForm.items) return items;
@@ -261,14 +314,20 @@ function convertGoogleFormToOurFormat(googleForm: any): any[] {
         // Handle Image Items (standalone images in the form)
         if (item.imageItem) {
             const imageItem = item.imageItem;
-            // Add image as a section with image
+            const imgUrl = imageItem.image?.contentUri || imageItem.image?.sourceUri || null;
+            let base64Img = null;
+            if (imgUrl) {
+                base64Img = await downloadImageAsBase64(imgUrl);
+            }
+
+            // Always add the item, with or without image
             items.push({
                 id: `img-${item.itemId}`,
                 itemType: 'section',
                 label: item.title || '',
                 sectionDescription: item.description || '',
-                hasImage: true,
-                imageUrl: imageItem.image?.contentUri || imageItem.image?.sourceUri || ''
+                hasImage: !!base64Img,
+                imageUrl: base64Img || ''
             });
             continue;
         }
@@ -299,8 +358,14 @@ function convertGoogleFormToOurFormat(googleForm: any): any[] {
 
             // Add image if present in question
             if (questionImage) {
-                baseItem.hasImage = true;
-                baseItem.imageUrl = questionImage.contentUri || questionImage.sourceUri || '';
+                const qImgUrl = questionImage.contentUri || questionImage.sourceUri || null;
+                if (qImgUrl) {
+                    const qBase64 = await downloadImageAsBase64(qImgUrl);
+                    if (qBase64) {
+                        baseItem.hasImage = true;
+                        baseItem.imageUrl = qBase64;
+                    }
+                }
             }
 
             // Text question (short answer)
@@ -353,6 +418,17 @@ function convertGoogleFormToOurFormat(googleForm: any): any[] {
                 items.push({
                     ...baseItem,
                     type: 'time'
+                });
+            }
+            // File Upload Question
+            else if (question?.fileUploadQuestion) {
+                items.push({
+                    ...baseItem,
+                    type: 'file',
+                    fileSettings: {
+                        maxSizeMB: 10, // Default to 10MB
+                        acceptedTypes: [] // Any
+                    }
                 });
             }
             // Default to text for unknown types

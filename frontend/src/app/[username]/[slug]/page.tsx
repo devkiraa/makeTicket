@@ -541,21 +541,10 @@ export default function PublicEventPage() {
 
                         {/* Wallet Integration */}
                         {ticket && (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                            <div className="mb-6">
                                 <Button
                                     variant="outline"
-                                    className="h-12 border-black bg-black text-white hover:bg-gray-800 hover:text-white flex items-center justify-center gap-2 rounded-xl transition-all"
-                                    onClick={() => window.open(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/wallet/apple/${ticket._id}`, '_blank')}
-                                >
-                                    <svg viewBox="0 0 512 512" className="w-5 h-5 fill-current">
-                                        <path d="M382.2,274.6c4,166.4-239.9,173.2-228.3,234.3c5.3,27.8,32.7,2.2,50.7-34.5c16.3-33.1,88.7-27.4,88.7-27.4 s38.4,2.9,45.4,32.4c3.8,16-25,48.2-12.2,29.9c23.5-33.8,114.9-183,114.9-183s44.1-66.2,9.3-118.8 C429.5,175.4,379.7,169.5,382.2,274.6z M272.5,45.2c-35.1,1.9-63.5,23.5-76.4,56.7c35.6,2.2,65.8-21.6,83.1-51.2 C278,50.3,273.8,47.9,272.5,45.2z" />
-                                    </svg>
-                                    Add to Apple Wallet
-                                </Button>
-
-                                <Button
-                                    variant="outline"
-                                    className="h-12 border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-2 rounded-xl"
+                                    className="w-full h-12 border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-2 rounded-xl"
                                     onClick={async () => {
                                         try {
                                             const newWindow = window.open('', '_blank');
@@ -1009,42 +998,44 @@ export default function PublicEventPage() {
                                 </div>
                             </div>
 
-                            {/* User Profile Card */}
-                            {(isLoggedIn && userProfile) ? (
-                                <div className="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
-                                    {userProfile.avatar ? (
-                                        <img
-                                            src={userProfile.avatar}
-                                            alt={userProfile.name || 'Profile'}
-                                            className="w-10 h-10 rounded-full object-cover"
-                                        />
-                                    ) : (
-                                        <div className="w-10 h-10 bg-[#00CC68] rounded-full flex items-center justify-center text-white font-bold">
-                                            {(userProfile.name || userEmail).charAt(0).toUpperCase()}
-                                        </div>
-                                    )}
-                                    <div className="flex-1 min-w-0">
-                                        {userProfile.name && (
-                                            <p className="font-semibold text-gray-900 truncate">{userProfile.name}</p>
+                            {/* User Profile Card - Only show on first step */}
+                            {currentSectionPage === 0 && (
+                                (isLoggedIn && userProfile) ? (
+                                    <div className="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
+                                        {userProfile.avatar ? (
+                                            <img
+                                                src={userProfile.avatar}
+                                                alt={userProfile.name || 'Profile'}
+                                                className="w-10 h-10 rounded-full object-cover"
+                                            />
+                                        ) : (
+                                            <div className="w-10 h-10 bg-[#00CC68] rounded-full flex items-center justify-center text-white font-bold">
+                                                {(userProfile.name || userEmail).charAt(0).toUpperCase()}
+                                            </div>
                                         )}
-                                        <p className="text-sm text-gray-500 truncate">{userEmail}</p>
+                                        <div className="flex-1 min-w-0">
+                                            {userProfile.name && (
+                                                <p className="font-semibold text-gray-900 truncate">{userProfile.name}</p>
+                                            )}
+                                            <p className="text-sm text-gray-500 truncate">{userEmail}</p>
+                                        </div>
+                                        <div className="flex items-center gap-1 text-[#00CC68]">
+                                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                            </svg>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center gap-1 text-[#00CC68]">
-                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                        </svg>
+                                ) : (
+                                    <div className="flex items-center gap-3 p-4 bg-[#00CC68]/10 rounded-xl border border-[#00CC68]/20">
+                                        <div className="w-10 h-10 bg-[#00CC68] rounded-full flex items-center justify-center text-white font-bold">
+                                            {userEmail.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm text-gray-600">Registering as</p>
+                                            <p className="font-semibold text-gray-900">{userEmail}</p>
+                                        </div>
                                     </div>
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-3 p-4 bg-[#00CC68]/10 rounded-xl border border-[#00CC68]/20">
-                                    <div className="w-10 h-10 bg-[#00CC68] rounded-full flex items-center justify-center text-white font-bold">
-                                        {userEmail.charAt(0).toUpperCase()}
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-gray-600">Registering as</p>
-                                        <p className="font-semibold text-gray-900">{userEmail}</p>
-                                    </div>
-                                </div>
+                                )
                             )}
 
 
@@ -1122,6 +1113,83 @@ export default function PublicEventPage() {
                                                             </span>
                                                         </label>
                                                     ))}
+                                                </div>
+                                            ) : field.type === 'file' ? (
+                                                <div className="space-y-3">
+                                                    <div className="relative">
+                                                        <input
+                                                            type="file"
+                                                            id={`file-${field.id}`}
+                                                            required={field.required}
+                                                            accept={field.fileSettings?.acceptedTypes?.join(',') || '*'}
+                                                            onChange={(e) => {
+                                                                const file = e.target.files?.[0];
+                                                                if (file) {
+                                                                    const maxSize = (field.fileSettings?.maxSizeMB || 10) * 1024 * 1024;
+                                                                    if (file.size > maxSize) {
+                                                                        alert(`File is too large. Maximum size is ${field.fileSettings?.maxSizeMB || 10}MB`);
+                                                                        e.target.value = '';
+                                                                        return;
+                                                                    }
+                                                                    // Convert to base64 for storage
+                                                                    const reader = new FileReader();
+                                                                    reader.onloadend = () => {
+                                                                        handleInputChange(field.label, {
+                                                                            name: file.name,
+                                                                            type: file.type,
+                                                                            size: file.size,
+                                                                            data: reader.result
+                                                                        });
+                                                                    };
+                                                                    reader.readAsDataURL(file);
+                                                                }
+                                                            }}
+                                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                                        />
+                                                        <div className={`flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg transition-all ${answers[field.label] ? 'border-[#00CC68] bg-[#00CC68]/5' : 'border-gray-300 bg-gray-50 hover:bg-gray-100 hover:border-gray-400'}`}>
+                                                            {answers[field.label] ? (
+                                                                <>
+                                                                    <div className="w-12 h-12 bg-[#00CC68]/10 rounded-full flex items-center justify-center mb-3">
+                                                                        <svg className="w-6 h-6 text-[#00CC68]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                                        </svg>
+                                                                    </div>
+                                                                    <p className="text-sm font-medium text-gray-900">{answers[field.label]?.name || 'File uploaded'}</p>
+                                                                    <p className="text-xs text-gray-500 mt-1">
+                                                                        {answers[field.label]?.size ? `${(answers[field.label].size / 1024).toFixed(1)} KB` : ''}
+                                                                    </p>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleInputChange(field.label, null);
+                                                                            const input = document.getElementById(`file-${field.id}`) as HTMLInputElement;
+                                                                            if (input) input.value = '';
+                                                                        }}
+                                                                        className="mt-2 text-xs text-red-500 hover:text-red-700"
+                                                                    >
+                                                                        Remove file
+                                                                    </button>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                                                                        <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                                                        </svg>
+                                                                    </div>
+                                                                    <p className="text-sm font-medium text-gray-700">Click to upload or drag and drop</p>
+                                                                    <p className="text-xs text-gray-500 mt-1">
+                                                                        {field.fileSettings?.acceptedTypes?.length ?
+                                                                            `Accepted: ${field.fileSettings.acceptedTypes.join(', ')}` :
+                                                                            'Any file type'
+                                                                        }
+                                                                        {field.fileSettings?.maxSizeMB && ` • Max ${field.fileSettings.maxSizeMB}MB`}
+                                                                    </p>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             ) : (
                                                 <Input

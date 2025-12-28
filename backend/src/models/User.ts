@@ -14,7 +14,7 @@ const UserSchema = new mongoose.Schema({
         expiresAt: { type: Date },
         scope: { type: String }
     },
-    role: { type: String, enum: ['admin', 'host', 'helper'], default: 'host' },
+    role: { type: String, enum: ['admin', 'host', 'user'], default: 'user' },
     status: { type: String, enum: ['active', 'suspended'], default: 'active' },
     suspensionReason: { type: String },
     avatar: { type: String }, // URL or Base64

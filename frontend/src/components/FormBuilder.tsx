@@ -35,7 +35,8 @@ import {
     Bold,
     Italic,
     Image,
-    Settings
+    Settings,
+    Upload
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import {
@@ -70,6 +71,11 @@ interface FormItem {
     // Rich content
     hasImage?: boolean;
     imageUrl?: string;
+    // File upload settings
+    fileSettings?: {
+        acceptedTypes?: string[]; // e.g., ['image/*', 'application/pdf']
+        maxSizeMB?: number;
+    };
 }
 
 interface GoogleForm {
@@ -99,6 +105,7 @@ const FIELD_TYPES = [
     { value: 'date', label: 'Date', icon: Calendar },
     { value: 'time', label: 'Time', icon: Clock },
     { value: 'url', label: 'URL/Link', icon: LinkIcon },
+    { value: 'file', label: 'File upload', icon: Upload },
 ];
 
 export function FormBuilder({ questions, onChange, draftId }: FormBuilderProps) {
@@ -946,6 +953,63 @@ export function FormBuilder({ questions, onChange, draftId }: FormBuilderProps) 
                                         {!isActive && item.type === 'textarea' && (
                                             <div className="h-16 border-b border-dashed border-slate-300 flex items-end pb-1 text-sm text-slate-400">
                                                 {item.placeholder || 'Long answer text'}
+                                            </div>
+                                        )}
+
+                                        {/* File Upload Settings */}
+                                        {isActive && item.type === 'file' && (
+                                            <div className="bg-slate-50 rounded-lg border border-slate-200 p-3 space-y-3 mt-3">
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div>
+                                                        <Label className="text-xs text-slate-500 mb-1.5 block">Max Size (MB)</Label>
+                                                        <Input
+                                                            type="number"
+                                                            min="1"
+                                                            max="100"
+                                                            value={item.fileSettings?.maxSizeMB || 10}
+                                                            onChange={(e) => {
+                                                                const val = parseInt(e.target.value) || 10;
+                                                                updateItem(item.id, 'fileSettings', { ...item.fileSettings, maxSizeMB: val });
+                                                            }}
+                                                            className="h-8 text-sm bg-white"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <Label className="text-xs text-slate-500 mb-1.5 block">Accepted File Types</Label>
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        {['image/*', 'application/pdf', 'video/*', 'audio/*'].map((type) => (
+                                                            <label key={type} className="flex items-center space-x-2 text-sm text-slate-600 bg-white p-2 rounded border border-slate-200">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={item.fileSettings?.acceptedTypes?.includes(type) || false}
+                                                                    onChange={(e) => {
+                                                                        const current = item.fileSettings?.acceptedTypes || [];
+                                                                        const newTypes = e.target.checked
+                                                                            ? [...current, type]
+                                                                            : current.filter(t => t !== type);
+                                                                        updateItem(item.id, 'fileSettings', { ...item.fileSettings, acceptedTypes: newTypes });
+                                                                    }}
+                                                                    className="rounded text-indigo-600 focus:ring-indigo-500"
+                                                                />
+                                                                <span>{type === 'image/*' ? 'Images' : type === 'application/pdf' ? 'PDF' : type === 'video/*' ? 'Video' : 'Audio'}</span>
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Preview for File Upload */}
+                                        {!isActive && item.type === 'file' && (
+                                            <div className="border border-dashed border-slate-300 rounded-lg p-4 flex flex-col items-center justify-center text-slate-400 gap-2 bg-slate-50/50">
+                                                <Upload className="w-6 h-6" />
+                                                <span className="text-sm">File upload (Max {item.fileSettings?.maxSizeMB || 10}MB)</span>
+                                                <span className="text-xs opacity-70">
+                                                    {item.fileSettings?.acceptedTypes?.length
+                                                        ? item.fileSettings.acceptedTypes.map(t => t === 'image/*' ? 'Images' : t === 'application/pdf' ? 'PDF' : t).join(', ')
+                                                        : 'All files accepted'}
+                                                </span>
                                             </div>
                                         )}
 
