@@ -5,8 +5,8 @@ const TicketSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Optional if guest checkout
     guestName: { type: String }, // Extracted for easy access
     guestEmail: { type: String }, // Extracted for easy access
-    // Dynamic Answers - using strict: false or Map for flexibility
-    formData: { type: Map, of: mongoose.Schema.Types.Mixed },
+    // Dynamic Answers - using Mixed to allow any keys (including those with dots)
+    formData: { type: mongoose.Schema.Types.Mixed, default: {} },
     pricePaid: { type: Number, default: 0 },
     paymentStatus: { type: String, enum: ['pending', 'completed', 'failed', 'free'], default: 'completed' },
     qrCodeHash: { type: String, required: true, unique: true },

@@ -5,6 +5,7 @@ import { Contact } from '../models/Contact';
 import crypto from 'crypto';
 import { sendTicketEmail } from '../services/emailService';
 import { createNotification } from './notificationController';
+import { addRegistrationToSheet } from './googleSheetsController';
 
 // Register for Event
 export const registerTicket = async (req: Request, res: Response) => {
@@ -241,6 +242,24 @@ export const registerTicket = async (req: Request, res: Response) => {
                 }
             }).catch(err => {
                 console.error('Contact save error:', err.message);
+            });
+        }
+
+        // Sync to Google Sheets (async, non-blocking)
+        if (event.googleSheetId) {
+            addRegistrationToSheet(
+                event.hostId.toString(),
+                eventId,
+                {
+                    name: guestName || 'Guest',
+                    email: guestEmail,
+                    phone: formData?.phone || formData?.Phone || formData?.mobile || '',
+                    formResponses: formData,
+                    status: ticketStatus,
+                    ticketId: `TKT-${qrCodeHash.substring(0, 8).toUpperCase()}`
+                }
+            ).catch(err => {
+                console.error('Google Sheets sync error:', err);
             });
         }
 

@@ -117,6 +117,10 @@ app.use('/api/admin', adminRouter);
 import { googleFormsRouter } from './routes/googleForms';
 app.use('/api/google-forms', googleFormsRouter);
 
+// Google Sheets Integration
+import { googleSheetsRouter } from './routes/googleSheets';
+app.use('/api/google-sheets', googleSheetsRouter);
+
 // Start Server
 app.listen(PORT, async () => {
     let publicIp = 'unknown';

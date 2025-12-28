@@ -127,7 +127,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const isAdminRoute = pathname.startsWith('/dashboard/admin');
 
     return (
-        <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900 selection:bg-indigo-100">
+        <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900 selection:bg-indigo-100 overflow-x-hidden">
             {/* Sidebar */}
             <aside className={`w-64 ${isAdminRoute ? 'bg-slate-900' : 'bg-white'} border-r ${isAdminRoute ? 'border-slate-800' : 'border-slate-200'} hidden md:flex flex-col fixed inset-y-0 z-50`}>
                 <div className={`h-16 flex items-center px-6 border-b ${isAdminRoute ? 'border-slate-800' : 'border-slate-100'}`}>
@@ -461,7 +461,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
 
             {/* Main Content Wrapper */}
-            <main className="flex-1 md:ml-64 flex flex-col min-h-screen">
+            <main className="flex-1 md:pl-64 flex flex-col min-h-screen min-w-0">
                 {isImpersonating && (
                     <div className="bg-amber-500 text-white px-4 py-2 flex items-center justify-between text-sm font-medium sticky top-0 z-[60]">
                         <div className="flex items-center gap-2">
@@ -506,7 +506,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </header>
 
                 {/* Page Content */}
-                <div className="p-4 md:p-8 flex-1">
+                <div className="p-4 md:p-8 flex-1 overflow-x-hidden">
                     {children}
                 </div>
             </main>

@@ -38,6 +38,10 @@ const EventSchema = new mongoose.Schema({
     // New features
     waitlistEnabled: { type: Boolean, default: false }, // Host can enable waitlist when event is full
     approvalRequired: { type: Boolean, default: false }, // Host must approve registrations before ticket is issued
+
+    // Google Sheets Integration
+    googleSheetId: { type: String },
+    googleSheetUrl: { type: String },
 }, { timestamps: true });
 
 EventSchema.index({ hostId: 1, slug: 1 }, { unique: true });

@@ -53,6 +53,7 @@ export const checkGoogleFormsAccess = async (req: Request, res: Response) => {
         const scope = user?.googleTokens?.scope || '';
         const hasFormsScope = scope.includes('forms');
         const hasDriveScope = scope.includes('drive');
+        const hasSheetsScope = scope.includes('spreadsheets');
 
         const hasAccess = !!(user?.googleTokens?.refreshToken && hasFormsScope);
 
@@ -60,7 +61,8 @@ export const checkGoogleFormsAccess = async (req: Request, res: Response) => {
             hasAccess,
             googleConnected: !!user?.googleId,
             formsScope: hasFormsScope,
-            hasDriveAccess: hasDriveScope
+            hasDriveAccess: hasDriveScope,
+            hasSheetsAccess: hasSheetsScope
         });
     } catch (error) {
         console.error('Check Google Forms access error:', error);
@@ -77,10 +79,12 @@ export const getGoogleFormsConnectUrl = (req: Request, res: Response) => {
 
     const redirectUri = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/google-forms/callback`;
 
-    // Scopes needed for Google Forms
+    // Scopes needed for Google Forms + Sheets
     const scopes = [
         'https://www.googleapis.com/auth/forms.body.readonly', // Read form structure
-        'https://www.googleapis.com/auth/drive.readonly'       // List forms from Drive
+        'https://www.googleapis.com/auth/drive.readonly',       // List forms from Drive
+        'https://www.googleapis.com/auth/spreadsheets',         // Create/edit spreadsheets
+        'https://www.googleapis.com/auth/drive.file'            // Access app-created files
     ].join(' ');
 
     const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
