@@ -91,6 +91,9 @@ app.use(morgan(':c-time :c-method-aligned :c-status :c-time-ms :c-url', {
 // Log to File (Plain)
 app.use(morgan('[:time] :method :status :response-time ms :url', { stream: accessLogStream }));
 
+// Trust proxy - needed to get real client IP behind Render/Vercel/nginx
+app.set('trust proxy', true);
+
 app.use(cors({
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true
@@ -109,6 +112,10 @@ app.get('/', (req, res) => res.send('GrabMyPass API Running'));
 app.use('/api/auth', authRouter);
 app.use('/api', apiRouter);
 app.use('/api/admin', adminRouter);
+
+// Google Forms Integration
+import { googleFormsRouter } from './routes/googleForms';
+app.use('/api/google-forms', googleFormsRouter);
 
 // Start Server
 app.listen(PORT, async () => {

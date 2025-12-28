@@ -20,7 +20,8 @@ import {
     ShieldCheck,
     Menu,
     X,
-    Ghost
+    Ghost,
+    Monitor
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -75,6 +76,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/coordinators/my-events`,
                         { headers: { 'Authorization': `Bearer ${token}` } }
                     );
+
+                    // Handle session terminated
+                    if (coordRes.status === 401) {
+                        localStorage.removeItem('auth_token');
+                        localStorage.removeItem('admin_token');
+                        router.push('/login?sessionExpired=true');
+                        return;
+                    }
+
                     if (coordRes.ok) {
                         const events = await coordRes.json();
                         setHasCoordinatorEvents(events.length > 0);
@@ -86,6 +96,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/me`,
                         { headers: { 'Authorization': `Bearer ${token}` } }
                     );
+
+                    // Handle session terminated
+                    if (meRes.status === 401) {
+                        localStorage.removeItem('auth_token');
+                        localStorage.removeItem('admin_token');
+                        router.push('/login?sessionExpired=true');
+                        return;
+                    }
+
                     if (meRes.ok) {
                         const me = await meRes.json();
                         if (me.role === 'admin') setIsAdmin(true);
@@ -150,6 +169,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             >
                                 <FileText className="mr-3 h-5 w-5" />
                                 System Logs
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/sessions' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                                onClick={() => router.push('/dashboard/admin/sessions')}
+                            >
+                                <Monitor className="mr-3 h-5 w-5" />
+                                Sessions
                             </Button>
 
                             <div className="pt-4 mt-4 border-t border-slate-800">

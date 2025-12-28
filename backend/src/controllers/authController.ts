@@ -7,16 +7,73 @@ import crypto from 'crypto';
 
 import { Session } from '../models/Session';
 
+// Helper to parse user agent
+const parseUserAgent = (userAgent: string) => {
+    let browser = 'Unknown';
+    let os = 'Unknown';
+    let deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown' = 'unknown';
+
+    // Detect browser
+    if (userAgent.includes('Firefox')) browser = 'Firefox';
+    else if (userAgent.includes('Edg/')) browser = 'Edge';
+    else if (userAgent.includes('Chrome')) browser = 'Chrome';
+    else if (userAgent.includes('Safari')) browser = 'Safari';
+    else if (userAgent.includes('Opera') || userAgent.includes('OPR')) browser = 'Opera';
+
+    // Detect OS
+    if (userAgent.includes('Windows')) os = 'Windows';
+    else if (userAgent.includes('Mac OS') || userAgent.includes('Macintosh')) os = 'macOS';
+    else if (userAgent.includes('Linux')) os = 'Linux';
+    else if (userAgent.includes('Android')) os = 'Android';
+    else if (userAgent.includes('iPhone') || userAgent.includes('iPad')) os = 'iOS';
+
+    // Detect device type
+    if (userAgent.includes('Mobile') || userAgent.includes('Android') && !userAgent.includes('Tablet')) {
+        deviceType = 'mobile';
+    } else if (userAgent.includes('Tablet') || userAgent.includes('iPad')) {
+        deviceType = 'tablet';
+    } else if (userAgent.includes('Windows') || userAgent.includes('Macintosh') || userAgent.includes('Linux')) {
+        deviceType = 'desktop';
+    }
+
+    return { browser, os, deviceType };
+};
+
 // helper to create session
-const createSession = async (userId: string, req: Request) => {
+const createSession = async (userId: string, req: Request, loginMethod: 'email' | 'google' | 'impersonate' = 'email') => {
     const userAgent = req.headers['user-agent'] || 'Unknown';
-    const ipAddress = req.ip || req.socket.remoteAddress || 'Unknown';
+
+    // Get IP address - check multiple sources
+    let ipAddress =
+        req.headers['x-forwarded-for']?.toString().split(',')[0].trim() ||
+        req.headers['x-real-ip']?.toString() ||
+        req.ip ||
+        req.socket.remoteAddress ||
+        'Unknown';
+
+    // Clean up IPv6 localhost
+    if (ipAddress === '::1' || ipAddress === '::ffff:127.0.0.1') {
+        ipAddress = '127.0.0.1 (localhost)';
+    }
+    // Remove IPv6 prefix from IPv4 addresses
+    if (ipAddress.startsWith('::ffff:')) {
+        ipAddress = ipAddress.replace('::ffff:', '');
+    }
+
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 1 day
+    const sessionToken = crypto.randomBytes(32).toString('hex');
+
+    const { browser, os, deviceType } = parseUserAgent(userAgent);
 
     const session = await Session.create({
         userId,
+        sessionToken,
         userAgent,
         ipAddress,
+        browser,
+        os,
+        deviceType,
+        loginMethod,
         expiresAt
     });
 
@@ -193,7 +250,7 @@ export const googleAuthCallback = async (req: Request, res: Response) => {
         }
 
         // Create Session
-        const session = await createSession(user!._id.toString(), req);
+        const session = await createSession(user!._id.toString(), req, 'google');
 
         // Generate JWT
         const token = jwt.sign(
@@ -301,7 +358,7 @@ export const login = async (req: Request, res: Response) => {
         }
 
         // Create Session
-        const session = await createSession(user._id.toString(), req);
+        const session = await createSession(user._id.toString(), req, 'email');
 
         const token = jwt.sign(
             { email: user.email, id: user._id, role: user.role, sessionId: session._id },

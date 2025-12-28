@@ -237,3 +237,156 @@ export const clearServerLogs = async (req: Request, res: Response) => {
     }
 };
 
+
+// ==================== SESSION MANAGEMENT ====================
+
+import { Session } from '../models/Session';
+
+// Get all active sessions for a specific user
+export const getUserSessions = async (req: Request, res: Response) => {
+    try {
+        const { userId } = req.params;
+
+        const sessions = await Session.find({
+            userId,
+            isValid: true,
+            expiresAt: { $gt: new Date() }
+        })
+            .sort({ lastActiveAt: -1 })
+            .lean();
+
+        res.json({ sessions });
+    } catch (error) {
+        console.error('Get user sessions error:', error);
+        res.status(500).json({ message: 'Failed to fetch user sessions' });
+    }
+};
+
+// Get login history for a user (including expired/terminated sessions)
+export const getUserLoginHistory = async (req: Request, res: Response) => {
+    try {
+        const { userId } = req.params;
+        const { page = 1, limit = 20 } = req.query;
+
+        const skip = (Number(page) - 1) * Number(limit);
+
+        const sessions = await Session.find({ userId })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(Number(limit))
+            .lean();
+
+        const total = await Session.countDocuments({ userId });
+
+        res.json({
+            sessions,
+            total,
+            page: Number(page),
+            pages: Math.ceil(total / Number(limit))
+        });
+    } catch (error) {
+        console.error('Get login history error:', error);
+        res.status(500).json({ message: 'Failed to fetch login history' });
+    }
+};
+
+// Terminate a specific session
+export const terminateSession = async (req: Request, res: Response) => {
+    try {
+        const { sessionId } = req.params;
+        // @ts-ignore
+        const adminId = req.user.id;
+
+        const session = await Session.findById(sessionId);
+        if (!session) {
+            return res.status(404).json({ message: 'Session not found' });
+        }
+
+        // Use findByIdAndUpdate to bypass validation for legacy sessions
+        await Session.findByIdAndUpdate(sessionId, { isValid: false });
+
+        // Log the action
+        await AuditLog.create({
+            adminId,
+            action: 'TERMINATE_SESSION',
+            targetUserId: session.userId,
+            details: { sessionId, browser: session.browser, os: session.os },
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent']
+        });
+
+        res.json({ message: 'Session terminated successfully' });
+    } catch (error) {
+        console.error('Terminate session error:', error);
+        res.status(500).json({ message: 'Failed to terminate session' });
+    }
+};
+
+// Terminate all sessions for a user (force logout everywhere)
+export const terminateAllUserSessions = async (req: Request, res: Response) => {
+    try {
+        const { userId } = req.params;
+        // @ts-ignore
+        const adminId = req.user.id;
+
+        const result = await Session.updateMany(
+            { userId, isValid: true },
+            { isValid: false }
+        );
+
+        // Log the action
+        await AuditLog.create({
+            adminId,
+            action: 'TERMINATE_ALL_SESSIONS',
+            targetUserId: userId,
+            details: { terminatedCount: result.modifiedCount },
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent']
+        });
+
+        res.json({
+            message: 'All sessions terminated successfully',
+            terminatedCount: result.modifiedCount
+        });
+    } catch (error) {
+        console.error('Terminate all sessions error:', error);
+        res.status(500).json({ message: 'Failed to terminate sessions' });
+    }
+};
+
+// Get all active sessions across all users (admin overview)
+export const getAllActiveSessions = async (req: Request, res: Response) => {
+    try {
+        const { page = 1, limit = 20, search = '' } = req.query;
+        const skip = (Number(page) - 1) * Number(limit);
+
+        // Build query
+        const query: any = {
+            isValid: true,
+            expiresAt: { $gt: new Date() }
+        };
+
+        const sessions = await Session.find(query)
+            .populate('userId', 'name email avatar role')
+            .sort({ lastActiveAt: -1 })
+            .skip(skip)
+            .limit(Number(limit))
+            .lean();
+
+        const total = await Session.countDocuments(query);
+
+        // Get unique user count
+        const uniqueUsers = await Session.distinct('userId', query);
+
+        res.json({
+            sessions,
+            total,
+            uniqueUsersOnline: uniqueUsers.length,
+            page: Number(page),
+            pages: Math.ceil(total / Number(limit))
+        });
+    } catch (error) {
+        console.error('Get all sessions error:', error);
+        res.status(500).json({ message: 'Failed to fetch sessions' });
+    }
+};

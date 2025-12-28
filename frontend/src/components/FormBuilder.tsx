@@ -24,9 +24,20 @@ import {
     Mail,
     Clock,
     Link as LinkIcon,
-    ToggleLeft
+    ToggleLeft,
+    FileSpreadsheet,
+    RefreshCw,
+    Download,
+    Unlink
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 interface FormItem {
     id: string;
@@ -40,6 +51,14 @@ interface FormItem {
     options?: string[];
     // Section properties (for section type)
     sectionDescription?: string;
+}
+
+interface GoogleForm {
+    id: string;
+    name: string;
+    createdTime: string;
+    modifiedTime: string;
+    webViewLink: string;
 }
 
 interface FormBuilderProps {
@@ -64,6 +83,172 @@ const FIELD_TYPES = [
 
 export function FormBuilder({ questions, onChange }: FormBuilderProps) {
     const [activeItem, setActiveItem] = useState<string | null>(null);
+
+    // Google Forms state
+    const [googleFormsConnected, setGoogleFormsConnected] = useState(false);
+    const [hasDriveAccess, setHasDriveAccess] = useState(false);
+    const [googleForms, setGoogleForms] = useState<GoogleForm[]>([]);
+    const [selectedGoogleForm, setSelectedGoogleForm] = useState<string>('');
+    const [loadingForms, setLoadingForms] = useState(false);
+    const [importing, setImporting] = useState(false);
+    const [checkingAccess, setCheckingAccess] = useState(true);
+
+    // URL-based import
+    const [importMode, setImportMode] = useState<'url' | 'browse'>('url');
+    const [formUrl, setFormUrl] = useState('');
+    const [urlError, setUrlError] = useState('');
+
+    // Check Google Forms access on mount
+    useEffect(() => {
+        checkGoogleFormsAccess();
+
+        // Check URL params for connection success
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('googleFormsConnected') === 'true') {
+            checkGoogleFormsAccess();
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }, []);
+
+    const checkGoogleFormsAccess = async () => {
+        const token = localStorage.getItem('auth_token');
+        try {
+            const res = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/google-forms/access`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (res.ok) {
+                const data = await res.json();
+                setGoogleFormsConnected(data.hasAccess || data.formsScope);
+                setHasDriveAccess(data.hasDriveAccess || false);
+                // Only fetch forms list if we have drive access
+                if (data.hasDriveAccess) {
+                    fetchGoogleForms();
+                }
+            }
+        } catch (error) {
+            console.error('Failed to check Google Forms access', error);
+        } finally {
+            setCheckingAccess(false);
+        }
+    };
+
+    const connectGoogleForms = async () => {
+        const token = localStorage.getItem('auth_token');
+        try {
+            const res = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/google-forms/connect`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (res.ok) {
+                const data = await res.json();
+                window.location.href = data.url;
+            }
+        } catch (error) {
+            console.error('Failed to get connect URL', error);
+        }
+    };
+
+    const disconnectGoogleForms = async () => {
+        const token = localStorage.getItem('auth_token');
+        try {
+            await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/google-forms/disconnect`,
+                {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${token}` }
+                }
+            );
+            setGoogleFormsConnected(false);
+            setGoogleForms([]);
+            setSelectedGoogleForm('');
+        } catch (error) {
+            console.error('Failed to disconnect', error);
+        }
+    };
+
+    const fetchGoogleForms = async () => {
+        const token = localStorage.getItem('auth_token');
+        setLoadingForms(true);
+        try {
+            const res = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/google-forms/list`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (res.ok) {
+                const data = await res.json();
+                setGoogleForms(data.forms || []);
+            }
+        } catch (error) {
+            console.error('Failed to fetch Google Forms', error);
+        } finally {
+            setLoadingForms(false);
+        }
+    };
+
+    const importGoogleForm = async () => {
+        if (!selectedGoogleForm) return;
+
+        const token = localStorage.getItem('auth_token');
+        setImporting(true);
+        try {
+            const res = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/google-forms/form/${selectedGoogleForm}`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (res.ok) {
+                const data = await res.json();
+                // Replace current questions with imported ones
+                onChange(data.questions);
+                setSelectedGoogleForm('');
+            }
+        } catch (error) {
+            console.error('Failed to import Google Form', error);
+        } finally {
+            setImporting(false);
+        }
+    };
+
+    // Extract form ID from Google Form URL
+    const extractFormId = (url: string): string | null => {
+        // Matches: https://docs.google.com/forms/d/FORM_ID/...
+        const match = url.match(/\/forms\/d\/([a-zA-Z0-9_-]+)/);
+        return match ? match[1] : null;
+    };
+
+    // Import from pasted URL
+    const importFromUrl = async () => {
+        setUrlError('');
+        const formId = extractFormId(formUrl);
+
+        if (!formId) {
+            setUrlError('Invalid Google Form URL. Please paste a valid URL like: https://docs.google.com/forms/d/...');
+            return;
+        }
+
+        const token = localStorage.getItem('auth_token');
+        setImporting(true);
+        try {
+            const res = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/google-forms/form/${formId}`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (res.ok) {
+                const data = await res.json();
+                onChange(data.questions);
+                setFormUrl('');
+            } else {
+                const error = await res.json();
+                setUrlError(error.message || 'Failed to import form');
+            }
+        } catch (error) {
+            console.error('Failed to import from URL', error);
+            setUrlError('Failed to import form. Please check the URL and try again.');
+        } finally {
+            setImporting(false);
+        }
+    };
 
     // Add a new question
     const addQuestion = (type: string = 'text', afterId?: string) => {
@@ -173,13 +358,201 @@ export function FormBuilder({ questions, onChange }: FormBuilderProps) {
     return (
         <div className="space-y-4">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h2 className="text-xl font-semibold text-slate-900">Registration Form</h2>
-                    <p className="text-sm text-slate-500">
-                        {questions.filter(q => q.itemType === 'question').length} questions, {' '}
-                        {questions.filter(q => q.itemType === 'section').length} sections
-                    </p>
+            <div className="flex flex-col gap-4 mb-6">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h2 className="text-xl font-semibold text-slate-900">Registration Form</h2>
+                        <p className="text-sm text-slate-500">
+                            {questions.filter(q => q.itemType === 'question').length} questions, {' '}
+                            {questions.filter(q => q.itemType === 'section').length} sections
+                        </p>
+                    </div>
+                </div>
+
+                {/* Google Forms Import Section */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-white rounded-lg shadow-sm">
+                            <FileSpreadsheet className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                            <h3 className="font-medium text-slate-900">Import from Google Forms</h3>
+                            <p className="text-xs text-slate-500">Paste a form URL or browse your Google Drive</p>
+                        </div>
+                    </div>
+
+                    {checkingAccess ? (
+                        <div className="flex items-center gap-2 text-sm text-slate-500">
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            Checking connection...
+                        </div>
+                    ) : !googleFormsConnected ? (
+                        <Button
+                            onClick={connectGoogleForms}
+                            variant="outline"
+                            className="bg-white hover:bg-blue-50 border-blue-200 text-blue-700"
+                        >
+                            <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
+                                <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                                <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                                <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                                <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                            </svg>
+                            Connect Google Account
+                        </Button>
+                    ) : (
+                        <div className="space-y-3">
+                            {/* Tab Buttons */}
+                            <div className="flex gap-1 p-1 bg-white/60 rounded-lg">
+                                <button
+                                    onClick={() => setImportMode('url')}
+                                    className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all ${importMode === 'url'
+                                            ? 'bg-white text-blue-700 shadow-sm'
+                                            : 'text-slate-600 hover:text-slate-900'
+                                        }`}
+                                >
+                                    <LinkIcon className="w-3.5 h-3.5 inline mr-1.5" />
+                                    Paste URL
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setImportMode('browse');
+                                        if (hasDriveAccess && googleForms.length === 0) {
+                                            fetchGoogleForms();
+                                        }
+                                    }}
+                                    className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all ${importMode === 'browse'
+                                            ? 'bg-white text-blue-700 shadow-sm'
+                                            : 'text-slate-600 hover:text-slate-900'
+                                        }`}
+                                >
+                                    <FileSpreadsheet className="w-3.5 h-3.5 inline mr-1.5" />
+                                    Browse Drive
+                                </button>
+                            </div>
+
+                            {/* URL Import Tab */}
+                            {importMode === 'url' && (
+                                <div className="space-y-2">
+                                    <div className="flex gap-2">
+                                        <Input
+                                            value={formUrl}
+                                            onChange={(e) => {
+                                                setFormUrl(e.target.value);
+                                                setUrlError('');
+                                            }}
+                                            placeholder="https://docs.google.com/forms/d/..."
+                                            className="flex-1 bg-white"
+                                        />
+                                        <Button
+                                            onClick={importFromUrl}
+                                            disabled={!formUrl || importing}
+                                            className="bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+                                        >
+                                            {importing ? (
+                                                <RefreshCw className="w-4 h-4 animate-spin" />
+                                            ) : (
+                                                <>
+                                                    <Download className="w-4 h-4 mr-1" />
+                                                    Import
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
+                                    {urlError && (
+                                        <p className="text-xs text-red-600">{urlError}</p>
+                                    )}
+                                    <p className="text-xs text-slate-500">
+                                        Paste the URL of any Google Form you have access to
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Browse Drive Tab */}
+                            {importMode === 'browse' && (
+                                <div className="space-y-2">
+                                    {!hasDriveAccess ? (
+                                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                            <p className="text-sm text-amber-800 mb-2">
+                                                Drive access needed to browse your forms
+                                            </p>
+                                            <Button
+                                                onClick={connectGoogleForms}
+                                                variant="outline"
+                                                size="sm"
+                                                className="bg-white border-amber-300 text-amber-700 hover:bg-amber-50"
+                                            >
+                                                Enable Drive Access
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className="flex items-center gap-2">
+                                                <Select
+                                                    value={selectedGoogleForm}
+                                                    onValueChange={setSelectedGoogleForm}
+                                                    disabled={loadingForms}
+                                                >
+                                                    <SelectTrigger className="flex-1 bg-white">
+                                                        <SelectValue placeholder={loadingForms ? "Loading forms..." : "Select a Google Form"} />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {googleForms.map((form) => (
+                                                            <SelectItem key={form.id} value={form.id}>
+                                                                {form.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                        {googleForms.length === 0 && !loadingForms && (
+                                                            <SelectItem value="none" disabled>No forms found</SelectItem>
+                                                        )}
+                                                    </SelectContent>
+                                                </Select>
+                                                <Button
+                                                    variant="outline"
+                                                    size="icon"
+                                                    onClick={fetchGoogleForms}
+                                                    disabled={loadingForms}
+                                                    className="shrink-0 bg-white"
+                                                >
+                                                    <RefreshCw className={`w-4 h-4 ${loadingForms ? 'animate-spin' : ''}`} />
+                                                </Button>
+                                            </div>
+                                            <Button
+                                                onClick={importGoogleForm}
+                                                disabled={!selectedGoogleForm || importing}
+                                                className="bg-blue-600 hover:bg-blue-700 text-white w-full"
+                                            >
+                                                {importing ? (
+                                                    <>
+                                                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                                                        Importing...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Download className="w-4 h-4 mr-2" />
+                                                        Import Selected Form
+                                                    </>
+                                                )}
+                                            </Button>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Disconnect Button */}
+                            <div className="pt-2 border-t border-blue-100">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={disconnectGoogleForms}
+                                    className="text-slate-500 hover:text-red-600 h-7 text-xs"
+                                >
+                                    <Unlink className="w-3 h-3 mr-1" />
+                                    Disconnect Google Account
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 

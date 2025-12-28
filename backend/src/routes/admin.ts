@@ -9,7 +9,12 @@ import {
     getAllUsers,
     updateUserRole,
     toggleUserStatus,
-    impersonateUser
+    impersonateUser,
+    getUserSessions,
+    getUserLoginHistory,
+    terminateSession,
+    terminateAllUserSessions,
+    getAllActiveSessions
 } from '../controllers/adminController';
 
 export const adminRouter = express.Router();
@@ -28,3 +33,9 @@ adminRouter.patch('/users/:userId/role', updateUserRole);
 adminRouter.patch('/users/:userId/status', toggleUserStatus);
 adminRouter.post('/users/:userId/impersonate', impersonateUser);
 
+// Session Management
+adminRouter.get('/sessions', getAllActiveSessions);                    // All active sessions
+adminRouter.get('/users/:userId/sessions', getUserSessions);           // Active sessions for user
+adminRouter.get('/users/:userId/login-history', getUserLoginHistory);  // Full login history
+adminRouter.delete('/sessions/:sessionId', terminateSession);          // Kill single session
+adminRouter.delete('/users/:userId/sessions', terminateAllUserSessions); // Kill all user sessions

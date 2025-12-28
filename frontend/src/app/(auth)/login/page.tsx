@@ -53,6 +53,16 @@ export default function LoginPage() {
         checkAuth();
     }, []);
 
+    // Check for session expired message
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('sessionExpired') === 'true') {
+            setError('Your session was terminated. Please log in again.');
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }, []);
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);

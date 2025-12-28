@@ -13,14 +13,31 @@ export const verifyToken = async (req: Request, res: Response, next: NextFunctio
     try {
         const decoded: any = jwt.verify(token, process.env.JWT_SECRET || 'test_secret');
 
-        // Check Session Validity if sessionId is present
-        if (decoded.sessionId) {
-            const session = await Session.findById(decoded.sessionId);
-            if (!session || !session.isValid) {
-                return res.status(401).json({ message: 'Unauthorized - Session Invalid or Expired' });
-            }
-            // Optional: Update lastActiveAt (debounced in real app)
-            // await Session.findByIdAndUpdate(decoded.sessionId, { lastActiveAt: new Date() });
+        // Session validation is REQUIRED
+        if (!decoded.sessionId) {
+            return res.status(401).json({ message: 'Unauthorized - Session required. Please log in again.' });
+        }
+
+        const session = await Session.findById(decoded.sessionId);
+
+        // Check if session exists and is valid
+        if (!session) {
+            return res.status(401).json({ message: 'Unauthorized - Session not found. Please log in again.' });
+        }
+
+        if (!session.isValid) {
+            return res.status(401).json({ message: 'Unauthorized - Session has been terminated.' });
+        }
+
+        // Check if session is expired
+        if (session.expiresAt < new Date()) {
+            return res.status(401).json({ message: 'Unauthorized - Session expired. Please log in again.' });
+        }
+
+        // Update lastActiveAt (throttled to every 5 minutes to reduce DB writes)
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        if (session.lastActiveAt < fiveMinutesAgo) {
+            await Session.findByIdAndUpdate(decoded.sessionId, { lastActiveAt: new Date() });
         }
 
         // @ts-ignore

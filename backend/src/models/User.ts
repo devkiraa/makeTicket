@@ -7,6 +7,13 @@ const UserSchema = new mongoose.Schema({
     password: { type: String, required: true }, // Added password field for Auth
     googleId: { type: String }, // For Google Auth
     googleAvatar: { type: String }, // Google profile picture URL (stored separately)
+    // Google API Tokens (for Forms API access)
+    googleTokens: {
+        accessToken: { type: String },
+        refreshToken: { type: String },
+        expiresAt: { type: Date },
+        scope: { type: String }
+    },
     role: { type: String, enum: ['admin', 'host', 'helper'], default: 'host' },
     status: { type: String, enum: ['active', 'suspended'], default: 'active' },
     suspensionReason: { type: String },
@@ -31,3 +38,4 @@ const UserSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 export const User = mongoose.model('User', UserSchema);
+

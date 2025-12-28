@@ -17,7 +17,9 @@ import {
     ChevronRight,
     RefreshCw,
     Download,
-    Mail
+    Mail,
+    Clock,
+    Monitor
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -337,6 +339,9 @@ export default function UserManagementPage() {
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => router.push(`mailto:${user.email}`)}>
                                                             <Mail className="mr-2 h-4 w-4" /> Send Email
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => router.push(`/dashboard/admin/sessions?userId=${user._id}`)}>
+                                                            <Monitor className="mr-2 h-4 w-4" /> View Sessions
                                                         </DropdownMenuItem>
                                                         <DropdownMenuSeparator />
                                                         {user.status === 'active' ? (
