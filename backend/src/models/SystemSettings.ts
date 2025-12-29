@@ -44,7 +44,20 @@ const SystemSettingsSchema = new mongoose.Schema({
     platformName: { type: String, default: 'MakeTicket' },
     supportEmail: { type: String },
     maintenanceMode: { type: Boolean, default: false },
-    registrationEnabled: { type: Boolean, default: true }
+    registrationEnabled: { type: Boolean, default: true },
+
+    // Log Backup Settings (Google Drive)
+    logBackup: {
+        enabled: { type: Boolean, default: false },
+        provider: { type: String, enum: ['google_drive', null], default: null },
+        email: { type: String },
+        accessToken: { type: String },
+        refreshToken: { type: String },
+        tokenExpiry: { type: Date },
+        folderId: { type: String },
+        lastBackup: { type: Date },
+        backupFrequency: { type: String, enum: ['hourly', 'daily', 'weekly'], default: 'daily' }
+    }
 
 }, { timestamps: true });
 

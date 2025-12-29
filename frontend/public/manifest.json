@@ -13,24 +13,9 @@
   "icons": [
     {
       "src": "/logo.png",
-      "sizes": "192x192",
+      "sizes": "any",
       "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/logo.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "/og-image.png",
-      "sizes": "1200x630",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "MakeTicket Dashboard"
+      "purpose": "any"
     }
   ],
   "shortcuts": [
@@ -38,22 +23,19 @@
       "name": "Create Event",
       "short_name": "Create",
       "description": "Create a new event",
-      "url": "/dashboard/events/create",
-      "icons": [{ "src": "/logo.png", "sizes": "96x96" }]
+      "url": "/dashboard/events/create"
     },
     {
       "name": "My Events",
       "short_name": "Events",
       "description": "View your events",
-      "url": "/dashboard/events",
-      "icons": [{ "src": "/logo.png", "sizes": "96x96" }]
+      "url": "/dashboard/events"
     },
     {
       "name": "Scan Tickets",
       "short_name": "Scan",
       "description": "Scan tickets at check-in",
-      "url": "/coordinator/scan",
-      "icons": [{ "src": "/logo.png", "sizes": "96x96" }]
+      "url": "/coordinator/scan"
     }
   ],
   "related_applications": [],

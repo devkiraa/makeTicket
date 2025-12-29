@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { google } from 'googleapis';
+import { SendMailClient } from 'zeptomail';
 import { EmailAccount } from '../models/EmailAccount';
 import { EmailTemplate } from '../models/EmailTemplate';
 import { EmailLog } from '../models/EmailLog';
@@ -223,6 +224,11 @@ export const sendTestEmail = async (req: Request, res: Response) => {
             return res.status(404).json({ message: 'Account not found' });
         }
 
+        // Route to appropriate provider
+        if (account.provider === 'zeptomail') {
+            return sendZeptoMailTestEmail(req, res);
+        }
+
         if (!account.accessToken) {
             return res.status(400).json({ message: 'Account not properly connected' });
         }
@@ -377,6 +383,191 @@ export const sendTestEmail = async (req: Request, res: Response) => {
             });
         }
 
+        res.status(500).json({
+            message: 'Failed to send test email',
+            error: error.message
+        });
+    }
+};
+
+// ==================== ZEPTOMAIL ====================
+
+// Create ZeptoMail account
+export const createZeptoMailAccount = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const userId = req.user.id;
+        const { email, name, token, bounceAddress } = req.body;
+        const mongoose = require('mongoose');
+        const userObjectId = new mongoose.Types.ObjectId(userId);
+
+        if (!email || !token) {
+            return res.status(400).json({ message: 'Email and API token are required' });
+        }
+
+        // Check if account already exists
+        const existingAccount = await EmailAccount.findOne({ userId: userObjectId, email });
+        if (existingAccount) {
+            return res.status(400).json({ message: 'An account with this email already exists' });
+        }
+
+        // Create new ZeptoMail account
+        const account = await EmailAccount.create({
+            userId: userObjectId,
+            email,
+            name: name || email.split('@')[0],
+            provider: 'zeptomail',
+            zeptoMailToken: token,
+            zeptoBounceAddress: bounceAddress || null,
+            isVerified: true, // Verified via DNS
+            isActive: false
+        });
+
+        res.status(201).json({
+            message: 'ZeptoMail account added successfully',
+            account: {
+                _id: account._id,
+                email: account.email,
+                name: account.name,
+                provider: account.provider,
+                isActive: account.isActive,
+                isVerified: account.isVerified
+            }
+        });
+    } catch (error: any) {
+        console.error('Create ZeptoMail account error:', error);
+        if (error.code === 11000) {
+            return res.status(400).json({ message: 'An account with this email already exists' });
+        }
+        res.status(500).json({ message: 'Failed to create ZeptoMail account' });
+    }
+};
+
+// Send test email via ZeptoMail
+export const sendZeptoMailTestEmail = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const userId = req.user.id;
+        const { accountId } = req.params;
+        const mongoose = require('mongoose');
+        const userObjectId = new mongoose.Types.ObjectId(userId);
+
+        // Get the email account
+        const account = await EmailAccount.findOne({ _id: accountId, userId: userObjectId });
+        if (!account) {
+            return res.status(404).json({ message: 'Account not found' });
+        }
+
+        if (account.provider !== 'zeptomail' || !account.zeptoMailToken) {
+            return res.status(400).json({ message: 'Invalid ZeptoMail account configuration' });
+        }
+
+        const fromName = account.name || 'MakeTicket';
+        const fromEmail = account.email;
+
+        // Create test email HTML
+        const testEmailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f1f5f9;">
+    <table width="100%" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="100%" style="max-width: 520px; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.1);">
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); padding: 48px 40px; text-align: center;">
+                            <div style="width: 72px; height: 72px; background: rgba(255,255,255,0.2); border-radius: 50%; margin: 0 auto 20px; line-height: 72px;">
+                                <span style="font-size: 36px;">✉️</span>
+                            </div>
+                            <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700;">ZeptoMail Connected!</h1>
+                            <p style="color: rgba(255,255,255,0.9); margin: 12px 0 0; font-size: 16px;">Your transactional email is ready</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 40px;">
+                            <div style="background: linear-gradient(135deg, #dcfce7 0%, #d1fae5 100%); border: 1px solid #86efac; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 28px;">
+                                <p style="margin: 0; color: #166534; font-weight: 600;">ZeptoMail integration is working!</p>
+                            </div>
+                            <table width="100%" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td style="background: #f8fafc; border-radius: 10px; padding: 16px 20px;">
+                                        <p style="margin: 0 0 4px; color: #64748b; font-size: 12px; text-transform: uppercase;">Sender</p>
+                                        <p style="margin: 0; color: #1e293b; font-size: 15px; font-weight: 600;">${fromEmail}</p>
+                                    </td>
+                                </tr>
+                                <tr><td style="height: 12px;"></td></tr>
+                                <tr>
+                                    <td style="background: #f8fafc; border-radius: 10px; padding: 16px 20px;">
+                                        <p style="margin: 0 0 4px; color: #64748b; font-size: 12px; text-transform: uppercase;">Provider</p>
+                                        <p style="margin: 0; color: #1e293b; font-size: 15px; font-weight: 600;">ZeptoMail by Zoho</p>
+                                    </td>
+                                </tr>
+                            </table>
+                            <p style="text-align: center; margin-top: 28px; color: #64748b; font-size: 14px;">
+                                Your event confirmation emails will now be sent via ZeptoMail with high deliverability.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 20px 40px 30px; text-align: center; border-top: 1px solid #f1f5f9;">
+                            <p style="margin: 0; color: #94a3b8; font-size: 13px;">Powered by MakeTicket</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>`;
+
+        const subject = '✅ ZeptoMail Test - Connection Verified!';
+
+        // Send via ZeptoMail SDK
+        const zeptoUrl = 'https://api.zeptomail.in/v1.1/email';
+        const client = new SendMailClient({ url: zeptoUrl, token: account.zeptoMailToken! });
+
+        await client.sendMail({
+            from: {
+                address: fromEmail,
+                name: fromName
+            },
+            to: [{
+                email_address: {
+                    address: fromEmail, // Send to self for test
+                    name: fromName
+                }
+            }],
+            subject: subject,
+            htmlbody: testEmailHtml
+        });
+
+        // Update stats
+        account.emailsSent = (account.emailsSent || 0) + 1;
+        account.lastUsed = new Date();
+        await account.save();
+
+        // Log the email
+        await EmailLog.create({
+            userId,
+            type: 'test',
+            fromEmail: fromEmail,
+            toEmail: fromEmail,
+            toName: fromName,
+            subject,
+            status: 'sent',
+            sentAt: new Date()
+        });
+
+        res.json({
+            message: 'Test email sent successfully via ZeptoMail!',
+            sentTo: fromEmail
+        });
+    } catch (error: any) {
+        console.error('ZeptoMail test email error:', error);
         res.status(500).json({
             message: 'Failed to send test email',
             error: error.message

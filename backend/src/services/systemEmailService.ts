@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import { SendMailClient } from 'zeptomail';
 import { SystemSettings } from '../models/SystemSettings';
 import { EmailAccount } from '../models/EmailAccount';
 import { EmailLog } from '../models/EmailLog';
@@ -266,52 +267,97 @@ export const sendSystemEmail = async (
             emailContent = systemTemplates[type](templateData);
         }
 
-        // Set up Gmail OAuth
-        const oauth2Client = new google.auth.OAuth2(
-            process.env.GOOGLE_EMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID,
-            process.env.GOOGLE_EMAIL_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET,
-            `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/email/gmail/callback`
-        );
-
-        oauth2Client.setCredentials({
-            access_token: emailAccount.accessToken,
-            refresh_token: emailAccount.refreshToken
-        });
-
-        // Refresh token if needed
-        try {
-            const { credentials } = await oauth2Client.refreshAccessToken();
-            if (credentials.access_token && credentials.access_token !== emailAccount.accessToken) {
-                emailAccount.accessToken = credentials.access_token;
-                await emailAccount.save();
-            }
-        } catch (refreshError) {
-            console.log('Token refresh not needed or failed');
-        }
-
-        const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-
-        // Build email
         const fromName = settings.systemEmail.fromName || platformName;
         const fromEmail = settings.systemEmail.fromEmail || emailAccount.email;
-        const fromHeader = `${fromName} <${fromEmail}>`;
+        let emailSent = false;
+        let usedProvider: 'zeptomail' | 'gmail' | 'system' = 'system';
+        let zeptoRequestId: string | undefined;
 
-        // Encode subject for proper UTF-8 support
-        const encodedSubject = `=?UTF-8?B?${Buffer.from(emailContent.subject).toString('base64')}?=`;
+        // Try ZeptoMail first (via env config or if provider is zeptomail)
+        if (process.env.ZEPTOMAIL_TOKEN) {
+            try {
+                const zeptoUrl = process.env.ZEPTOMAIL_URL || 'https://api.zeptomail.in/v1.1/email';
+                const client = new SendMailClient({ url: zeptoUrl, token: process.env.ZEPTOMAIL_TOKEN });
 
-        const rawEmail = Buffer.from(
-            `From: ${fromHeader}\r\n` +
-            `To: ${recipientEmail}\r\n` +
-            `Subject: ${encodedSubject}\r\n` +
-            `MIME-Version: 1.0\r\n` +
-            `Content-Type: text/html; charset=utf-8\r\n\r\n` +
-            emailContent.html
-        ).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+                await client.sendMail({
+                    from: {
+                        address: process.env.ZEPTOMAIL_FROM_EMAIL || fromEmail,
+                        name: process.env.ZEPTOMAIL_FROM_NAME || fromName
+                    },
+                    to: [{
+                        email_address: {
+                            address: recipientEmail,
+                            name: data.userName || recipientEmail.split('@')[0]
+                        }
+                    }],
+                    subject: emailContent.subject,
+                    htmlbody: emailContent.html
+                });
 
-        await gmail.users.messages.send({
-            userId: 'me',
-            requestBody: { raw: rawEmail }
-        });
+                emailSent = true;
+                usedProvider = 'zeptomail';
+                console.log(`✅ System email (${type}) sent via ZeptoMail to ${recipientEmail}`);
+            } catch (zeptoError: any) {
+                console.error('ZeptoMail send failed:', zeptoError.message);
+                // Fall through to Gmail
+            }
+        }
+
+        // Fallback to Gmail OAuth if ZeptoMail failed or not configured
+        if (!emailSent && emailAccount.provider === 'gmail' && emailAccount.accessToken) {
+            // Set up Gmail OAuth
+            const oauth2Client = new google.auth.OAuth2(
+                process.env.GOOGLE_EMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID,
+                process.env.GOOGLE_EMAIL_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET,
+                `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/email/gmail/callback`
+            );
+
+            oauth2Client.setCredentials({
+                access_token: emailAccount.accessToken,
+                refresh_token: emailAccount.refreshToken
+            });
+
+            // Refresh token if needed
+            try {
+                const { credentials } = await oauth2Client.refreshAccessToken();
+                if (credentials.access_token && credentials.access_token !== emailAccount.accessToken) {
+                    emailAccount.accessToken = credentials.access_token;
+                    await emailAccount.save();
+                }
+            } catch (refreshError) {
+                console.log('Token refresh not needed or failed');
+            }
+
+            const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+
+            // Build email
+            const fromHeader = `${fromName} <${fromEmail}>`;
+
+            // Encode subject for proper UTF-8 support
+            const encodedSubject = `=?UTF-8?B?${Buffer.from(emailContent.subject).toString('base64')}?=`;
+
+            const rawEmail = Buffer.from(
+                `From: ${fromHeader}\r\n` +
+                `To: ${recipientEmail}\r\n` +
+                `Subject: ${encodedSubject}\r\n` +
+                `MIME-Version: 1.0\r\n` +
+                `Content-Type: text/html; charset=utf-8\r\n\r\n` +
+                emailContent.html
+            ).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+            await gmail.users.messages.send({
+                userId: 'me',
+                requestBody: { raw: rawEmail }
+            });
+
+            emailSent = true;
+            usedProvider = 'gmail';
+            console.log(`✅ System email (${type}) sent via Gmail to ${recipientEmail}`);
+        }
+
+        if (!emailSent) {
+            throw new Error('No email provider configured or all providers failed');
+        }
 
         // Update account stats
         emailAccount.emailsSent = (emailAccount.emailsSent || 0) + 1;
@@ -326,10 +372,11 @@ export const sendSystemEmail = async (
             toEmail: recipientEmail,
             subject: emailContent.subject,
             status: 'sent',
+            provider: usedProvider,
+            zeptoRequestId: zeptoRequestId,
             sentAt: new Date()
         });
 
-        console.log(`✅ System email (${type}) sent to ${recipientEmail}`);
         return true;
 
     } catch (error: any) {

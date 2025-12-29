@@ -36,6 +36,17 @@ const EmailLogSchema = new mongoose.Schema({
     },
     errorMessage: { type: String },
 
+    // Provider tracking
+    provider: {
+        type: String,
+        enum: ['gmail', 'zeptomail', 'smtp', 'system'],
+        default: 'gmail'
+    },
+
+    // ZeptoMail specific
+    zeptoRequestId: { type: String },
+    zeptoMessageId: { type: String },
+
     // Metadata
     eventTitle: { type: String },
     ticketCode: { type: String },

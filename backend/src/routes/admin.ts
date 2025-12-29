@@ -6,6 +6,13 @@ import {
     runSystemHealthCheck,
     getServerLogs,
     clearServerLogs,
+    streamLogs,
+    downloadLogs,
+    getLogsDriveAuthUrl,
+    logsDriveCallback,
+    triggerLogBackup,
+    getLogBackupStatus,
+    disconnectLogsDrive,
     getAllUsers,
     updateUserRole,
     toggleUserStatus,
@@ -19,21 +26,38 @@ import {
     updateSystemSettings,
     testSystemEmail,
     getSystemEmailAuthUrl,
-    systemEmailCallback
+    systemEmailCallback,
+    getEmailStats,
+    getZeptoMailCredits,
+    sendZeptoMailTestEmail
 } from '../controllers/adminController';
 
 export const adminRouter = express.Router();
 
-// OAuth callback - no auth required (user is redirected from Google)
+// Routes that don't go through standard middleware (OAuth callbacks, SSE)
 adminRouter.get('/system-email/callback', systemEmailCallback);
+adminRouter.get('/logs/drive/callback', logsDriveCallback);
+
+// SSE stream - handles its own auth to avoid JSON error responses
+adminRouter.get('/logs/stream', streamLogs);
 
 // All other admin routes require Login AND Admin Role
 adminRouter.use(verifyToken, verifyAdmin);
 
 adminRouter.get('/stats', getSystemStats);
 adminRouter.get('/health', runSystemHealthCheck);
+
+// Log Management
 adminRouter.get('/logs', getServerLogs);
+adminRouter.get('/logs/stream', streamLogs);
+adminRouter.get('/logs/download', downloadLogs);
 adminRouter.delete('/logs', clearServerLogs);
+
+// Log Backup (Google Drive)
+adminRouter.get('/logs/drive/auth-url', getLogsDriveAuthUrl);
+adminRouter.post('/logs/backup', triggerLogBackup);
+adminRouter.get('/logs/backup/status', getLogBackupStatus);
+adminRouter.delete('/logs/drive', disconnectLogsDrive);
 
 // User Management
 adminRouter.get('/users', getAllUsers);
@@ -53,3 +77,8 @@ adminRouter.get('/settings', getSystemSettings);
 adminRouter.patch('/settings', updateSystemSettings);
 adminRouter.post('/settings/test-email', testSystemEmail);
 adminRouter.get('/system-email/auth-url', getSystemEmailAuthUrl);      // Get Gmail OAuth URL
+
+// Email Statistics
+adminRouter.get('/email/stats', getEmailStats);
+adminRouter.get('/email/zeptomail/credits', getZeptoMailCredits);
+adminRouter.post('/email/zeptomail/test', sendZeptoMailTestEmail);

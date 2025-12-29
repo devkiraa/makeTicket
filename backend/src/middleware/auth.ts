@@ -4,7 +4,10 @@ import jwt from 'jsonwebtoken';
 import { Session } from '../models/Session';
 
 export const verifyToken = async (req: Request, res: Response, next: NextFunction) => {
-    const token = req.cookies.auth_token || req.headers.authorization?.split(' ')[1];
+    // Support token from: cookies, Authorization header, or query param (for SSE)
+    const token = req.cookies.auth_token || 
+                  req.headers.authorization?.split(' ')[1] ||
+                  req.query.token as string;
 
     if (!token) {
         return res.status(401).json({ message: 'Unauthorized - No Token' });

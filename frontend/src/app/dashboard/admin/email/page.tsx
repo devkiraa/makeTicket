@@ -35,7 +35,14 @@ import {
     Bell,
     ShieldAlert,
     LogIn,
-    Eye
+    Eye,
+    TrendingUp,
+    BarChart3,
+    Zap,
+    Clock,
+    CheckCircle2,
+    XCircle,
+    Activity
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -71,6 +78,62 @@ interface EmailAccount {
     userId?: { name: string; email: string };
 }
 
+interface EmailStats {
+    overview: {
+        total: number;
+        today: number;
+        thisWeek: number;
+        thisMonth: number;
+    };
+    byProvider: Record<string, number>;
+    byStatus: Record<string, number>;
+    byType: { _id: string; count: number }[];
+    recentEmails: {
+        _id: string;
+        toEmail: string;
+        subject: string;
+        type: string;
+        status: string;
+        provider: string;
+        createdAt: string;
+    }[];
+    last7Days: {
+        _id: string;
+        sent: number;
+        failed: number;
+        total: number;
+    }[];
+    zeptomail: {
+        configured: boolean;
+        fromEmail: string | null;
+        fromName: string | null;
+        stats: {
+            total: number;
+            sent: number;
+            failed: number;
+            today: number;
+        };
+    };
+    gmail: {
+        stats: {
+            total: number;
+            sent: number;
+            failed: number;
+            today: number;
+        };
+    };
+}
+
+interface ZeptoMailCredits {
+    configured: boolean;
+    fromEmail?: string;
+    fromName?: string;
+    mailAgents?: any;
+    stats?: any;
+    message?: string;
+    error?: string;
+}
+
 export default function SystemEmailSettingsPage() {
     const router = useRouter();
     const { toast } = useToast();
@@ -80,10 +143,17 @@ export default function SystemEmailSettingsPage() {
     const [testEmail, setTestEmail] = useState('');
     const [connecting, setConnecting] = useState(false);
     const [previewTemplate, setPreviewTemplate] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState<'settings' | 'stats'>('settings');
 
     const [settings, setSettings] = useState<SystemSettings | null>(null);
     const [emailAccountInfo, setEmailAccountInfo] = useState<EmailAccount | null>(null);
     const [availableAccounts, setAvailableAccounts] = useState<EmailAccount[]>([]);
+    const [emailStats, setEmailStats] = useState<EmailStats | null>(null);
+    const [loadingStats, setLoadingStats] = useState(false);
+    const [zeptoCredits, setZeptoCredits] = useState<ZeptoMailCredits | null>(null);
+    const [loadingCredits, setLoadingCredits] = useState(false);
+    const [zeptoTestEmail, setZeptoTestEmail] = useState('');
+    const [testingZepto, setTestingZepto] = useState(false);
 
     const fetchSettings = async () => {
         setLoading(true);
@@ -102,6 +172,40 @@ export default function SystemEmailSettingsPage() {
             toast({ title: 'Error', description: 'Failed to load settings', variant: 'destructive' });
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchEmailStats = async () => {
+        setLoadingStats(true);
+        const token = localStorage.getItem('auth_token');
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/admin/email/stats`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setEmailStats(data);
+            }
+        } catch (error) {
+            console.error('Failed to load email stats:', error);
+        } finally {
+            setLoadingStats(false);
+        }
+    };
+
+    const fetchZeptoCredits = async () => {
+        setLoadingCredits(true);
+        const token = localStorage.getItem('auth_token');
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/admin/email/zeptomail/credits`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await res.json();
+            setZeptoCredits(data);
+        } catch (error) {
+            console.error('Failed to load ZeptoMail credits:', error);
+        } finally {
+            setLoadingCredits(false);
         }
     };
 
@@ -135,6 +239,8 @@ export default function SystemEmailSettingsPage() {
         }
 
         fetchSettings();
+        fetchEmailStats();
+        fetchZeptoCredits();
     }, []);
 
     const connectGmail = async () => {
@@ -208,6 +314,44 @@ export default function SystemEmailSettingsPage() {
             toast({ title: 'Error', description: 'Failed to send test email', variant: 'destructive' });
         } finally {
             setTesting(false);
+        }
+    };
+
+    const handleZeptoMailTest = async () => {
+        if (!zeptoTestEmail) {
+            toast({ title: 'Error', description: 'Please enter an email address', variant: 'destructive' });
+            return;
+        }
+        setTestingZepto(true);
+        const token = localStorage.getItem('auth_token');
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/admin/email/zeptomail/test`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ recipientEmail: zeptoTestEmail })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                toast({ 
+                    title: '⚡ ZeptoMail Test Sent!', 
+                    description: `Check ${zeptoTestEmail} for the test email` 
+                });
+                // Refresh stats after sending
+                fetchEmailStats();
+            } else {
+                toast({ 
+                    title: 'ZeptoMail Error', 
+                    description: data.message || data.error || 'Failed to send test email', 
+                    variant: 'destructive' 
+                });
+            }
+        } catch (error) {
+            toast({ title: 'Error', description: 'Failed to send ZeptoMail test', variant: 'destructive' });
+        } finally {
+            setTestingZepto(false);
         }
     };
 
@@ -381,8 +525,8 @@ export default function SystemEmailSettingsPage() {
                     <p className="text-slate-500">Configure emails for account actions, notifications, and more.</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" onClick={fetchSettings}>
-                        <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                    <Button variant="outline" onClick={() => { fetchSettings(); fetchEmailStats(); fetchZeptoCredits(); }}>
+                        <RefreshCw className={`h-4 w-4 mr-2 ${loading || loadingStats || loadingCredits ? 'animate-spin' : ''}`} />
                         Refresh
                     </Button>
                     <Button onClick={handleSave} disabled={saving}>
@@ -392,6 +536,383 @@ export default function SystemEmailSettingsPage() {
                 </div>
             </div>
 
+            {/* Tab Switcher */}
+            <div className="flex gap-2 p-1 bg-slate-100 rounded-lg w-fit">
+                <button
+                    onClick={() => setActiveTab('settings')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                        activeTab === 'settings' 
+                            ? 'bg-white text-slate-900 shadow-sm' 
+                            : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                >
+                    <Settings className="h-4 w-4 inline mr-2" />
+                    Settings
+                </button>
+                <button
+                    onClick={() => setActiveTab('stats')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                        activeTab === 'stats' 
+                            ? 'bg-white text-slate-900 shadow-sm' 
+                            : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                >
+                    <BarChart3 className="h-4 w-4 inline mr-2" />
+                    Statistics
+                </button>
+            </div>
+
+            {activeTab === 'stats' ? (
+                /* Email Statistics Tab */
+                <div className="space-y-6">
+                    {/* ZeptoMail Account Status */}
+                    {emailStats?.zeptomail?.configured ? (
+                        <div className="bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl p-5">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-12 w-12 bg-white/20 rounded-full flex items-center justify-center">
+                                        <Zap className="h-6 w-6" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-lg">ZeptoMail Active</h3>
+                                        <p className="text-orange-100 text-sm">
+                                            Sending from {emailStats.zeptomail.fromEmail}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-6">
+                                    <div className="text-center">
+                                        <p className="text-3xl font-bold">{emailStats.zeptomail.stats.total}</p>
+                                        <p className="text-orange-100 text-sm">Total Sent</p>
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-3xl font-bold">{emailStats.zeptomail.stats.today}</p>
+                                        <p className="text-orange-100 text-sm">Today</p>
+                                    </div>
+                                    <a 
+                                        href="https://zeptomail.zoho.in/zem/" 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                                    >
+                                        View Dashboard →
+                                    </a>
+                                </div>
+                            </div>
+                            {/* Mail Agent Info */}
+                            {zeptoCredits?.mailAgents && (
+                                <div className="mt-4 pt-4 border-t border-white/20">
+                                    <div className="flex flex-wrap gap-4 text-sm">
+                                        {Array.isArray(zeptoCredits.mailAgents) && zeptoCredits.mailAgents.map((agent: any, idx: number) => (
+                                            <div key={idx} className="bg-white/10 px-3 py-2 rounded-lg">
+                                                <p className="font-medium">{agent.mailagent_name || agent.name || 'Mail Agent'}</p>
+                                                <p className="text-orange-100 text-xs">
+                                                    {agent.email_address || agent.from_email || 'No email configured'}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-xl p-5">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-12 w-12 bg-white/20 rounded-full flex items-center justify-center">
+                                        <AlertCircle className="h-6 w-6" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-lg">ZeptoMail Not Configured</h3>
+                                        <p className="text-slate-200 text-sm">
+                                            Add ZEPTOMAIL_TOKEN to your .env file to enable high-deliverability emails
+                                        </p>
+                                    </div>
+                                </div>
+                                <a 
+                                    href="https://zeptomail.zoho.in/zem/" 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                                >
+                                    Get Started →
+                                </a>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ZeptoMail Test Email */}
+                    {emailStats?.zeptomail?.configured && (
+                        <Card className="border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50">
+                            <CardHeader className="pb-3">
+                                <CardTitle className="flex items-center gap-2 text-orange-700">
+                                    <Zap className="h-5 w-5" />
+                                    Test ZeptoMail
+                                </CardTitle>
+                                <CardDescription>
+                                    Send a test email to verify your ZeptoMail configuration is working correctly
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="flex flex-col sm:flex-row gap-3">
+                                    <Input
+                                        type="email"
+                                        placeholder="Enter recipient email address..."
+                                        value={zeptoTestEmail}
+                                        onChange={(e) => setZeptoTestEmail(e.target.value)}
+                                        className="flex-1 border-orange-200 focus-visible:ring-orange-500"
+                                    />
+                                    <Button 
+                                        onClick={handleZeptoMailTest}
+                                        disabled={testingZepto || !zeptoTestEmail}
+                                        className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white"
+                                    >
+                                        {testingZepto ? (
+                                            <>
+                                                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                                Sending...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Send className="h-4 w-4 mr-2" />
+                                                Send Test Email
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+                                <p className="text-xs text-slate-500 mt-3">
+                                    📧 This will send a test email from <span className="font-medium">{emailStats.zeptomail.fromEmail}</span> via ZeptoMail
+                                </p>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {/* Overview Stats */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <Card className="border-slate-200">
+                            <CardContent className="p-5">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                                        <Mail className="h-5 w-5 text-indigo-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-bold text-slate-900">{emailStats?.overview.total || 0}</p>
+                                        <p className="text-sm text-slate-500">Total Sent</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card className="border-slate-200">
+                            <CardContent className="p-5">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 bg-emerald-100 rounded-lg flex items-center justify-center">
+                                        <Clock className="h-5 w-5 text-emerald-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-bold text-slate-900">{emailStats?.overview.today || 0}</p>
+                                        <p className="text-sm text-slate-500">Today</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card className="border-slate-200">
+                            <CardContent className="p-5">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                        <TrendingUp className="h-5 w-5 text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-bold text-slate-900">{emailStats?.overview.thisWeek || 0}</p>
+                                        <p className="text-sm text-slate-500">This Week</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card className="border-slate-200">
+                            <CardContent className="p-5">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                        <BarChart3 className="h-5 w-5 text-purple-600" />
+                                    </div>
+                                    <div>
+                                        <p className="text-2xl font-bold text-slate-900">{emailStats?.overview.thisMonth || 0}</p>
+                                        <p className="text-sm text-slate-500">This Month</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Provider Comparison */}
+                    <div className="grid gap-6 lg:grid-cols-2">
+                        {/* ZeptoMail Stats */}
+                        <Card className="border-orange-200 bg-orange-50/50">
+                            <CardHeader className="pb-3">
+                                <CardTitle className="flex items-center justify-between text-orange-700">
+                                    <span className="flex items-center gap-2">
+                                        <Zap className="h-5 w-5" />
+                                        ZeptoMail
+                                    </span>
+                                    <a 
+                                        href="https://zeptomail.zoho.in/zem/" 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-xs bg-orange-100 hover:bg-orange-200 px-2 py-1 rounded transition-colors"
+                                    >
+                                        Check Credits →
+                                    </a>
+                                </CardTitle>
+                                <CardDescription>Primary transactional email provider (System emails)</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-white rounded-lg p-4 border border-orange-100">
+                                        <p className="text-3xl font-bold text-orange-600">{emailStats?.zeptomail?.stats.sent || 0}</p>
+                                        <p className="text-sm text-slate-500 flex items-center gap-1">
+                                            <CheckCircle2 className="h-3 w-3 text-green-500" /> Delivered
+                                        </p>
+                                    </div>
+                                    <div className="bg-white rounded-lg p-4 border border-orange-100">
+                                        <p className="text-3xl font-bold text-red-600">{emailStats?.zeptomail?.stats.failed || 0}</p>
+                                        <p className="text-sm text-slate-500 flex items-center gap-1">
+                                            <XCircle className="h-3 w-3 text-red-500" /> Failed
+                                        </p>
+                                    </div>
+                                    <div className="bg-white rounded-lg p-4 border border-orange-100 col-span-2">
+                                        <p className="text-xl font-bold text-slate-900">{emailStats?.zeptomail?.stats.today || 0}</p>
+                                        <p className="text-sm text-slate-500">Emails Today</p>
+                                    </div>
+                                </div>
+                                {emailStats?.zeptomail?.configured && (
+                                    <div className="mt-4 p-3 bg-white rounded-lg border border-orange-100">
+                                        <p className="text-xs text-slate-500">Sender Address</p>
+                                        <p className="font-medium text-slate-900">{emailStats.zeptomail.fromName} &lt;{emailStats.zeptomail.fromEmail}&gt;</p>
+                                    </div>
+                                )}
+                                <p className="text-xs text-slate-400 mt-3 text-center">
+                                    💡 Credit balance available in ZeptoMail Dashboard
+                                </p>
+                            </CardContent>
+                        </Card>
+
+                        {/* Gmail Stats */}
+                        <Card className="border-blue-200 bg-blue-50/50">
+                            <CardHeader className="pb-3">
+                                <CardTitle className="flex items-center gap-2 text-blue-700">
+                                    <svg className="h-5 w-5" viewBox="0 0 24 24">
+                                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                                    </svg>
+                                    Gmail (Fallback)
+                                </CardTitle>
+                                <CardDescription>OAuth-based email provider (User ticket emails)</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-white rounded-lg p-4 border border-blue-100">
+                                        <p className="text-3xl font-bold text-blue-600">{emailStats?.gmail?.stats.sent || 0}</p>
+                                        <p className="text-sm text-slate-500 flex items-center gap-1">
+                                            <CheckCircle2 className="h-3 w-3 text-green-500" /> Delivered
+                                        </p>
+                                    </div>
+                                    <div className="bg-white rounded-lg p-4 border border-blue-100">
+                                        <p className="text-3xl font-bold text-red-600">{emailStats?.gmail?.stats.failed || 0}</p>
+                                        <p className="text-sm text-slate-500 flex items-center gap-1">
+                                            <XCircle className="h-3 w-3 text-red-500" /> Failed
+                                        </p>
+                                    </div>
+                                    <div className="bg-white rounded-lg p-4 border border-blue-100 col-span-2">
+                                        <p className="text-xl font-bold text-slate-900">{emailStats?.gmail?.stats.today || 0}</p>
+                                        <p className="text-sm text-slate-500">Emails Today</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* By Status */}
+                    <Card className="border-slate-200">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Activity className="h-5 w-5 text-indigo-600" />
+                                Delivery Status
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex flex-wrap gap-4">
+                                <div className="flex items-center gap-2 bg-emerald-50 px-4 py-2 rounded-full">
+                                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                                    <span className="font-medium text-emerald-700">{emailStats?.byStatus?.sent || 0} Sent</span>
+                                </div>
+                                <div className="flex items-center gap-2 bg-red-50 px-4 py-2 rounded-full">
+                                    <XCircle className="h-4 w-4 text-red-600" />
+                                    <span className="font-medium text-red-700">{emailStats?.byStatus?.failed || 0} Failed</span>
+                                </div>
+                                <div className="flex items-center gap-2 bg-amber-50 px-4 py-2 rounded-full">
+                                    <Clock className="h-4 w-4 text-amber-600" />
+                                    <span className="font-medium text-amber-700">{emailStats?.byStatus?.pending || 0} Pending</span>
+                                </div>
+                                <div className="flex items-center gap-2 bg-slate-100 px-4 py-2 rounded-full">
+                                    <AlertCircle className="h-4 w-4 text-slate-600" />
+                                    <span className="font-medium text-slate-700">{emailStats?.byStatus?.bounced || 0} Bounced</span>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Recent Emails */}
+                    <Card className="border-slate-200">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Mail className="h-5 w-5 text-indigo-600" />
+                                Recent Emails
+                            </CardTitle>
+                            <CardDescription>Latest email activity</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {emailStats?.recentEmails && emailStats.recentEmails.length > 0 ? (
+                                <div className="space-y-2">
+                                    {emailStats.recentEmails.map((email) => (
+                                        <div key={email._id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                <div className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                                    email.status === 'sent' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'
+                                                }`}>
+                                                    {email.status === 'sent' ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="font-medium text-slate-900 truncate">{email.toEmail}</p>
+                                                    <p className="text-sm text-slate-500 truncate">{email.subject}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                                <span className={`text-xs px-2 py-1 rounded-full ${
+                                                    email.provider === 'zeptomail' 
+                                                        ? 'bg-orange-100 text-orange-700' 
+                                                        : 'bg-blue-100 text-blue-700'
+                                                }`}>
+                                                    {email.provider === 'zeptomail' ? 'ZeptoMail' : 'Gmail'}
+                                                </span>
+                                                <span className="text-xs text-slate-400">
+                                                    {new Date(email.createdAt).toLocaleDateString()}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-8 text-slate-500">
+                                    <Mail className="h-12 w-12 mx-auto text-slate-300 mb-3" />
+                                    <p>No emails sent yet</p>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+            ) : (
+            /* Settings Tab */
             <div className="grid gap-6 lg:grid-cols-2">
                 {/* Email Account Configuration */}
                 <Card className="border-slate-200">
@@ -648,6 +1169,7 @@ export default function SystemEmailSettingsPage() {
                     </CardContent>
                 </Card>
             </div>
+            )}
 
             {/* Template Preview Modal */}
             <Dialog open={!!previewTemplate} onOpenChange={(open: boolean) => !open && setPreviewTemplate(null)}>

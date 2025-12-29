@@ -83,6 +83,7 @@ import {
     updateEmailAccount,
     deleteEmailAccount,
     sendTestEmail,
+    createZeptoMailAccount,
     createEmailTemplate,
     getEmailTemplates,
     getEmailTemplate,
@@ -102,6 +103,9 @@ apiRouter.patch('/email/accounts/:accountId/activate', verifyToken, setActiveEma
 apiRouter.patch('/email/accounts/:accountId', verifyToken, updateEmailAccount); // Update custom from address
 apiRouter.post('/email/accounts/:accountId/test', verifyToken, sendTestEmail);
 apiRouter.delete('/email/accounts/:accountId', verifyToken, deleteEmailAccount);
+
+// ZeptoMail
+apiRouter.post('/email/zeptomail', verifyToken, createZeptoMailAccount);
 
 // Email Templates
 apiRouter.post('/email/templates', verifyToken, createEmailTemplate);

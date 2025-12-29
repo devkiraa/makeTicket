@@ -2,18 +2,22 @@ import mongoose from 'mongoose';
 
 const EmailAccountSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    email: { type: String, required: true }, // Gmail address
+    email: { type: String, required: true }, // Email address (Gmail or ZeptoMail)
     name: { type: String }, // Display name for the account
-    provider: { type: String, enum: ['gmail', 'smtp'], default: 'gmail' },
+    provider: { type: String, enum: ['gmail', 'smtp', 'zeptomail'], default: 'gmail' },
 
-    // Custom domain "Send As" (optional)
+    // Custom domain "Send As" (optional - for Gmail aliases)
     customFromEmail: { type: String }, // e.g., hello@yourdomain.com
     customFromName: { type: String },  // e.g., "MakeTicket Events"
 
-    // OAuth tokens (encrypted in production)
+    // OAuth tokens (Gmail)
     accessToken: { type: String },
     refreshToken: { type: String },
     tokenExpiry: { type: Date },
+
+    // ZeptoMail configuration
+    zeptoMailToken: { type: String }, // Send Mail Token from ZeptoMail
+    zeptoBounceAddress: { type: String }, // Bounce address for tracking
 
     // Status
     isActive: { type: Boolean, default: false }, // Only one can be active per user

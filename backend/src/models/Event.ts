@@ -59,6 +59,9 @@ const EventSchema = new mongoose.Schema({
     // Google Sheets Integration
     googleSheetId: { type: String },
     googleSheetUrl: { type: String },
+
+    // Form Header/Banner Image
+    formHeaderImage: { type: String }, // Base64 or URL for form banner
 }, { timestamps: true });
 
 EventSchema.index({ hostId: 1, slug: 1 }, { unique: true });

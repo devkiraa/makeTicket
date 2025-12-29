@@ -2,6 +2,7 @@ import { Worker } from 'bullmq';
 import mongoose from 'mongoose';
 import { google } from 'googleapis';
 import nodemailer from 'nodemailer';
+import { SendMailClient } from 'zeptomail';
 import { User } from '../models/User';
 import { EmailAccount } from '../models/EmailAccount';
 import { EmailTemplate } from '../models/EmailTemplate';
@@ -183,19 +184,64 @@ const emailWorker = new Worker('email-queue', async (job) => {
                 emailSubject = `🎉 Your ticket for ${placeholderData.event_title}`;
             }
 
-            // Try to send via Gmail OAuth first
             // Convert to ObjectId for consistent querying
             const hostObjectId = new (require('mongoose').Types.ObjectId)(eventHostId);
+            
+            // First check for any active email account (Gmail or ZeptoMail)
             const emailAccount = await EmailAccount.findOne({
                 userId: hostObjectId,
-                isActive: true,
-                provider: 'gmail'
+                isActive: true
             });
 
             let emailSent = false;
             let fromEmail = '';
+            let usedProvider: 'gmail' | 'zeptomail' | 'smtp' | 'system' = 'system';
 
-            if (emailAccount) {
+            // For ticket emails, use only the user's connected email account
+            // System ZeptoMail is reserved for platform emails (welcome, password reset, etc.)
+
+            // Try user's ZeptoMail account if configured
+            if (!emailSent && emailAccount && emailAccount.provider === 'zeptomail' && (emailAccount as any).zeptoMailToken) {
+                try {
+                    const zeptoUrl = 'https://api.zeptomail.in/v1.1/email';
+                    const client = new SendMailClient({ url: zeptoUrl, token: (emailAccount as any).zeptoMailToken });
+
+                    const senderName = emailAccount.name || 'MakeTicket';
+                    const senderEmail = emailAccount.email;
+
+                    await client.sendMail({
+                        from: {
+                            address: senderEmail,
+                            name: senderName
+                        },
+                        to: [{
+                            email_address: {
+                                address: recipientEmail,
+                                name: ticketData.guestName || 'Guest'
+                            }
+                        }],
+                        subject: emailSubject,
+                        htmlbody: emailHtml
+                    });
+
+                    fromEmail = senderEmail;
+                    emailSent = true;
+
+                    // Update email account stats
+                    emailAccount.emailsSent = (emailAccount.emailsSent || 0) + 1;
+                    emailAccount.lastUsed = new Date();
+                    await emailAccount.save();
+
+                    usedProvider = 'zeptomail';
+                    console.log(`Email sent via ZeptoMail (user) to ${recipientEmail}`);
+                } catch (zeptoError) {
+                    console.error('ZeptoMail (user) send failed:', zeptoError);
+                    // Will try Gmail or SMTP fallback
+                }
+            }
+
+            // Try Gmail OAuth if ZeptoMail not used or failed
+            if (!emailSent && emailAccount && emailAccount.provider === 'gmail' && emailAccount.accessToken) {
                 // Send via Gmail OAuth
                 try {
                     const oauth2Client = new google.auth.OAuth2(
@@ -263,6 +309,7 @@ const emailWorker = new Worker('email-queue', async (job) => {
                     emailAccount.lastUsed = new Date();
                     await emailAccount.save();
 
+                    usedProvider = 'gmail';
                     console.log(`Email sent via Gmail to ${recipientEmail}`);
                 } catch (gmailError) {
                     console.error('Gmail send failed:', gmailError);
@@ -295,6 +342,7 @@ const emailWorker = new Worker('email-queue', async (job) => {
 
                     fromEmail = decryptedUser;
                     emailSent = true;
+                    usedProvider = 'smtp';
                     console.log(`Email sent via SMTP to ${recipientEmail}`);
                 } catch (smtpError) {
                     console.error('SMTP send failed:', smtpError);
@@ -307,21 +355,22 @@ const emailWorker = new Worker('email-queue', async (job) => {
                 eventId: eventDetails._id || eventDetails.id,
                 ticketId: ticketData._id,
                 type: 'registration',
-                fromEmail: fromEmail || 'system@maketicket.app',
+                fromEmail: fromEmail || 'not_sent',
                 toEmail: recipientEmail,
                 toName: ticketData.guestName,
                 subject: emailSubject,
                 templateId: event?.emailTemplateId,
                 templateName: templateName,
                 status: emailSent ? 'sent' : 'failed',
-                errorMessage: emailSent ? undefined : 'No email provider configured or all providers failed',
+                provider: usedProvider,
+                errorMessage: emailSent ? undefined : 'Host has no email account connected. Please connect Gmail or ZeptoMail in Email Settings.',
                 eventTitle: eventDetails.title,
                 ticketCode: ticketCode,
                 sentAt: new Date()
             });
 
             if (!emailSent) {
-                console.warn(`No email provider available for host ${eventHostId}`);
+                console.warn(`⚠️ Ticket email NOT sent - Host ${eventHostId} has no email account connected. Guest: ${recipientEmail}`);
             }
         }
 

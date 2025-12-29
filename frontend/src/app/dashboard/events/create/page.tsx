@@ -48,6 +48,9 @@ function CreateEventContent() {
         { id: 'q1', itemType: 'question', type: 'text', label: 'Full Name', required: true, placeholder: 'John Doe' },
         { id: 'q2', itemType: 'question', type: 'email', label: 'Email Address', required: true, placeholder: 'john@example.com' }
     ]);
+    
+    // Form Header Image
+    const [formHeaderImage, setFormHeaderImage] = useState<string | null>(null);
 
     // Email Templates
     const [emailTemplates, setEmailTemplates] = useState<Array<{ _id: string; name: string; subject: string; type: string }>>([]);
@@ -220,7 +223,8 @@ function CreateEventContent() {
                             attachTicket: draft.attachTicket !== false
                         });
                         if (draft.formSchema) setQuestions(draft.formSchema);
-                        lastSavedData.current = JSON.stringify({ ...draft, formSchema: draft.formSchema });
+                        if (draft.formHeaderImage) setFormHeaderImage(draft.formHeaderImage);
+                        lastSavedData.current = JSON.stringify({ ...draft, formSchema: draft.formSchema, formHeaderImage: draft.formHeaderImage });
                         // Set edit mode if this is an active event (not a draft)
                         if (draft.status === 'active') {
                             setIsEditMode(true);
@@ -264,6 +268,7 @@ function CreateEventContent() {
                 ticketTemplateId: formData.ticketTemplateId || null,
                 attachTicket: formData.attachTicket,
                 formSchema: questions,
+                formHeaderImage: formHeaderImage,
                 status: 'draft'
             };
 
@@ -397,6 +402,7 @@ function CreateEventContent() {
                 ticketTemplateId: formData.ticketTemplateId || null,
                 attachTicket: formData.attachTicket,
                 formSchema: questions,
+                formHeaderImage: formHeaderImage,
                 status: 'active' // Publish
             };
 
@@ -747,6 +753,8 @@ function CreateEventContent() {
                     questions={questions}
                     onChange={setQuestions}
                     draftId={draftId}
+                    headerImage={formHeaderImage || undefined}
+                    onHeaderImageChange={setFormHeaderImage}
                 />
             )}
 

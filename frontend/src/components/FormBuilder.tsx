@@ -38,7 +38,7 @@ import {
     Settings,
     Upload
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
     Select,
     SelectContent,
@@ -90,6 +90,8 @@ interface FormBuilderProps {
     questions: FormItem[];
     onChange: (questions: FormItem[]) => void;
     draftId?: string | null;
+    headerImage?: string;
+    onHeaderImageChange?: (image: string | null) => void;
 }
 
 // All field types like Google Forms
@@ -108,7 +110,7 @@ const FIELD_TYPES = [
     { value: 'file', label: 'File upload', icon: Upload },
 ];
 
-export function FormBuilder({ questions, onChange, draftId }: FormBuilderProps) {
+export function FormBuilder({ questions, onChange, draftId, headerImage, onHeaderImageChange }: FormBuilderProps) {
     const [activeItem, setActiveItem] = useState<string | null>(null);
 
     // Google Forms state
@@ -119,6 +121,9 @@ export function FormBuilder({ questions, onChange, draftId }: FormBuilderProps) 
     const [loadingForms, setLoadingForms] = useState(false);
     const [importing, setImporting] = useState(false);
     const [checkingAccess, setCheckingAccess] = useState(true);
+    
+    // Header image upload
+    const headerImageInputRef = useRef<HTMLInputElement>(null);
 
     // URL-based import
     const [importMode, setImportMode] = useState<'url' | 'browse'>('url');
@@ -235,18 +240,11 @@ export function FormBuilder({ questions, onChange, draftId }: FormBuilderProps) 
             );
             if (res.ok) {
                 const data = await res.json();
-                let importedQuestions = data.questions;
+                const importedQuestions = data.questions;
 
-                // Add banner image as first section if present
-                if (data.bannerImage) {
-                    const bannerSection: FormItem = {
-                        id: `banner-${Date.now()}`,
-                        itemType: 'section',
-                        label: '',
-                        hasImage: true,
-                        imageUrl: data.bannerImage
-                    };
-                    importedQuestions = [bannerSection, ...importedQuestions];
+                // Set header image separately if present
+                if (data.bannerImage && onHeaderImageChange) {
+                    onHeaderImageChange(data.bannerImage);
                 }
 
                 onChange(importedQuestions);
@@ -285,18 +283,11 @@ export function FormBuilder({ questions, onChange, draftId }: FormBuilderProps) 
             );
             if (res.ok) {
                 const data = await res.json();
-                let importedQuestions = data.questions;
+                const importedQuestions = data.questions;
 
-                // Add banner image as first section if present
-                if (data.bannerImage) {
-                    const bannerSection: FormItem = {
-                        id: `banner-${Date.now()}`,
-                        itemType: 'section',
-                        label: '',
-                        hasImage: true,
-                        imageUrl: data.bannerImage
-                    };
-                    importedQuestions = [bannerSection, ...importedQuestions];
+                // Set header image separately if present
+                if (data.bannerImage && onHeaderImageChange) {
+                    onHeaderImageChange(data.bannerImage);
                 }
 
                 onChange(importedQuestions);
@@ -311,6 +302,44 @@ export function FormBuilder({ questions, onChange, draftId }: FormBuilderProps) 
         } finally {
             setImporting(false);
         }
+    };
+
+    // Handle header image upload
+    const handleHeaderImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !onHeaderImageChange) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = document.createElement('img');
+            img.onload = () => {
+                // Resize if needed
+                const MAX_WIDTH = 1200;
+                const MAX_HEIGHT = 400;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > MAX_WIDTH) {
+                    height = Math.round(height * (MAX_WIDTH / width));
+                    width = MAX_WIDTH;
+                }
+                if (height > MAX_HEIGHT) {
+                    width = Math.round(width * (MAX_HEIGHT / height));
+                    height = MAX_HEIGHT;
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx?.drawImage(img, 0, 0, width, height);
+                
+                const resizedImage = canvas.toDataURL('image/jpeg', 0.8);
+                onHeaderImageChange(resizedImage);
+            };
+            img.src = event.target?.result as string;
+        };
+        reader.readAsDataURL(file);
     };
 
     // Add a new question
@@ -431,6 +460,69 @@ export function FormBuilder({ questions, onChange, draftId }: FormBuilderProps) 
                         </p>
                     </div>
                 </div>
+
+                {/* Form Header Image Section */}
+                {onHeaderImageChange && (
+                    <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-100 rounded-xl p-4">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="p-2 bg-white rounded-lg shadow-sm">
+                                <Image className="w-5 h-5 text-purple-600" />
+                            </div>
+                            <div>
+                                <h3 className="font-medium text-slate-900">Form Header Image</h3>
+                                <p className="text-xs text-slate-500">Add a banner image at the top of your registration form</p>
+                            </div>
+                        </div>
+
+                        {headerImage ? (
+                            <div className="space-y-3">
+                                <div className="relative rounded-lg overflow-hidden border border-purple-200">
+                                    <img 
+                                        src={headerImage} 
+                                        alt="Form header" 
+                                        className="w-full h-32 object-cover"
+                                    />
+                                    <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
+                                        <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            onClick={() => headerImageInputRef.current?.click()}
+                                            className="mr-2"
+                                        >
+                                            Change
+                                        </Button>
+                                        <Button
+                                            variant="destructive"
+                                            size="sm"
+                                            onClick={() => onHeaderImageChange(null)}
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <Button
+                                variant="outline"
+                                onClick={() => headerImageInputRef.current?.click()}
+                                className="w-full h-24 border-dashed border-2 border-purple-200 bg-white/50 hover:bg-white hover:border-purple-400 transition-all"
+                            >
+                                <div className="flex flex-col items-center gap-2 text-purple-600">
+                                    <Upload className="w-6 h-6" />
+                                    <span className="text-sm font-medium">Upload Header Image</span>
+                                    <span className="text-xs text-slate-400">Recommended: 1200 x 400px</span>
+                                </div>
+                            </Button>
+                        )}
+                        <input
+                            ref={headerImageInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleHeaderImageUpload}
+                            className="hidden"
+                        />
+                    </div>
+                )}
 
                 {/* Google Forms Import Section */}
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4">

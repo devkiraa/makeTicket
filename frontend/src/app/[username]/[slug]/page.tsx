@@ -985,6 +985,17 @@ export default function PublicEventPage() {
                                 <span className="text-sm font-medium">Back</span>
                             </div>
 
+                            {/* Form Header Image - Show only on first page */}
+                            {currentSectionPage === 0 && event.formHeaderImage && (
+                                <div className="rounded-xl overflow-hidden shadow-sm border border-gray-200">
+                                    <img 
+                                        src={event.formHeaderImage} 
+                                        alt={event.title}
+                                        className="w-full h-40 object-cover"
+                                    />
+                                </div>
+                            )}
+
                             <div className="space-y-2">
                                 <h2 className="text-3xl font-bold text-[#303030]">Complete Registration</h2>
                                 <p className="text-gray-500 text-lg">

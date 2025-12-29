@@ -4,6 +4,20 @@ import { Event } from '../models/Event';
 import { Ticket } from '../models/Ticket';
 import fs from 'fs';
 import path from 'path';
+import {
+    getLogsFromFile,
+    getAvailableLogFiles,
+    searchLogs,
+    clearLogs,
+    registerSSEClient,
+    unregisterSSEClient,
+    getBufferedLogs,
+    getDriveAuthUrl,
+    handleDriveCallback,
+    uploadLogsToDrive,
+    getBackupStatus,
+    disconnectDrive
+} from '../services/logService';
 
 // Get System Overview Stats
 export const getSystemStats = async (req: Request, res: Response) => {
@@ -201,39 +215,236 @@ export const impersonateUser = async (req: Request, res: Response) => {
 
 export const getServerLogs = async (req: Request, res: Response) => {
     try {
-        const logsDir = path.join(process.cwd(), 'logs');
         const requestedFile = (req.query.file as string) || 'access.log';
-        const logPath = path.join(logsDir, requestedFile);
+        const search = req.query.search as string;
+        const lines = parseInt(req.query.lines as string) || 100;
 
-        // Get list of all log files
-        let availableFiles: string[] = [];
-        if (fs.existsSync(logsDir)) {
-            availableFiles = fs.readdirSync(logsDir).filter(f => f.endsWith('.log'));
-        }
+        // Get available files
+        const availableFiles = getAvailableLogFiles();
 
-        if (!fs.existsSync(logPath)) {
-            return res.json({ logs: [], availableFiles });
-        }
+        // Get logs - search if query provided, otherwise get recent
+        const logs = search 
+            ? searchLogs(search, requestedFile)
+            : getLogsFromFile(requestedFile, lines);
 
-        const data = fs.readFileSync(logPath, 'utf8');
-        // Split by newline and take last 100
-        const logs = data.split('\n').filter(Boolean).reverse().slice(0, 100);
+        // Get backup status
+        const backupStatus = await getBackupStatus();
 
-        res.json({ logs, availableFiles, currentFile: requestedFile });
+        res.json({ 
+            logs, 
+            availableFiles, 
+            currentFile: requestedFile,
+            backupStatus,
+            totalBuffered: getBufferedLogs().length
+        });
     } catch (error) {
         console.error('Fetch logs error:', error);
         res.status(500).json({ message: 'Failed to fetch logs' });
     }
 };
 
+// Real-time logs via SSE (handles its own auth)
+export const streamLogs = async (req: Request, res: Response) => {
+    // Manual auth check for SSE (can't use middleware as it returns JSON on failure)
+    const token = req.query.token as string;
+    
+    if (!token) {
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.write(`data: ${JSON.stringify({ type: 'error', message: 'Unauthorized - No token' })}\n\n`);
+        return res.end();
+    }
+
+    try {
+        const decoded: any = jwt.verify(token, process.env.JWT_SECRET || 'test_secret');
+        
+        // Check if admin
+        if (decoded.role !== 'admin') {
+            res.setHeader('Content-Type', 'text/event-stream');
+            res.write(`data: ${JSON.stringify({ type: 'error', message: 'Unauthorized - Admin only' })}\n\n`);
+            return res.end();
+        }
+
+        const clientId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        // Set SSE headers
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.setHeader('X-Accel-Buffering', 'no'); // For nginx
+
+        // Send initial connection message
+        res.write(`data: ${JSON.stringify({ type: 'connected', clientId })}\n\n`);
+
+        // Send buffered logs
+        const bufferedLogs = getBufferedLogs();
+        if (bufferedLogs.length > 0) {
+            res.write(`data: ${JSON.stringify({ type: 'history', data: bufferedLogs.slice(0, 50) })}\n\n`);
+        }
+
+        // Register client for real-time updates
+        registerSSEClient(clientId, res);
+
+        // Handle client disconnect
+        req.on('close', () => {
+            unregisterSSEClient(clientId);
+        });
+
+        // Keep connection alive with heartbeat
+        const heartbeat = setInterval(() => {
+            res.write(`data: ${JSON.stringify({ type: 'heartbeat', timestamp: Date.now() })}\n\n`);
+        }, 30000);
+
+        req.on('close', () => {
+            clearInterval(heartbeat);
+        });
+    } catch (error: any) {
+        console.error('Stream logs auth error:', error.message);
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.write(`data: ${JSON.stringify({ type: 'error', message: 'Invalid token' })}\n\n`);
+        return res.end();
+    }
+};
+
 export const clearServerLogs = async (req: Request, res: Response) => {
     try {
-        const logPath = path.join(process.cwd(), 'logs/access.log');
-        fs.writeFileSync(logPath, ''); // Clear file
-        res.json({ message: 'Logs cleared successfully' });
+        const filename = (req.query.file as string) || 'access.log';
+        const success = clearLogs(filename);
+        
+        if (success) {
+            // Audit log
+            await AuditLog.create({
+                // @ts-ignore
+                adminId: req.user.id,
+                action: 'CLEAR_LOGS',
+                details: { filename },
+                ipAddress: req.ip,
+                userAgent: req.headers['user-agent']
+            });
+            res.json({ message: 'Logs cleared successfully' });
+        } else {
+            res.status(500).json({ message: 'Failed to clear logs' });
+        }
     } catch (error) {
         console.error('Clear logs error:', error);
         res.status(500).json({ message: 'Failed to clear logs' });
+    }
+};
+
+// Download log file
+export const downloadLogs = async (req: Request, res: Response) => {
+    try {
+        const filename = (req.query.file as string) || 'access.log';
+        const logsDir = path.join(process.cwd(), 'logs');
+        const logPath = path.join(logsDir, filename);
+
+        if (!fs.existsSync(logPath)) {
+            return res.status(404).json({ message: 'Log file not found' });
+        }
+
+        res.download(logPath, filename);
+    } catch (error) {
+        console.error('Download logs error:', error);
+        res.status(500).json({ message: 'Failed to download logs' });
+    }
+};
+
+// ==================== GOOGLE DRIVE LOG BACKUP ====================
+
+// Get Drive auth URL
+export const getLogsDriveAuthUrl = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const adminId = req.user?.id;
+        
+        if (!adminId) {
+            return res.status(401).json({ message: 'Not authenticated' });
+        }
+
+        const url = getDriveAuthUrl(adminId);
+        res.json({ url });
+    } catch (error) {
+        console.error('Drive auth URL error:', error);
+        res.status(500).json({ message: 'Failed to generate auth URL' });
+    }
+};
+
+// Drive OAuth callback
+export const logsDriveCallback = async (req: Request, res: Response) => {
+    try {
+        const { code, state } = req.query;
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+        const adminId = (state as string)?.replace('drive_logs_', '');
+
+        if (!code || !adminId) {
+            return res.redirect(`${frontendUrl}/dashboard/admin/logs?error=invalid_callback`);
+        }
+
+        const result = await handleDriveCallback(code as string, adminId);
+        
+        res.redirect(`${frontendUrl}/dashboard/admin/logs?drive_connected=true&email=${encodeURIComponent(result.email || '')}`);
+    } catch (error) {
+        console.error('Drive callback error:', error);
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        res.redirect(`${frontendUrl}/dashboard/admin/logs?error=callback_failed`);
+    }
+};
+
+// Manually trigger backup
+export const triggerLogBackup = async (req: Request, res: Response) => {
+    try {
+        const result = await uploadLogsToDrive();
+        
+        if (result.success) {
+            // Audit log
+            await AuditLog.create({
+                // @ts-ignore
+                adminId: req.user.id,
+                action: 'MANUAL_LOG_BACKUP',
+                details: { fileId: result.fileId },
+                ipAddress: req.ip,
+                userAgent: req.headers['user-agent']
+            });
+            res.json({ message: 'Backup completed successfully', fileId: result.fileId });
+        } else {
+            res.status(500).json({ message: result.error || 'Backup failed' });
+        }
+    } catch (error: any) {
+        console.error('Trigger backup error:', error);
+        res.status(500).json({ message: error.message || 'Failed to trigger backup' });
+    }
+};
+
+// Get backup status
+export const getLogBackupStatus = async (req: Request, res: Response) => {
+    try {
+        const status = await getBackupStatus();
+        res.json(status);
+    } catch (error) {
+        console.error('Get backup status error:', error);
+        res.status(500).json({ message: 'Failed to get backup status' });
+    }
+};
+
+// Disconnect Drive
+export const disconnectLogsDrive = async (req: Request, res: Response) => {
+    try {
+        await disconnectDrive();
+        
+        // Audit log
+        await AuditLog.create({
+            // @ts-ignore
+            adminId: req.user.id,
+            action: 'DISCONNECT_DRIVE_BACKUP',
+            details: {},
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent']
+        });
+
+        res.json({ message: 'Google Drive disconnected successfully' });
+    } catch (error) {
+        console.error('Disconnect Drive error:', error);
+        res.status(500).json({ message: 'Failed to disconnect Drive' });
     }
 };
 
@@ -616,5 +827,323 @@ export const systemEmailCallback = async (req: Request, res: Response) => {
         console.error('System email callback error:', error);
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
         res.redirect(`${frontendUrl}/dashboard/admin/email?error=callback_failed`);
+    }
+};
+
+// Get email statistics
+import { EmailLog } from '../models/EmailLog';
+
+export const getEmailStats = async (req: Request, res: Response) => {
+    try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const thisWeek = new Date();
+        thisWeek.setDate(thisWeek.getDate() - 7);
+        
+        const thisMonth = new Date();
+        thisMonth.setDate(1);
+        thisMonth.setHours(0, 0, 0, 0);
+
+        // Total emails
+        const totalEmails = await EmailLog.countDocuments();
+        
+        // Today's emails
+        const todayEmails = await EmailLog.countDocuments({ createdAt: { $gte: today } });
+        
+        // This week's emails
+        const weekEmails = await EmailLog.countDocuments({ createdAt: { $gte: thisWeek } });
+        
+        // This month's emails
+        const monthEmails = await EmailLog.countDocuments({ createdAt: { $gte: thisMonth } });
+
+        // By provider
+        const byProvider = await EmailLog.aggregate([
+            { $group: { _id: '$provider', count: { $sum: 1 } } }
+        ]);
+
+        // By status
+        const byStatus = await EmailLog.aggregate([
+            { $group: { _id: '$status', count: { $sum: 1 } } }
+        ]);
+
+        // By type
+        const byType = await EmailLog.aggregate([
+            { $group: { _id: '$type', count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+            { $limit: 10 }
+        ]);
+
+        // Recent emails (last 10)
+        const recentEmails = await EmailLog.find()
+            .sort({ createdAt: -1 })
+            .limit(10)
+            .select('toEmail subject type status provider createdAt');
+
+        // Daily stats for last 7 days
+        const last7Days = await EmailLog.aggregate([
+            { $match: { createdAt: { $gte: thisWeek } } },
+            {
+                $group: {
+                    _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+                    sent: { $sum: { $cond: [{ $eq: ['$status', 'sent'] }, 1, 0] } },
+                    failed: { $sum: { $cond: [{ $eq: ['$status', 'failed'] }, 1, 0] } },
+                    total: { $sum: 1 }
+                }
+            },
+            { $sort: { _id: 1 } }
+        ]);
+
+        // ZeptoMail specific stats
+        const zeptoStats = {
+            total: await EmailLog.countDocuments({ provider: 'zeptomail' }),
+            sent: await EmailLog.countDocuments({ provider: 'zeptomail', status: 'sent' }),
+            failed: await EmailLog.countDocuments({ provider: 'zeptomail', status: 'failed' }),
+            today: await EmailLog.countDocuments({ provider: 'zeptomail', createdAt: { $gte: today } })
+        };
+
+        // Gmail stats
+        const gmailStats = {
+            total: await EmailLog.countDocuments({ provider: 'gmail' }),
+            sent: await EmailLog.countDocuments({ provider: 'gmail', status: 'sent' }),
+            failed: await EmailLog.countDocuments({ provider: 'gmail', status: 'failed' }),
+            today: await EmailLog.countDocuments({ provider: 'gmail', createdAt: { $gte: today } })
+        };
+
+        // Check ZeptoMail configuration
+        const zeptoConfigured = !!(process.env.ZEPTOMAIL_TOKEN && process.env.ZEPTOMAIL_FROM_EMAIL);
+
+        res.json({
+            overview: {
+                total: totalEmails,
+                today: todayEmails,
+                thisWeek: weekEmails,
+                thisMonth: monthEmails
+            },
+            byProvider: byProvider.reduce((acc, item) => {
+                acc[item._id || 'unknown'] = item.count;
+                return acc;
+            }, {} as Record<string, number>),
+            byStatus: byStatus.reduce((acc, item) => {
+                acc[item._id || 'unknown'] = item.count;
+                return acc;
+            }, {} as Record<string, number>),
+            byType,
+            recentEmails,
+            last7Days,
+            zeptomail: {
+                configured: zeptoConfigured,
+                fromEmail: process.env.ZEPTOMAIL_FROM_EMAIL || null,
+                fromName: process.env.ZEPTOMAIL_FROM_NAME || null,
+                stats: zeptoStats
+            },
+            gmail: {
+                stats: gmailStats
+            }
+        });
+    } catch (error) {
+        console.error('Get email stats error:', error);
+        res.status(500).json({ message: 'Failed to fetch email statistics' });
+    }
+};
+
+// Get ZeptoMail account credits and usage
+export const getZeptoMailCredits = async (req: Request, res: Response) => {
+    try {
+        const zeptoToken = process.env.ZEPTOMAIL_TOKEN;
+        
+        if (!zeptoToken) {
+            return res.status(400).json({ 
+                configured: false,
+                message: 'ZeptoMail is not configured' 
+            });
+        }
+
+        // ZeptoMail API to get account credit details
+        // Using the Mail Agent API to check credits
+        const response = await fetch('https://api.zeptomail.in/v1.1/mailagents', {
+            method: 'GET',
+            headers: {
+                'Authorization': zeptoToken,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('ZeptoMail API error:', errorText);
+            return res.status(response.status).json({ 
+                configured: true,
+                message: 'Failed to fetch ZeptoMail credits',
+                error: errorText
+            });
+        }
+
+        const data = await response.json();
+
+        // Also get email statistics from ZeptoMail
+        const statsResponse = await fetch('https://api.zeptomail.in/v1.1/reports/stats', {
+            method: 'GET',
+            headers: {
+                'Authorization': zeptoToken,
+                'Accept': 'application/json'
+            }
+        });
+
+        let statsData = null;
+        if (statsResponse.ok) {
+            statsData = await statsResponse.json();
+        }
+
+        res.json({
+            configured: true,
+            fromEmail: process.env.ZEPTOMAIL_FROM_EMAIL,
+            fromName: process.env.ZEPTOMAIL_FROM_NAME,
+            mailAgents: data.data || data,
+            stats: statsData,
+            // Note: ZeptoMail credit balance requires account-level API access
+            // Credits are typically shown in the ZeptoMail dashboard
+        });
+    } catch (error: any) {
+        console.error('Get ZeptoMail credits error:', error);
+        res.status(500).json({ 
+            configured: !!process.env.ZEPTOMAIL_TOKEN,
+            message: 'Failed to fetch ZeptoMail information',
+            error: error.message 
+        });
+    }
+};
+
+// Send test email via ZeptoMail
+import { SendMailClient } from 'zeptomail';
+
+export const sendZeptoMailTestEmail = async (req: Request, res: Response) => {
+    try {
+        const { recipientEmail, recipientName } = req.body;
+
+        if (!recipientEmail) {
+            return res.status(400).json({ message: 'Recipient email is required' });
+        }
+
+        const zeptoToken = process.env.ZEPTOMAIL_TOKEN;
+        if (!zeptoToken) {
+            return res.status(400).json({ 
+                message: 'ZeptoMail is not configured. Add ZEPTOMAIL_TOKEN to your .env file.' 
+            });
+        }
+
+        const zeptoUrl = process.env.ZEPTOMAIL_URL || 'https://api.zeptomail.in/v1.1/email';
+        const fromEmail = process.env.ZEPTOMAIL_FROM_EMAIL || 'hello@maketicket.app';
+        const fromName = process.env.ZEPTOMAIL_FROM_NAME || 'MakeTicket';
+
+        const client = new SendMailClient({ url: zeptoUrl, token: zeptoToken });
+
+        const testEmailHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 20px; margin: 0; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: white; padding: 40px 30px; text-align: center; }
+        .header h1 { margin: 0; font-size: 28px; }
+        .content { padding: 30px; color: #333; }
+        .success-box { background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center; }
+        .success-icon { font-size: 48px; margin-bottom: 10px; }
+        .footer { padding: 20px 30px; background: #f8fafc; text-align: center; color: #64748b; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ ZeptoMail Test Email</h1>
+        </div>
+        <div class="content">
+            <p>Hi <strong>${recipientName || 'there'}</strong>,</p>
+            <p>This is a test email sent via <strong>ZeptoMail</strong> from your MakeTicket platform.</p>
+            
+            <div class="success-box">
+                <div class="success-icon">✅</div>
+                <h3 style="margin: 0; color: #16a34a;">ZeptoMail is working!</h3>
+                <p style="margin: 10px 0 0 0; color: #64748b;">Your transactional email service is configured correctly.</p>
+            </div>
+            
+            <p><strong>Configuration Details:</strong></p>
+            <ul style="color: #64748b;">
+                <li>From: ${fromName} &lt;${fromEmail}&gt;</li>
+                <li>Provider: ZeptoMail by Zoho</li>
+                <li>Sent at: ${new Date().toLocaleString()}</li>
+            </ul>
+            
+            <p style="color: #64748b; font-size: 14px; margin-top: 20px;">
+                This email confirms that your ZeptoMail integration is working properly for sending system emails like welcome messages, password resets, and notifications.
+            </p>
+        </div>
+        <div class="footer">
+            <p>Sent via ZeptoMail • MakeTicket Platform</p>
+        </div>
+    </div>
+</body>
+</html>`;
+
+        await client.sendMail({
+            from: {
+                address: fromEmail,
+                name: fromName
+            },
+            to: [{
+                email_address: {
+                    address: recipientEmail,
+                    name: recipientName || recipientEmail.split('@')[0]
+                }
+            }],
+            subject: '⚡ ZeptoMail Test - MakeTicket',
+            htmlbody: testEmailHtml
+        });
+
+        // Log the test email
+        await EmailLog.create({
+            userId: null,
+            type: 'test',
+            fromEmail: fromEmail,
+            toEmail: recipientEmail,
+            toName: recipientName,
+            subject: '⚡ ZeptoMail Test - MakeTicket',
+            status: 'sent',
+            provider: 'zeptomail',
+            sentAt: new Date()
+        });
+
+        res.json({ 
+            success: true,
+            message: `Test email sent successfully to ${recipientEmail}`,
+            provider: 'zeptomail',
+            from: `${fromName} <${fromEmail}>`
+        });
+
+    } catch (error: any) {
+        console.error('ZeptoMail test email error:', error);
+        
+        // Log failed email
+        try {
+            await EmailLog.create({
+                userId: null,
+                type: 'test',
+                fromEmail: process.env.ZEPTOMAIL_FROM_EMAIL || 'unknown',
+                toEmail: req.body.recipientEmail || 'unknown',
+                subject: '⚡ ZeptoMail Test - MakeTicket',
+                status: 'failed',
+                provider: 'zeptomail',
+                errorMessage: error.message
+            });
+        } catch (logError) {
+            console.error('Failed to log error:', logError);
+        }
+
+        res.status(500).json({ 
+            success: false,
+            message: 'Failed to send test email',
+            error: error.message 
+        });
     }
 };
