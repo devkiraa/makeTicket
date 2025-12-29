@@ -1,6 +1,15 @@
 import StaticPageLayout from '@/components/StaticPageLayout';
 import { ExternalLink, Heart, Github } from 'lucide-react';
 import Link from 'next/link';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+    title: 'Open Source Licenses | MakeTicket',
+    description: 'MakeTicket is built on open source. View the licenses for the libraries and frameworks we use.',
+    alternates: {
+        canonical: 'https://maketicket.app/licenses',
+    },
+};
 
 export default function LicensesPage() {
     const licenses = [

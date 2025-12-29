@@ -1,4 +1,27 @@
 import StaticPageLayout from '@/components/StaticPageLayout';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+    title: 'Integrations - Connect Your Tools | MakeTicket',
+    description: 'Connect MakeTicket with Google Calendar, Zapier, Stripe, Slack, Mailchimp, and more. Automate your event workflow with powerful integrations.',
+    keywords: [
+        'ticketing integrations',
+        'event zapier',
+        'ticket stripe integration',
+        'google calendar events',
+        'event automation',
+        'ticket software integrations'
+    ],
+    openGraph: {
+        title: 'MakeTicket Integrations - Connect Your Tools',
+        description: 'Integrate with Google Calendar, Zapier, Stripe, Slack, and more.',
+        url: 'https://maketicket.app/integrations',
+        type: 'website',
+    },
+    alternates: {
+        canonical: 'https://maketicket.app/integrations',
+    },
+};
 
 export default function IntegrationsPage() {
     const integrations = [

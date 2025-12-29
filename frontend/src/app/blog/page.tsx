@@ -1,6 +1,29 @@
 import StaticPageLayout from '@/components/StaticPageLayout';
 import Link from 'next/link';
 import { Calendar } from 'lucide-react';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+    title: 'Blog - Event Ticketing Tips & Guides | MakeTicket',
+    description: 'Event ticketing tips, best practices, and industry insights. Learn how to create better events, boost attendance, and streamline check-in.',
+    keywords: [
+        'event ticketing blog',
+        'event management tips',
+        'ticket creating guide',
+        'event planning blog',
+        'QR code tickets guide',
+        'event industry news'
+    ],
+    openGraph: {
+        title: 'MakeTicket Blog - Event Ticketing Insights',
+        description: 'Tips, guides, and best practices for event organizers.',
+        url: 'https://maketicket.app/blog',
+        type: 'website',
+    },
+    alternates: {
+        canonical: 'https://maketicket.app/blog',
+    },
+};
 
 export default function BlogPage() {
     const posts = [

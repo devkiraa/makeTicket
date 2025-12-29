@@ -2,6 +2,15 @@ import StaticPageLayout from '@/components/StaticPageLayout';
 import { Users, MessageSquare, Calendar, Github } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+    title: 'Community - Event Organizers | MakeTicket',
+    description: 'Join the MakeTicket community of event organizers. Discord, GitHub, events, and resources for event professionals.',
+    alternates: {
+        canonical: 'https://maketicket.app/community',
+    },
+};
 
 export default function CommunityPage() {
     const resources = [

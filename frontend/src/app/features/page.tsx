@@ -1,5 +1,30 @@
 import StaticPageLayout from '@/components/StaticPageLayout';
 import { Ticket, QrCode, Mail, BarChart3, Users, Globe, Zap, Shield, Smartphone, Clock } from 'lucide-react';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+    title: 'Features - Event Ticketing Software | MakeTicket',
+    description: 'Discover all MakeTicket features: QR code tickets, instant check-in scanning, automated emails, real-time analytics, team collaboration, and custom event pages. Start free.',
+    keywords: [
+        'event ticketing features',
+        'QR code tickets',
+        'event check-in system',
+        'ticket scanning app',
+        'event management software',
+        'online ticketing features',
+        'event registration features',
+        'ticket generator features'
+    ],
+    openGraph: {
+        title: 'MakeTicket Features - Complete Event Ticketing Solution',
+        description: 'QR tickets, instant scanning, automated emails, analytics, and more. Everything you need to run successful events.',
+        url: 'https://maketicket.app/features',
+        type: 'website',
+    },
+    alternates: {
+        canonical: 'https://maketicket.app/features',
+    },
+};
 
 export default function FeaturesPage() {
     const features = [

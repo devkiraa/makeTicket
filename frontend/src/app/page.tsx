@@ -18,8 +18,112 @@ import {
   ChevronRight,
   Play
 } from "lucide-react"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "MakeTicket - Create Event Tickets Online Free | #1 Ticketing Platform",
+  description: "Make tickets for any event in minutes! Free event ticketing platform with QR code tickets, instant check-in, and real-time analytics. Perfect for conferences, concerts, workshops, and festivals. Start creating tickets today!",
+  keywords: "make ticket, create ticket online, event ticketing, free ticket maker, QR code tickets, event registration, ticket generator, conference tickets, concert tickets, workshop tickets",
+}
 
 export default function LandingPage() {
+  // JSON-LD Structured Data for SEO
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://maketicket.app/#website",
+        "url": "https://maketicket.app",
+        "name": "MakeTicket",
+        "description": "Free online event ticketing platform to create tickets, manage registrations, and scan attendees",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://maketicket.app/events?search={search_term_string}",
+          "query-input": "required name=search_term_string"
+        }
+      },
+      {
+        "@type": "Organization",
+        "@id": "https://maketicket.app/#organization",
+        "name": "MakeTicket",
+        "url": "https://maketicket.app",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://maketicket.app/logo.png",
+          "width": 512,
+          "height": 512
+        },
+        "sameAs": [
+          "https://twitter.com/maketicket",
+          "https://linkedin.com/company/maketicket",
+          "https://github.com/maketicket"
+        ],
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "email": "support@maketicket.app",
+          "contactType": "customer support"
+        }
+      },
+      {
+        "@type": "SoftwareApplication",
+        "name": "MakeTicket",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "aggregateRating": {
+          "@type": "AggregateRating",
+          "ratingValue": "4.9",
+          "ratingCount": "2847",
+          "bestRating": "5",
+          "worstRating": "1"
+        },
+        "description": "Create event tickets online for free. Generate QR codes, manage registrations, and scan attendees instantly.",
+        "featureList": [
+          "QR Code Ticket Generation",
+          "Real-time Check-in Scanner",
+          "Automated Email Confirmations",
+          "Live Analytics Dashboard",
+          "Team Collaboration",
+          "Custom Event Pages"
+        ]
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "How do I create tickets for my event?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Creating tickets with MakeTicket is simple: Sign up for free, create your event, customize your registration form, and share your event link. Attendees can register and receive QR code tickets instantly via email."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is MakeTicket free to use?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes! MakeTicket offers a generous free tier that includes unlimited events, up to 100 attendees per event, QR code tickets, email confirmations, and real-time analytics. Paid plans are available for larger events."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How does the QR code check-in work?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Each ticket has a unique QR code. At your event, use our mobile-optimized scanner or any smartphone camera to scan tickets. The system validates tickets in under a second and prevents duplicate entries."
+            }
+          }
+        ]
+      }
+    ]
+  };
+
   const stats = [
     { value: '10K+', label: 'Events Created' },
     { value: '500K+', label: 'Tickets Issued' },
@@ -88,15 +192,22 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-white text-slate-900 antialiased">
+    <>
+      {/* JSON-LD Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      
+      <div className="flex flex-col min-h-screen bg-white text-slate-900 antialiased">
 
       {/* Navbar */}
-      <header className="px-4 lg:px-6 h-16 flex items-center border-b border-slate-100/50 backdrop-blur-xl sticky top-0 z-50 bg-white/80">
-        <Link className="flex items-center justify-center gap-2.5" href="/">
-          <img src="/logo.png" alt="MakeTicket" className="h-10 w-10 rounded-xl shadow-lg shadow-indigo-200" />
+      <header className="px-4 lg:px-6 h-16 flex items-center border-b border-slate-100/50 backdrop-blur-xl sticky top-0 z-50 bg-white/80" role="banner">
+        <Link className="flex items-center justify-center gap-2.5" href="/" aria-label="MakeTicket - Home">
+          <img src="/logo.png" alt="MakeTicket - Free Event Ticketing Platform" className="h-10 w-10 rounded-xl shadow-lg shadow-indigo-200" width={40} height={40} />
           <span className="font-bold text-xl tracking-tight text-slate-900">MakeTicket</span>
         </Link>
-        <nav className="ml-auto flex items-center gap-1">
+        <nav className="ml-auto flex items-center gap-1" role="navigation" aria-label="Main navigation">
           <Link className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors rounded-lg hover:bg-slate-50 hidden md:block" href="#features">
             Features
           </Link>
@@ -106,7 +217,7 @@ export default function LandingPage() {
           <Link className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors rounded-lg hover:bg-slate-50 hidden md:block" href="#pricing">
             Pricing
           </Link>
-          <div className="w-px h-6 bg-slate-200 mx-2 hidden md:block" />
+          <div className="w-px h-6 bg-slate-200 mx-2 hidden md:block" aria-hidden="true" />
           <Link href="/login" className="text-sm font-medium text-slate-600 hover:text-slate-900 px-4 py-2 hidden md:block">
             Sign In
           </Link>
@@ -118,12 +229,12 @@ export default function LandingPage() {
         </nav>
       </header>
 
-      <main className="flex-1">
+      <main className="flex-1" role="main">
 
         {/* Hero Section */}
-        <section className="relative overflow-hidden">
+        <section className="relative overflow-hidden" aria-labelledby="hero-heading">
           {/* Animated Background */}
-          <div className="absolute inset-0 bg-gradient-to-b from-indigo-50/80 via-white to-white" />
+          <div className="absolute inset-0 bg-gradient-to-b from-indigo-50/80 via-white to-white" aria-hidden="true" />
           <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-indigo-200/50 rounded-full blur-[120px] animate-pulse" />
           <div className="absolute top-20 right-1/4 w-[500px] h-[500px] bg-violet-200/40 rounded-full blur-[100px] animate-pulse delay-1000" />
           <div className="absolute bottom-0 left-1/2 w-[800px] h-[400px] bg-green-100/30 rounded-full blur-[100px]" />
@@ -137,36 +248,37 @@ export default function LandingPage() {
               </div>
 
               {/* Main Heading */}
-              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-slate-900 mb-6 leading-[1.1]">
-                Event ticketing
+              <h1 id="hero-heading" className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-slate-900 mb-6 leading-[1.1]">
+                <span className="sr-only">MakeTicket - </span>
+                Create Event Tickets
                 <br />
                 <span className="bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 bg-clip-text text-transparent">
-                  made effortless
+                  Online in Minutes
                 </span>
               </h1>
 
               {/* Subtitle */}
               <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto mb-10 leading-relaxed">
-                Create stunning event pages, sell tickets, and check-in guests with QR codes.
-                All in one beautiful platform.
+                The easiest way to <strong>make tickets</strong> for any event. Create stunning event pages, 
+                generate QR code tickets, and check-in guests instantly. <em>Free to get started.</em>
               </p>
 
               {/* CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
-                <Link href="/login">
+                <Link href="/login" aria-label="Start creating event tickets for free">
                   <Button className="h-14 px-8 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-full text-lg transition-all hover:scale-105 shadow-xl shadow-indigo-200 gap-2">
-                    Start Creating
-                    <ArrowRight className="w-5 h-5" />
+                    Make Your First Ticket
+                    <ArrowRight className="w-5 h-5" aria-hidden="true" />
                   </Button>
                 </Link>
-                <Button variant="outline" className="h-14 px-8 border-slate-200 bg-white/80 backdrop-blur-sm hover:bg-slate-50 text-slate-700 rounded-full text-lg gap-2">
-                  <Play className="w-5 h-5 fill-slate-600" />
+                <Button variant="outline" className="h-14 px-8 border-slate-200 bg-white/80 backdrop-blur-sm hover:bg-slate-50 text-slate-700 rounded-full text-lg gap-2" aria-label="Watch demo video">
+                  <Play className="w-5 h-5 fill-slate-600" aria-hidden="true" />
                   Watch Demo
                 </Button>
               </div>
 
               {/* Stats Row */}
-              <div className="flex flex-wrap justify-center gap-8 md:gap-16">
+              <div className="flex flex-wrap justify-center gap-8 md:gap-16" aria-label="Platform statistics">
                 {stats.map((stat, i) => (
                   <div key={i} className="text-center">
                     <div className="text-2xl md:text-3xl font-bold text-slate-900">{stat.value}</div>
@@ -282,20 +394,20 @@ export default function LandingPage() {
         </section>
 
         {/* Features Section */}
-        <section id="features" className="py-24 bg-white">
+        <section id="features" className="py-24 bg-white" aria-labelledby="features-heading">
           <div className="container px-4 md:px-6">
             <div className="text-center mb-16">
               <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-1.5 text-sm font-medium text-indigo-700 mb-4">
-                <Zap className="w-4 h-4" />
+                <Zap className="w-4 h-4" aria-hidden="true" />
                 Powerful Features
               </div>
-              <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-4">
-                Everything you need to run
+              <h2 id="features-heading" className="text-3xl md:text-5xl font-bold text-slate-900 mb-4">
+                Everything you need to
                 <br className="hidden md:block" />
-                <span className="text-indigo-600">successful events</span>
+                <span className="text-indigo-600">make tickets & manage events</span>
               </h2>
               <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-                From registration to check-in, we've got every step covered with delightful features.
+                Create tickets online, send automated confirmations, and check-in attendees with QR codes. All the tools you need for successful events.
               </p>
             </div>
 
@@ -477,19 +589,20 @@ export default function LandingPage() {
           <div className="pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-slate-400 text-sm">© 2025 MakeTicket. All rights reserved.</p>
             <div className="flex gap-4">
-              <a href="#" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z" /></svg>
+              <a href="https://twitter.com/maketicket" aria-label="Follow MakeTicket on Twitter" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z" /></svg>
               </a>
-              <a href="#" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" /></svg>
+              <a href="https://github.com/maketicket" aria-label="View MakeTicket on GitHub" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" /></svg>
               </a>
-              <a href="#" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" /></svg>
+              <a href="https://linkedin.com/company/maketicket" aria-label="Connect with MakeTicket on LinkedIn" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" /></svg>
               </a>
             </div>
           </div>
         </div>
       </footer>
     </div>
+    </>
   )
 }

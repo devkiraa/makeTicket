@@ -1,5 +1,26 @@
 import StaticPageLayout from '@/components/StaticPageLayout';
 import { Target, Heart, Zap } from 'lucide-react';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+    title: 'About Us - MakeTicket | Event Ticketing Platform',
+    description: 'Learn about MakeTicket, the modern event ticketing platform. Our mission is to make event management delightful and accessible to everyone.',
+    keywords: [
+        'about maketicket',
+        'event ticketing company',
+        'ticketing platform story',
+        'event management team'
+    ],
+    openGraph: {
+        title: 'About MakeTicket - Our Mission & Team',
+        description: 'We\'re on a mission to make event management delightful. Learn about our story and team.',
+        url: 'https://maketicket.app/about',
+        type: 'website',
+    },
+    alternates: {
+        canonical: 'https://maketicket.app/about',
+    },
+};
 
 export default function AboutPage() {
     const team = [

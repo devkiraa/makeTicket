@@ -1,5 +1,28 @@
 import StaticPageLayout from '@/components/StaticPageLayout';
 import { Code, Key, Terminal, FileJson } from 'lucide-react';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+    title: 'API Documentation - Event Ticketing API | MakeTicket',
+    description: 'Build custom integrations with MakeTicket REST API. Create events, manage attendees, validate tickets programmatically. Full API reference and examples.',
+    keywords: [
+        'ticketing API',
+        'event API',
+        'ticket validation API',
+        'event management API',
+        'RESTful ticketing',
+        'developer API documentation'
+    ],
+    openGraph: {
+        title: 'MakeTicket API Documentation',
+        description: 'Build custom integrations with our RESTful event ticketing API.',
+        url: 'https://maketicket.app/api-docs',
+        type: 'website',
+    },
+    alternates: {
+        canonical: 'https://maketicket.app/api-docs',
+    },
+};
 
 export default function APIPage() {
     const endpoints = [

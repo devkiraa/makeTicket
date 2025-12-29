@@ -3,6 +3,29 @@ import { HelpCircle, MessageCircle, Book, Mail } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+    title: 'Help Center - Event Ticketing FAQ | MakeTicket',
+    description: 'Get help with MakeTicket. Find answers about creating events, ticket scanning, check-in, exporting attendees, and more. FAQ and support resources.',
+    keywords: [
+        'ticketing help',
+        'event ticket FAQ',
+        'how to create event',
+        'ticket scanning help',
+        'event management help',
+        'maketicket support'
+    ],
+    openGraph: {
+        title: 'MakeTicket Help Center - FAQ & Support',
+        description: 'Find answers to common questions about event ticketing, check-in, and more.',
+        url: 'https://maketicket.app/help',
+        type: 'website',
+    },
+    alternates: {
+        canonical: 'https://maketicket.app/help',
+    },
+};
 
 export default function HelpCenterPage() {
     const faqs = [

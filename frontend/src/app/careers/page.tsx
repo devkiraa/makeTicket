@@ -2,6 +2,15 @@ import StaticPageLayout from '@/components/StaticPageLayout';
 import { Button } from '@/components/ui/button';
 import { MapPin, Clock, Briefcase } from 'lucide-react';
 import Link from 'next/link';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+    title: 'Careers - Join Our Team | MakeTicket',
+    description: 'Join the MakeTicket team. We\'re building the future of event ticketing. View open positions in engineering, design, and more.',
+    alternates: {
+        canonical: 'https://maketicket.app/careers',
+    },
+};
 
 export default function CareersPage() {
     const jobs = [

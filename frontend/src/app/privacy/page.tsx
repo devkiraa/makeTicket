@@ -1,5 +1,18 @@
 import StaticPageLayout from '@/components/StaticPageLayout';
 import { Shield, Eye, Lock, Download, Mail, Cookie, Users, Server } from 'lucide-react';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+    title: 'Privacy Policy | MakeTicket',
+    description: 'MakeTicket privacy policy. Learn how we collect, use, and protect your data. Your privacy is important to us.',
+    alternates: {
+        canonical: 'https://maketicket.app/privacy',
+    },
+    robots: {
+        index: true,
+        follow: true,
+    },
+};
 
 export default function PrivacyPage() {
     const sections = [

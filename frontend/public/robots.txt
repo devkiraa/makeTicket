@@ -1,0 +1,26 @@
+# MakeTicket - Event Ticketing Platform
+# https://maketicket.app
+
+User-agent: *
+Allow: /
+
+# Allow all search engines
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+# Block admin and API routes from indexing
+Disallow: /api/
+Disallow: /dashboard/admin/
+Disallow: /_next/
+
+# Sitemap location
+Sitemap: https://maketicket.app/sitemap.xml
+
+# Crawl-delay for politeness
+Crawl-delay: 1

@@ -1,6 +1,29 @@
 import StaticPageLayout from '@/components/StaticPageLayout';
 import { Book, FileText, Video, Code } from 'lucide-react';
 import Link from 'next/link';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+    title: 'Documentation - How to Create Tickets | MakeTicket',
+    description: 'Learn how to create event tickets, set up check-in, customize emails, and use the MakeTicket API. Guides, tutorials, and API reference for event ticketing.',
+    keywords: [
+        'ticket documentation',
+        'how to create tickets',
+        'event ticketing guide',
+        'ticket API',
+        'event management tutorial',
+        'create event tickets guide'
+    ],
+    openGraph: {
+        title: 'MakeTicket Documentation - Learn to Create Tickets',
+        description: 'Guides, tutorials, and API reference for creating and managing event tickets.',
+        url: 'https://maketicket.app/docs',
+        type: 'website',
+    },
+    alternates: {
+        canonical: 'https://maketicket.app/docs',
+    },
+};
 
 export default function DocsPage() {
     const sections = [

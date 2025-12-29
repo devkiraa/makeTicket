@@ -1,5 +1,18 @@
 import StaticPageLayout from '@/components/StaticPageLayout';
 import { FileText, User, AlertTriangle, CreditCard, Scale, Shield, RefreshCw, Mail } from 'lucide-react';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+    title: 'Terms of Service | MakeTicket',
+    description: 'MakeTicket terms of service. Read our terms and conditions for using the event ticketing platform.',
+    alternates: {
+        canonical: 'https://maketicket.app/terms',
+    },
+    robots: {
+        index: true,
+        follow: true,
+    },
+};
 
 export default function TermsPage() {
     const sections = [

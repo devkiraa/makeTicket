@@ -1,5 +1,14 @@
 import StaticPageLayout from '@/components/StaticPageLayout';
 import { CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+    title: 'System Status | MakeTicket',
+    description: 'MakeTicket system status and uptime. Check the health of our services including web app, API, email, and QR generation.',
+    alternates: {
+        canonical: 'https://maketicket.app/status',
+    },
+};
 
 export default function StatusPage() {
     const services = [

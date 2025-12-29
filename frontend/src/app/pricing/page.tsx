@@ -2,6 +2,30 @@ import StaticPageLayout from '@/components/StaticPageLayout';
 import { Button } from '@/components/ui/button';
 import { Check } from 'lucide-react';
 import Link from 'next/link';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+    title: 'Pricing - Free Event Ticketing | MakeTicket',
+    description: 'MakeTicket pricing plans: Free tier for small events, Pro for growing organizers, Enterprise for large organizations. Start creating tickets for free today.',
+    keywords: [
+        'free event ticketing',
+        'ticketing pricing',
+        'event software pricing',
+        'free ticket generator',
+        'event management cost',
+        'affordable ticketing',
+        'ticket platform pricing'
+    ],
+    openGraph: {
+        title: 'MakeTicket Pricing - Start Free, Scale as You Grow',
+        description: 'Free tier for small events. Pro features for growing organizers. Enterprise solutions for large organizations.',
+        url: 'https://maketicket.app/pricing',
+        type: 'website',
+    },
+    alternates: {
+        canonical: 'https://maketicket.app/pricing',
+    },
+};
 
 export default function PricingPage() {
     const plans = [
