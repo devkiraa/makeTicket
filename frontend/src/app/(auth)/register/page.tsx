@@ -52,8 +52,8 @@ export default function RegisterPage() {
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 px-4 font-sans selection:bg-indigo-100">
             <Link href="/" className="mb-8 flex items-center gap-2 group">
-                <img src="/logo.png" alt="GrabMyPass" className="h-10 w-10 rounded-lg group-hover:scale-105 transition-transform" />
-                <span className="font-bold text-xl text-slate-900 tracking-tight">GrabMyPass</span>
+                <img src="/logo.png" alt="MakeTicket" className="h-10 w-10 rounded-lg group-hover:scale-105 transition-transform" />
+                <span className="font-bold text-xl text-slate-900 tracking-tight">MakeTicket</span>
             </Link>
 
             <Card className="w-full max-w-md border-slate-200 bg-white shadow-xl">

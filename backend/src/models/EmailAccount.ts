@@ -8,7 +8,7 @@ const EmailAccountSchema = new mongoose.Schema({
 
     // Custom domain "Send As" (optional)
     customFromEmail: { type: String }, // e.g., hello@yourdomain.com
-    customFromName: { type: String },  // e.g., "GrabMyPass Events"
+    customFromName: { type: String },  // e.g., "MakeTicket Events"
 
     // OAuth tokens (encrypted in production)
     accessToken: { type: String },

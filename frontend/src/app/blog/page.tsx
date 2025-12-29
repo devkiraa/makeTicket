@@ -37,7 +37,7 @@ export default function BlogPage() {
     return (
         <StaticPageLayout
             title="Blog"
-            subtitle="Insights, guides, and updates from the GrabMyPass team."
+            subtitle="Insights, guides, and updates from the MakeTicket team."
         >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl">
                 {posts.map((post, i) => (

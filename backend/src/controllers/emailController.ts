@@ -243,7 +243,7 @@ export const sendTestEmail = async (req: Request, res: Response) => {
         const gmail = google.gmail({ version: 'v1', auth: testOauth2Client });
 
         // Determine the "From" address - use custom domain if configured
-        const fromName = account.customFromName || account.name || 'GrabMyPass';
+        const fromName = account.customFromName || account.name || 'MakeTicket';
         const fromEmail = account.customFromEmail || account.email;
         const fromHeader = `${fromName} <${fromEmail}>`;
 
@@ -308,7 +308,7 @@ export const sendTestEmail = async (req: Request, res: Response) => {
                     <tr>
                         <td style="background: #f8fafc; padding: 24px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
                             <p style="margin: 0; color: #94a3b8; font-size: 13px;">
-                                <strong style="color: #64748b;">GrabMyPass</strong> &bull; Event Registration Made Easy
+                                <strong style="color: #64748b;">MakeTicket</strong> &bull; Event Registration Made Easy
                             </p>
                         </td>
                     </tr>
@@ -320,7 +320,7 @@ export const sendTestEmail = async (req: Request, res: Response) => {
 </html>`;
 
         // Encode the email - use ASCII-safe subject (no emojis to avoid encoding issues)
-        const subject = 'GrabMyPass - Test Email Successful';
+        const subject = 'MakeTicket - Test Email Successful';
         const rawEmail = Buffer.from(
             `From: ${fromHeader}\r\n` +
             `To: ${account.email}\r\n` +

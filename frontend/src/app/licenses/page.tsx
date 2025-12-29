@@ -33,7 +33,7 @@ export default function LicensesPage() {
                         <h2 className="text-2xl font-bold text-slate-900">Thank You, Open Source!</h2>
                     </div>
                     <p className="text-slate-600 mb-6">
-                        GrabMyPass is built on the shoulders of giants. We're incredibly grateful to the open source
+                        MakeTicket is built on the shoulders of giants. We're incredibly grateful to the open source
                         community for creating and maintaining these amazing projects that make our work possible.
                     </p>
                     <div className="flex items-center gap-6">
@@ -86,7 +86,7 @@ export default function LicensesPage() {
                         <div>
                             <h3 className="text-xl font-bold mb-2">Our Commitment to Open Source</h3>
                             <p className="text-slate-300 mb-4">
-                                We believe in giving back. While GrabMyPass is a commercial product, we actively:
+                                We believe in giving back. While MakeTicket is a commercial product, we actively:
                             </p>
                             <ul className="space-y-2">
                                 {[

@@ -15,6 +15,12 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import {
     Mail,
     Settings,
     Send,
@@ -28,7 +34,8 @@ import {
     Sparkles,
     Bell,
     ShieldAlert,
-    LogIn
+    LogIn,
+    Eye
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -72,6 +79,7 @@ export default function SystemEmailSettingsPage() {
     const [testing, setTesting] = useState(false);
     const [testEmail, setTestEmail] = useState('');
     const [connecting, setConnecting] = useState(false);
+    const [previewTemplate, setPreviewTemplate] = useState<string | null>(null);
 
     const [settings, setSettings] = useState<SystemSettings | null>(null);
     const [emailAccountInfo, setEmailAccountInfo] = useState<EmailAccount | null>(null);
@@ -230,13 +238,139 @@ export default function SystemEmailSettingsPage() {
         );
     }
 
+    const platformName = settings?.platformName || 'MakeTicket';
+
+    // Full email template previews
+    const emailTemplates: Record<string, string> = {
+        welcomeEmail: `
+            <div style="font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 20px; margin: 0;">
+                <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <div style="background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); color: white; padding: 40px 30px; text-align: center;">
+                        <h1 style="margin: 0; font-size: 28px;">Welcome to ${platformName}!</h1>
+                    </div>
+                    <div style="padding: 30px; color: #333;">
+                        <p>Hi <strong>John Doe</strong>,</p>
+                        <p>Thank you for joining ${platformName}! We're excited to have you on board.</p>
+                        <p>With ${platformName}, you can:</p>
+                        <ul style="color: #64748b;">
+                            <li>Discover and register for amazing events</li>
+                            <li>Keep track of your tickets in one place</li>
+                            <li>Create and host your own events</li>
+                        </ul>
+                        <p style="text-align: center;">
+                            <a href="#" style="display: inline-block; background: #4F46E5; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">Get Started</a>
+                        </p>
+                        <p style="color: #64748b; font-size: 14px;">If you have any questions, feel free to reach out to our support team.</p>
+                    </div>
+                    <div style="padding: 20px 30px; background: #f8fafc; text-align: center; color: #64748b; font-size: 12px;">
+                        <p>© 2025 ${platformName}. All rights reserved.</p>
+                    </div>
+                </div>
+            </div>
+        `,
+        passwordReset: `
+            <div style="font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 20px; margin: 0;">
+                <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <div style="background: #EF4444; color: white; padding: 30px; text-align: center;">
+                        <h1 style="margin: 0;">🔐 Password Reset Request</h1>
+                    </div>
+                    <div style="padding: 30px; color: #333;">
+                        <p>Hi <strong>John Doe</strong>,</p>
+                        <p>We received a request to reset your password. Click the button below to create a new password:</p>
+                        <p style="text-align: center;">
+                            <a href="#" style="display: inline-block; background: #4F46E5; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">Reset Password</a>
+                        </p>
+                        <div style="background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 8px; padding: 15px; margin: 20px 0; color: #92400E; font-size: 14px;">
+                            ⚠️ This link will expire in 30 minutes. If you didn't request this reset, please ignore this email.
+                        </div>
+                        <p style="color: #64748b; font-size: 14px;">For security, this request was received from your account. If you didn't make this request, your password is still safe.</p>
+                    </div>
+                    <div style="padding: 20px 30px; background: #f8fafc; text-align: center; color: #64748b; font-size: 12px;">
+                        <p>© 2025 ${platformName}. All rights reserved.</p>
+                    </div>
+                </div>
+            </div>
+        `,
+        hostUpgradeConfirmation: `
+            <div style="font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 20px; margin: 0;">
+                <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: white; padding: 40px 30px; text-align: center;">
+                        <h1 style="margin: 0;">🎉 Congratulations, Host!</h1>
+                    </div>
+                    <div style="padding: 30px; color: #333;">
+                        <p>Hi <strong>John Doe</strong>,</p>
+                        <p>Great news! Your account has been upgraded to Host status. You can now create and manage your own events!</p>
+                        <div style="background: #F0FDF4; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                            <h3 style="margin-top: 0; color: #059669;">What you can do now:</h3>
+                            <ul style="color: #374151; margin-bottom: 0;">
+                                <li>Create unlimited events</li>
+                                <li>Customize registration forms</li>
+                                <li>Manage attendees and check-ins</li>
+                                <li>Send custom email confirmations</li>
+                                <li>View analytics and reports</li>
+                            </ul>
+                        </div>
+                        <p style="text-align: center;">
+                            <a href="#" style="display: inline-block; background: #10B981; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600;">Go to Dashboard</a>
+                        </p>
+                    </div>
+                    <div style="padding: 20px 30px; background: #f8fafc; text-align: center; color: #64748b; font-size: 12px;">
+                        <p>© 2025 ${platformName}. All rights reserved.</p>
+                    </div>
+                </div>
+            </div>
+        `,
+        suspensionNotice: `
+            <div style="font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 20px; margin: 0;">
+                <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <div style="background: #DC2626; color: white; padding: 30px; text-align: center;">
+                        <h1 style="margin: 0;">⚠️ Account Suspended</h1>
+                    </div>
+                    <div style="padding: 30px; color: #333;">
+                        <p>Hi <strong>John Doe</strong>,</p>
+                        <p>Your account on ${platformName} has been suspended.</p>
+                        <div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                            <strong>Reason:</strong> Violation of terms of service
+                        </div>
+                        <p>If you believe this was a mistake, please contact our support team at <a href="mailto:support@example.com">support@example.com</a>.</p>
+                    </div>
+                    <div style="padding: 20px 30px; background: #f8fafc; text-align: center; color: #64748b; font-size: 12px;">
+                        <p>© 2025 ${platformName}. All rights reserved.</p>
+                    </div>
+                </div>
+            </div>
+        `,
+        loginAlert: `
+            <div style="font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 20px; margin: 0;">
+                <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <div style="background: #3B82F6; color: white; padding: 30px; text-align: center;">
+                        <h1 style="margin: 0;">🔔 New Login Detected</h1>
+                    </div>
+                    <div style="padding: 30px; color: #333;">
+                        <p>Hi <strong>John Doe</strong>,</p>
+                        <p>We detected a new login to your ${platformName} account:</p>
+                        <div style="background: #EFF6FF; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                            <p style="margin: 5px 0;"><strong>Time:</strong> December 28, 2025 at 9:00 PM</p>
+                            <p style="margin: 5px 0;"><strong>IP Address:</strong> 192.168.1.100</p>
+                            <p style="margin: 5px 0;"><strong>Device:</strong> Chrome on Windows</p>
+                        </div>
+                        <p style="color: #64748b; font-size: 14px;">If this was you, you can safely ignore this email. If you didn't log in, please secure your account immediately.</p>
+                    </div>
+                    <div style="padding: 20px 30px; background: #f8fafc; text-align: center; color: #64748b; font-size: 12px;">
+                        <p>© 2025 ${platformName}. All rights reserved.</p>
+                    </div>
+                </div>
+            </div>
+        `
+    };
+
     const emailToggles = [
-        { key: 'welcomeEmail', label: 'Welcome Email', description: 'Send when a new user signs up', icon: UserPlus },
-        { key: 'passwordReset', label: 'Password Reset', description: 'Send password reset links', icon: Key },
-        { key: 'hostUpgradeConfirmation', label: 'Host Upgrade', description: 'Send when user becomes a host', icon: Sparkles },
-        { key: 'suspensionNotice', label: 'Suspension Notice', description: 'Send when account is suspended', icon: ShieldAlert },
-        { key: 'loginAlert', label: 'Login Alert', description: 'Send on new login detection', icon: LogIn },
-        { key: 'dailyDigest', label: 'Daily Digest', description: 'Daily summary for hosts', icon: Bell },
+        { key: 'welcomeEmail', label: 'Welcome Email', description: 'Send when a new user signs up', icon: UserPlus, hasPreview: true },
+        { key: 'passwordReset', label: 'Password Reset', description: 'Send password reset links', icon: Key, hasPreview: true },
+        { key: 'hostUpgradeConfirmation', label: 'Host Upgrade', description: 'Send when user becomes a host', icon: Sparkles, hasPreview: true },
+        { key: 'suspensionNotice', label: 'Suspension Notice', description: 'Send when account is suspended', icon: ShieldAlert, hasPreview: true },
+        { key: 'loginAlert', label: 'Login Alert', description: 'Send on new login detection', icon: LogIn, hasPreview: true },
+        { key: 'dailyDigest', label: 'Daily Digest', description: 'Daily summary for hosts', icon: Bell, hasPreview: false },
     ];
 
     return (
@@ -347,14 +481,53 @@ export default function SystemEmailSettingsPage() {
                                 Connect a Gmail account to send system emails (welcome, password reset, etc.)
                             </p>
                         </div>
+                        {/* Custom Domain Settings */}
+                        <div className="pt-4 border-t">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Settings className="h-4 w-4 text-slate-500" />
+                                <Label className="font-medium">Custom Domain Settings</Label>
+                            </div>
+                            <p className="text-xs text-slate-500 mb-4">
+                                Customize the sender name and email address for system emails
+                            </p>
 
-                        <div className="space-y-2">
-                            <Label>From Name</Label>
-                            <Input
-                                placeholder="GrabMyPass"
-                                value={settings?.systemEmail?.fromName || ''}
-                                onChange={(e) => updateSystemEmail('fromName', e.target.value)}
-                            />
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="space-y-2">
+                                    <Label>From Name</Label>
+                                    <Input
+                                        placeholder="MakeTicket"
+                                        value={settings?.systemEmail?.fromName || ''}
+                                        onChange={(e) => updateSystemEmail('fromName', e.target.value)}
+                                    />
+                                    <p className="text-xs text-slate-400">Display name in recipient's inbox</p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label>From Email Address</Label>
+                                    <Input
+                                        placeholder="noreply@yourdomain.com"
+                                        value={settings?.systemEmail?.fromEmail || ''}
+                                        onChange={(e) => updateSystemEmail('fromEmail', e.target.value)}
+                                    />
+                                    <p className="text-xs text-slate-400">Custom sender email (optional)</p>
+                                </div>
+                            </div>
+
+                            {settings?.systemEmail?.fromEmail && (
+                                <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                    <div className="flex items-start gap-2">
+                                        <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
+                                        <div className="text-xs text-amber-800">
+                                            <p className="font-medium">Custom Domain Requirements</p>
+                                            <p className="mt-1">
+                                                To use a custom email address, you must configure your domain's DNS with proper
+                                                SPF, DKIM, and DMARC records. Without proper setup, emails may be marked as spam
+                                                or rejected. Gmail's "Send mail as" feature must also be configured.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className="space-y-2">
@@ -364,7 +537,7 @@ export default function SystemEmailSettingsPage() {
                                 value={settings?.supportEmail || ''}
                                 onChange={(e) => setSettings(s => s ? { ...s, supportEmail: e.target.value } : s)}
                             />
-                            <p className="text-xs text-slate-500">Shown in suspension and error emails</p>
+                            <p className="text-xs text-slate-500">Shown in suspension and error emails for user support</p>
                         </div>
 
                         {/* Test Email */}
@@ -421,10 +594,23 @@ export default function SystemEmailSettingsPage() {
                                             <p className="text-xs text-slate-500">{toggle.description}</p>
                                         </div>
                                     </div>
-                                    <Switch
-                                        checked={isEnabled}
-                                        onCheckedChange={(checked) => updateEmailSetting(toggle.key, checked)}
-                                    />
+                                    <div className="flex items-center gap-2">
+                                        {toggle.hasPreview && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 w-8 p-0 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50"
+                                                onClick={() => setPreviewTemplate(toggle.key)}
+                                                title={`Preview ${toggle.label}`}
+                                            >
+                                                <Eye className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                        <Switch
+                                            checked={isEnabled}
+                                            onCheckedChange={(checked) => updateEmailSetting(toggle.key, checked)}
+                                        />
+                                    </div>
                                 </div>
                             );
                         })}
@@ -441,7 +627,7 @@ export default function SystemEmailSettingsPage() {
                             <div className="space-y-2">
                                 <Label>Platform Name</Label>
                                 <Input
-                                    placeholder="GrabMyPass"
+                                    placeholder="MakeTicket"
                                     value={settings?.platformName || ''}
                                     onChange={(e) => setSettings(s => s ? { ...s, platformName: e.target.value } : s)}
                                 />
@@ -462,6 +648,29 @@ export default function SystemEmailSettingsPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Template Preview Modal */}
+            <Dialog open={!!previewTemplate} onOpenChange={(open: boolean) => !open && setPreviewTemplate(null)}>
+                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Eye className="h-5 w-5 text-indigo-600" />
+                            {previewTemplate && emailToggles.find(t => t.key === previewTemplate)?.label} Template Preview
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="mt-4">
+                        {previewTemplate && emailTemplates[previewTemplate] && (
+                            <div
+                                className="border rounded-lg overflow-hidden"
+                                dangerouslySetInnerHTML={{ __html: emailTemplates[previewTemplate] }}
+                            />
+                        )}
+                        <p className="text-xs text-slate-500 mt-4 text-center">
+                            This is how the email will appear in recipients' inboxes.
+                        </p>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

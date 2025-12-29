@@ -133,7 +133,7 @@ export const getGoogleWalletLink = async (req: Request, res: Response) => {
             payload: {
                 eventTicketClasses: [{
                     id: classId,
-                    issuerName: "GrabMyPass",
+                    issuerName: "MakeTicket",
                     eventName: {
                         defaultValue: { language: "en-US", value: event.title }
                     },
@@ -163,7 +163,7 @@ export const getGoogleWalletLink = async (req: Request, res: Response) => {
                     linksModuleData: {
                         uris: [
                             {
-                                uri: `https://grabmypass.vercel.app/validate?t=${ticket.qrCodeHash}`,
+                                uri: `https://maketicket.app/validate?t=${ticket.qrCodeHash}`,
                                 description: "Validate Ticket"
                             }
                         ]

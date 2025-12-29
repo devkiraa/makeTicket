@@ -155,7 +155,7 @@ export default function CoordinatorInvitePage() {
                 <div className="bg-indigo-600 p-2 rounded-lg group-hover:bg-indigo-700 transition-colors">
                     <Ticket className="h-5 w-5 text-white" />
                 </div>
-                <span className="font-bold text-xl text-slate-900 tracking-tight">GrabMyPass</span>
+                <span className="font-bold text-xl text-slate-900 tracking-tight">MakeTicket</span>
             </Link>
 
             <Card className="w-full max-w-lg border-slate-200 bg-white shadow-xl overflow-hidden">

@@ -19,7 +19,7 @@ export default function StatusPage() {
     return (
         <StaticPageLayout
             title="System Status"
-            subtitle="Current operational status of all GrabMyPass services."
+            subtitle="Current operational status of all MakeTicket services."
         >
             <div className="max-w-3xl">
                 {/* Overall Status */}

@@ -1,6 +1,6 @@
-# GrabMyPass Monorepo
+# MakeTicket Monorepo
 
-This repository contains both the backend and frontend for the GrabMyPass application.
+This repository contains both the backend and frontend for the MakeTicket application.
 
 ## Structure
 

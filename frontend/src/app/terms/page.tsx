@@ -7,7 +7,7 @@ export default function TermsPage() {
             icon: FileText,
             number: '01',
             title: 'Acceptance of Terms',
-            content: 'By accessing or using GrabMyPass, you agree to be bound by these Terms of Service. If you do not agree to all the terms, you may not use our services.'
+            content: 'By accessing or using MakeTicket, you agree to be bound by these Terms of Service. If you do not agree to all the terms, you may not use our services.'
         },
         {
             icon: User,
@@ -47,7 +47,7 @@ export default function TermsPage() {
             icon: Scale,
             number: '06',
             title: 'Limitation of Liability',
-            content: 'GrabMyPass is provided "as is" without warranties of any kind. We shall not be liable for any indirect, incidental, special, or consequential damages arising from your use of the service.'
+            content: 'MakeTicket is provided "as is" without warranties of any kind. We shall not be liable for any indirect, incidental, special, or consequential damages arising from your use of the service.'
         },
         {
             icon: RefreshCw,
@@ -60,7 +60,7 @@ export default function TermsPage() {
     return (
         <StaticPageLayout
             title="Terms of Service"
-            subtitle="Please read these terms carefully before using GrabMyPass."
+            subtitle="Please read these terms carefully before using MakeTicket."
         >
             <div className="max-w-4xl">
                 {/* Last Updated Banner */}
@@ -73,7 +73,7 @@ export default function TermsPage() {
                 <div className="p-6 rounded-2xl bg-slate-900 text-white mb-12">
                     <h2 className="text-lg font-semibold mb-3">Quick Summary</h2>
                     <p className="text-slate-300 text-sm leading-relaxed">
-                        In plain English: Use GrabMyPass responsibly, don't do anything illegal or harmful,
+                        In plain English: Use MakeTicket responsibly, don't do anything illegal or harmful,
                         keep your account secure, and we'll provide you with a great event management platform.
                         For the full legal details, read below.
                     </p>
@@ -137,8 +137,8 @@ export default function TermsPage() {
                             <p className="text-slate-600 mb-4">
                                 Our legal team is happy to clarify anything that's unclear.
                             </p>
-                            <a href="mailto:legal@grabmypass.com" className="inline-flex items-center gap-2 text-indigo-600 font-semibold hover:underline">
-                                legal@grabmypass.com
+                            <a href="mailto:legal@maketicket.app" className="inline-flex items-center gap-2 text-indigo-600 font-semibold hover:underline">
+                                legal@maketicket.app
                             </a>
                         </div>
                     </div>

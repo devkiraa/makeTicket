@@ -6,7 +6,7 @@ import { EmailLog } from '../models/EmailLog';
 // Generate system email templates
 const systemTemplates = {
     welcome: (data: { userName: string; platformName: string; loginUrl: string }) => ({
-        subject: `Welcome to ${data.platformName}! 🎉`,
+        subject: `Welcome to ${data.platformName}!`,
         html: `
 <!DOCTYPE html>
 <html>
@@ -49,7 +49,7 @@ const systemTemplates = {
     }),
 
     passwordReset: (data: { userName: string; resetUrl: string; platformName: string; expiryMinutes: number }) => ({
-        subject: `Reset your password - ${data.platformName}`,
+        subject: `Reset Your Password - ${data.platformName}`,
         html: `
 <!DOCTYPE html>
 <html>
@@ -89,7 +89,7 @@ const systemTemplates = {
     }),
 
     hostUpgrade: (data: { userName: string; platformName: string; dashboardUrl: string }) => ({
-        subject: `You're now a Host on ${data.platformName}! 🎊`,
+        subject: `Congratulations! You're now a Host on ${data.platformName}`,
         html: `
 <!DOCTYPE html>
 <html>
@@ -248,7 +248,7 @@ export const sendSystemEmail = async (
         }
 
         // Generate email content
-        const platformName = settings.platformName || 'GrabMyPass';
+        const platformName = settings.platformName || 'MakeTicket';
         const templateData = { ...data, platformName };
 
         let emailContent: { subject: string; html: string };
@@ -296,10 +296,13 @@ export const sendSystemEmail = async (
         const fromEmail = settings.systemEmail.fromEmail || emailAccount.email;
         const fromHeader = `${fromName} <${fromEmail}>`;
 
+        // Encode subject for proper UTF-8 support
+        const encodedSubject = `=?UTF-8?B?${Buffer.from(emailContent.subject).toString('base64')}?=`;
+
         const rawEmail = Buffer.from(
             `From: ${fromHeader}\r\n` +
             `To: ${recipientEmail}\r\n` +
-            `Subject: ${emailContent.subject}\r\n` +
+            `Subject: ${encodedSubject}\r\n` +
             `MIME-Version: 1.0\r\n` +
             `Content-Type: text/html; charset=utf-8\r\n\r\n` +
             emailContent.html

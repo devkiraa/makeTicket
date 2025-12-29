@@ -103,12 +103,12 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cookieParser());
 
 // Database Connection
-mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/grabmypass')
-    .then(() => console.log('🍃 MongoDB connected to GrabMyPass DB'))
+mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/maketicket')
+    .then(() => console.log('🍃 MongoDB connected to MakeTicket DB'))
     .catch((err) => console.error('❌ MongoDB Connection Error:', err));
 
 // Routes
-app.get('/', (req, res) => res.send('GrabMyPass API Running'));
+app.get('/', (req, res) => res.send('MakeTicket API Running'));
 app.use('/api/auth', authRouter);
 app.use('/api', apiRouter);
 app.use('/api/admin', adminRouter);
@@ -131,7 +131,7 @@ app.listen(PORT, async () => {
         // ignore
     }
 
-    figlet.text('GRABMYPASS-SERVER', {
+    figlet.text('MAKETICKET-SERVER', {
         font: 'Slant',
         horizontalLayout: 'default',
         verticalLayout: 'default',
@@ -145,7 +145,7 @@ app.listen(PORT, async () => {
         }
         console.log(data);
         console.log(`
-Welcome to GrabMyPass-Server
+Welcome to MakeTicket-Server
 
 Date:         ${new Date().toLocaleDateString()}
 Time:         ${new Date().toLocaleTimeString()}

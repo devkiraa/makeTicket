@@ -183,11 +183,11 @@ export const generateTicketImage = async (params: GenerateTicketParams): Promise
         ctx.stroke();
         ctx.setLineDash([]);
 
-        // GrabMyPass branding (small)
+        // MakeTicket branding (small)
         ctx.fillStyle = 'rgba(255,255,255,0.3)';
         ctx.font = '10px Arial';
         ctx.textAlign = 'right';
-        ctx.fillText('GrabMyPass', width - 15, height - 15);
+        ctx.fillText('MakeTicket', width - 15, height - 15);
 
         // Convert to PNG buffer
         const buffer = canvas.toBuffer('image/png');

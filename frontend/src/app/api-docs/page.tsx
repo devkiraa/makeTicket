@@ -53,7 +53,7 @@ export default function APIPage() {
                         <span className="font-semibold">Example Request</span>
                     </div>
                     <pre className="text-sm font-mono text-slate-300 overflow-x-auto">
-                        {`curl -X GET "https://api.grabmypass.com/v1/events" \\
+                        {`curl -X GET "https://api.maketicket.app/v1/events" \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json"`}
                     </pre>

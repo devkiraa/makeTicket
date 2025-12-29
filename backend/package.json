@@ -1,7 +1,7 @@
 {
-  "name": "grabmypass-backend",
+  "name": "maketicket-backend",
   "version": "1.0.0",
-  "description": "Backend for GrabMyPass Event Ticketing System",
+  "description": "Backend for MakeTicket Event Ticketing System",
   "main": "src/server.ts",
   "scripts": {
     "start": "node dist/server.js",

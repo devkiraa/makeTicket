@@ -70,7 +70,7 @@ export default function LandingPage() {
     {
       name: 'Sarah Chen',
       role: 'Event Director, TechCon',
-      content: 'GrabMyPass made our 5000+ attendee conference a breeze. The QR check-in saved us hours!',
+      content: 'MakeTicket made our 5000+ attendee conference a breeze. The QR check-in saved us hours!',
       avatar: 'SC'
     },
     {
@@ -93,8 +93,8 @@ export default function LandingPage() {
       {/* Navbar */}
       <header className="px-4 lg:px-6 h-16 flex items-center border-b border-slate-100/50 backdrop-blur-xl sticky top-0 z-50 bg-white/80">
         <Link className="flex items-center justify-center gap-2.5" href="/">
-          <img src="/logo.png" alt="GrabMyPass" className="h-10 w-10 rounded-xl shadow-lg shadow-indigo-200" />
-          <span className="font-bold text-xl tracking-tight text-slate-900">GrabMyPass</span>
+          <img src="/logo.png" alt="MakeTicket" className="h-10 w-10 rounded-xl shadow-lg shadow-indigo-200" />
+          <span className="font-bold text-xl tracking-tight text-slate-900">MakeTicket</span>
         </Link>
         <nav className="ml-auto flex items-center gap-1">
           <Link className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors rounded-lg hover:bg-slate-50 hidden md:block" href="#features">
@@ -189,7 +189,7 @@ export default function LandingPage() {
                   <div className="flex-1 flex justify-center">
                     <div className="h-7 w-80 bg-white rounded-lg border border-slate-200 flex items-center px-3 text-xs text-slate-400">
                       <Globe className="w-3 h-3 mr-2" />
-                      grabmypass.com/dashboard
+                      maketicket.app/dashboard
                     </div>
                   </div>
                 </div>
@@ -364,7 +364,7 @@ export default function LandingPage() {
               <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-4">
                 Loved by <span className="text-indigo-600">event organizers</span>
               </h2>
-              <p className="text-lg text-slate-600">See what our users have to say about GrabMyPass</p>
+              <p className="text-lg text-slate-600">See what our users have to say about MakeTicket</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
@@ -405,7 +405,7 @@ export default function LandingPage() {
                 Ready to create your first event?
               </h2>
               <p className="text-xl text-white/80 mb-10">
-                Join thousands of organizers who trust GrabMyPass. Start free, upgrade when you need.
+                Join thousands of organizers who trust MakeTicket. Start free, upgrade when you need.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link href="/login">
@@ -430,8 +430,8 @@ export default function LandingPage() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
             <div className="col-span-2 md:col-span-1">
               <div className="flex items-center gap-2 mb-4">
-                <img src="/logo.png" alt="GrabMyPass" className="h-8 w-8 rounded-lg" />
-                <span className="font-bold text-lg">GrabMyPass</span>
+                <img src="/logo.png" alt="MakeTicket" className="h-8 w-8 rounded-lg" />
+                <span className="font-bold text-lg">MakeTicket</span>
               </div>
               <p className="text-slate-400 text-sm">
                 The modern event ticketing platform for organizers who want more.
@@ -475,7 +475,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-slate-400 text-sm">© 2025 GrabMyPass. All rights reserved.</p>
+            <p className="text-slate-400 text-sm">© 2025 MakeTicket. All rights reserved.</p>
             <div className="flex gap-4">
               <a href="#" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z" /></svg>

@@ -1,5 +1,5 @@
 {
-    "name": "grabmypass-monorepo",
+    "name": "maketicket-monorepo",
     "private": true,
     "workspaces": [
         "backend",

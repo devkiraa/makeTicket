@@ -17,12 +17,12 @@ export default function AboutPage() {
             <div className="max-w-4xl">
                 <div className="prose prose-slate prose-lg mb-16">
                     <p>
-                        GrabMyPass was born out of frustration. As event organizers ourselves, we were tired of clunky,
+                        MakeTicket was born out of frustration. As event organizers ourselves, we were tired of clunky,
                         expensive ticketing platforms that felt like they were built in the 90s. So we decided to build
                         something better.
                     </p>
                     <p>
-                        Today, GrabMyPass powers thousands of events worldwide, from college fests to corporate conferences,
+                        Today, MakeTicket powers thousands of events worldwide, from college fests to corporate conferences,
                         from weddings to workshops. Our mission is simple: make event management so easy that anyone can do it.
                     </p>
                 </div>

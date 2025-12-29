@@ -726,7 +726,7 @@ export default function ProfilePage() {
 
             {/* Footer Branding */}
             <div className="flex justify-between items-center pt-8 border-t border-slate-200 mt-12 mb-8">
-                <div className="font-bold text-slate-400">GrabMyPass</div>
+                <div className="font-bold text-slate-400">MakeTicket</div>
                 <div className="flex gap-4 text-slate-400">
                     <Share2 className="w-5 h-5 cursor-pointer hover:text-indigo-600 transition-colors" />
                 </div>

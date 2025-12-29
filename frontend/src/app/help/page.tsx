@@ -11,7 +11,7 @@ export default function HelpCenterPage() {
         { q: 'How does check-in work?', a: 'Use our mobile scanner to scan QR codes on attendees\' tickets.' },
         { q: 'Can I export my attendee list?', a: 'Yes, you can export to CSV or Excel from the Attendees page.' },
         { q: 'Is there a limit on attendees?', a: 'Free plan: 100/event. Pro plan: 1,000/event. Enterprise: Unlimited.' },
-        { q: 'How do I get support?', a: 'Email us at support@grabmypass.com or use the live chat.' },
+        { q: 'How do I get support?', a: 'Email us at support@maketicket.app or use the live chat.' },
     ];
 
     return (

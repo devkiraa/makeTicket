@@ -10,7 +10,7 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "GrabMyPass",
+  title: "MakeTicket",
   description: "Secure, reliable, and open-source event ticketing.",
   icons: {
     icon: "/logo.png",

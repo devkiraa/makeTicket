@@ -15,7 +15,7 @@ export default function IntegrationsPage() {
     return (
         <StaticPageLayout
             title="Integrations"
-            subtitle="Connect GrabMyPass with the tools you already use."
+            subtitle="Connect MakeTicket with the tools you already use."
         >
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {integrations.map((integration, i) => (

@@ -438,7 +438,7 @@ export default function PublicEventPage() {
                     </div>
                 </div>
                 <p className="text-center text-slate-500 text-sm mt-6">
-                    Powered by <span className="font-semibold text-white">GrabMyPass</span>
+                    Powered by <span className="font-semibold text-white">MakeTicket</span>
                 </p>
             </div>
         </div>
@@ -470,7 +470,7 @@ export default function PublicEventPage() {
                     </div>
                 </div>
                 <p className="text-center text-slate-500 text-sm mt-6">
-                    Powered by <span className="font-semibold text-white">GrabMyPass</span>
+                    Powered by <span className="font-semibold text-white">MakeTicket</span>
                 </p>
             </div>
         </div>
@@ -582,7 +582,7 @@ export default function PublicEventPage() {
                                     const endDate = new Date(startDate.getTime() + 2 * 60 * 60 * 1000); // 2 hours
                                     const formatDate = (d: Date) => d.toISOString().replace(/-|:|\.\d+/g, '').slice(0, 15) + 'Z';
 
-                                    const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.title)}&dates=${formatDate(startDate)}/${formatDate(endDate)}&details=${encodeURIComponent(event.description || 'Event registered via GrabMyPass')}&location=${encodeURIComponent(event.location || '')}`;
+                                    const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.title)}&dates=${formatDate(startDate)}/${formatDate(endDate)}&details=${encodeURIComponent(event.description || 'Event registered via MakeTicket')}&location=${encodeURIComponent(event.location || '')}`;
 
                                     window.open(calendarUrl, '_blank');
                                 }}
@@ -623,7 +623,7 @@ export default function PublicEventPage() {
 
                 {/* Powered by */}
                 <p className="text-center text-slate-400 text-sm mt-6">
-                    Powered by <span className="font-semibold text-slate-600">GrabMyPass</span>
+                    Powered by <span className="font-semibold text-slate-600">MakeTicket</span>
                 </p>
             </div>
         </div>
@@ -724,7 +724,7 @@ export default function PublicEventPage() {
 
                 {/* Powered by */}
                 <p className="text-center text-slate-400 text-sm mt-6">
-                    Powered by <span className="font-semibold text-slate-600">GrabMyPass</span>
+                    Powered by <span className="font-semibold text-slate-600">MakeTicket</span>
                 </p>
             </div>
         </div>
@@ -1238,7 +1238,7 @@ export default function PublicEventPage() {
                     )}
 
                     <div className="mt-12 text-center text-gray-400 text-sm">
-                        <p>Powered by <span className="font-semibold text-gray-600">GrabMyPass</span></p>
+                        <p>Powered by <span className="font-semibold text-gray-600">MakeTicket</span></p>
                     </div>
                 </div>
             </div >

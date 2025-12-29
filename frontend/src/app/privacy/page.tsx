@@ -133,8 +133,8 @@ export default function PrivacyPage() {
                                 If you have any questions about this Privacy Policy or how we handle your data,
                                 we're here to help.
                             </p>
-                            <a href="mailto:privacy@grabmypass.com" className="inline-flex items-center gap-2 text-indigo-600 font-semibold hover:underline">
-                                privacy@grabmypass.com
+                            <a href="mailto:privacy@maketicket.app" className="inline-flex items-center gap-2 text-indigo-600 font-semibold hover:underline">
+                                privacy@maketicket.app
                             </a>
                         </div>
                     </div>

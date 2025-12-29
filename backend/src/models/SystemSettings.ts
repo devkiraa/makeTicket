@@ -9,7 +9,7 @@ const SystemSettingsSchema = new mongoose.Schema({
     systemEmail: {
         enabled: { type: Boolean, default: false },
         accountId: { type: mongoose.Schema.Types.ObjectId, ref: 'EmailAccount' }, // Reference to existing EmailAccount
-        fromName: { type: String, default: 'GrabMyPass' },
+        fromName: { type: String, default: 'MakeTicket' },
         fromEmail: { type: String } // Optional custom from email
     },
 
@@ -41,7 +41,7 @@ const SystemSettingsSchema = new mongoose.Schema({
     },
 
     // Other global settings
-    platformName: { type: String, default: 'GrabMyPass' },
+    platformName: { type: String, default: 'MakeTicket' },
     supportEmail: { type: String },
     maintenanceMode: { type: Boolean, default: false },
     registrationEnabled: { type: Boolean, default: true }

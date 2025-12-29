@@ -201,7 +201,7 @@ export default function ValidatorPage() {
             </Card>
 
             <p className="text-sm text-slate-400 mt-6">
-                Powered by <span className="font-semibold text-slate-600">GrabMyPass</span>
+                Powered by <span className="font-semibold text-slate-600">MakeTicket</span>
             </p>
         </div>
     );

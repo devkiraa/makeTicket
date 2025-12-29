@@ -7,7 +7,7 @@ export default function DocsPage() {
         {
             icon: Book,
             title: 'Getting Started',
-            description: 'Learn the basics of GrabMyPass in 5 minutes.',
+            description: 'Learn the basics of MakeTicket in 5 minutes.',
             links: ['Create Your First Event', 'Setting Up Check-in', 'Inviting Team Members']
         },
         {
@@ -33,7 +33,7 @@ export default function DocsPage() {
     return (
         <StaticPageLayout
             title="Documentation"
-            subtitle="Everything you need to know about using GrabMyPass."
+            subtitle="Everything you need to know about using MakeTicket."
         >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
                 {sections.map((section, i) => {

@@ -482,3 +482,107 @@ export const revokeSession = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Failed to revoke session', error });
     }
 };
+
+// Forgot Password - Send Reset Email
+export const forgotPassword = async (req: Request, res: Response) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({ message: 'Email is required' });
+        }
+
+        const user = await User.findOne({ email: email.toLowerCase() });
+
+        // Always return success to prevent email enumeration attacks
+        if (!user) {
+            return res.status(200).json({
+                message: 'If an account with that email exists, a password reset link has been sent.'
+            });
+        }
+
+        // Generate secure reset token
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+        // Token expires in 30 minutes
+        const resetTokenExpiry = new Date(Date.now() + 30 * 60 * 1000);
+
+        // Save hashed token to database
+        user.resetToken = hashedToken;
+        user.resetTokenExpiry = resetTokenExpiry;
+        await user.save();
+
+        // Build reset URL
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
+
+        // Send password reset email
+        try {
+            const { sendPasswordResetEmail } = await import('../services/systemEmailService');
+            await sendPasswordResetEmail(
+                email,
+                user.name || email.split('@')[0],
+                resetUrl,
+                30 // expiry in minutes
+            );
+            console.log(`✅ Password reset email sent to ${email}`);
+        } catch (emailError: any) {
+            console.error('Failed to send password reset email:', emailError.message);
+            // Don't fail the request if email fails - user can try again
+        }
+
+        res.status(200).json({
+            message: 'If an account with that email exists, a password reset link has been sent.'
+        });
+    } catch (error: any) {
+        console.error('Forgot password error:', error);
+        res.status(500).json({ message: 'Something went wrong. Please try again.' });
+    }
+};
+
+// Reset Password - Verify Token and Update Password
+export const resetPassword = async (req: Request, res: Response) => {
+    try {
+        const { token, email, password } = req.body;
+
+        if (!token || !email || !password) {
+            return res.status(400).json({ message: 'Token, email, and new password are required' });
+        }
+
+        if (password.length < 6) {
+            return res.status(400).json({ message: 'Password must be at least 6 characters' });
+        }
+
+        // Hash the token to compare with stored hash
+        const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+        // Find user with valid token
+        const user = await User.findOne({
+            email: email.toLowerCase(),
+            resetToken: hashedToken,
+            resetTokenExpiry: { $gt: new Date() }
+        });
+
+        if (!user) {
+            return res.status(400).json({
+                message: 'Invalid or expired reset link. Please request a new password reset.'
+            });
+        }
+
+        // Hash new password and save
+        const hashedPassword = await bcrypt.hash(password, 12);
+        user.password = hashedPassword;
+        user.resetToken = undefined;
+        user.resetTokenExpiry = undefined;
+        await user.save();
+
+        // Invalidate all existing sessions for security
+        await Session.updateMany({ userId: user._id }, { isValid: false });
+
+        res.status(200).json({ message: 'Password reset successful. You can now log in with your new password.' });
+    } catch (error: any) {
+        console.error('Reset password error:', error);
+        res.status(500).json({ message: 'Something went wrong. Please try again.' });
+    }
+};

@@ -49,7 +49,7 @@ const sampleData: Record<string, string> = {
     '{{event_description}}': 'Join us for an exciting tech conference...',
     '{{ticket_code}}': 'TKT-ABC123',
     '{{qr_code_url}}': 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=TKT-ABC123',
-    '{{event_link}}': 'https://grabmypass.com/events/tech-conf-2025',
+    '{{event_link}}': 'https://maketicket.app/events/tech-conf-2025',
     '{{host_name}}': 'Event Host',
     '{{host_email}}': 'host@example.com'
 };
@@ -192,7 +192,7 @@ export default function EmailTemplatesPage() {
             </p>
         </div>
         <div class="footer">
-            <p>Sent via GrabMyPass • Event hosted by {{host_name}}</p>
+            <p>Sent via MakeTicket • Event hosted by {{host_name}}</p>
         </div>
     </div>
 </body>

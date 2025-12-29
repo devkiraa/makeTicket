@@ -34,7 +34,10 @@ const UserSchema = new mongoose.Schema({
         port: { type: Number, default: 587 },
         secure: { type: Boolean, default: false },
         iv: { type: String } // For decryption
-    }
+    },
+    // Password Reset
+    resetToken: { type: String },
+    resetTokenExpiry: { type: Date }
 }, { timestamps: true });
 
 export const User = mongoose.model('User', UserSchema);

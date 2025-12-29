@@ -18,7 +18,7 @@ export default function StaticPageLayout({ title, subtitle, children, backLink =
                     <div className="bg-gradient-to-br from-indigo-600 to-violet-600 p-2 rounded-xl shadow-lg shadow-indigo-200">
                         <Ticket className="h-5 w-5 text-white" />
                     </div>
-                    <span className="font-bold text-xl tracking-tight text-slate-900">GrabMyPass</span>
+                    <span className="font-bold text-xl tracking-tight text-slate-900">MakeTicket</span>
                 </Link>
                 <nav className="ml-auto flex items-center gap-4">
                     <Link href="/login">
@@ -49,7 +49,7 @@ export default function StaticPageLayout({ title, subtitle, children, backLink =
             {/* Footer */}
             <footer className="py-8 border-t border-slate-100 bg-slate-50">
                 <div className="container px-4 md:px-6 flex flex-col md:flex-row justify-between items-center gap-4">
-                    <p className="text-sm text-slate-500">© 2025 GrabMyPass. All rights reserved.</p>
+                    <p className="text-sm text-slate-500">© 2025 MakeTicket. All rights reserved.</p>
                     <div className="flex gap-6 text-sm text-slate-500">
                         <Link href="/privacy" className="hover:text-slate-900">Privacy</Link>
                         <Link href="/terms" className="hover:text-slate-900">Terms</Link>

@@ -494,7 +494,7 @@ function CreateEventContent() {
                         <div className="relative">
                             <div className="flex items-center">
                                 <span className="bg-slate-100 border border-r-0 border-slate-300 px-3 h-10 flex items-center text-slate-500 rounded-l-md text-sm">
-                                    grabmypass.com/{username || '...'}/
+                                    maketicket.app/{username || '...'}/
                                 </span>
                                 <Input
                                     id="slug"
@@ -867,7 +867,7 @@ function CreateEventContent() {
                                 </div>
                                 <div>
                                     <label className="text-xs font-semibold text-indigo-400 uppercase">URL</label>
-                                    <p className="font-medium text-slate-900">grabmypass.com/{username}/{formData.slug}</p>
+                                    <p className="font-medium text-slate-900">maketicket.app/{username}/{formData.slug}</p>
                                 </div>
                                 <div>
                                     <label className="text-xs font-semibold text-indigo-400 uppercase">Confirmation Email</label>

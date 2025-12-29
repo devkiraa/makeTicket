@@ -1,14 +1,20 @@
 import mongoose from 'mongoose';
 
 const EmailLogSchema = new mongoose.Schema({
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Optional for system emails
+
     eventId: { type: mongoose.Schema.Types.ObjectId, ref: 'Event' },
     ticketId: { type: mongoose.Schema.Types.ObjectId, ref: 'Ticket' },
 
     // Email details
     type: {
         type: String,
-        enum: ['registration', 'reminder', 'update', 'cancellation', 'test', 'custom'],
+        enum: [
+            'registration', 'reminder', 'update', 'cancellation', 'test', 'custom',
+            // System email types
+            'system_welcome', 'system_passwordReset', 'system_hostUpgrade',
+            'system_suspension', 'system_loginAlert'
+        ],
         default: 'registration'
     },
 

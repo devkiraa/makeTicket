@@ -59,7 +59,7 @@ const generateDefaultEmailHtml = (data: {
             <p style="color: #64748b; font-size: 14px;">Please save this email or take a screenshot. You'll need to show the QR code at check-in.</p>
         </div>
         <div class="footer">
-            <p>Sent via GrabMyPass</p>
+            <p>Sent via MakeTicket</p>
         </div>
     </div>
 </body>
@@ -290,7 +290,7 @@ export const sendTicketEmail = async (params: SendTicketEmailParams): Promise<bo
         let rawEmail: string;
 
         // Determine the "From" address - use custom domain if configured
-        const fromName = (emailAccount as any).customFromName || emailAccount.name || 'GrabMyPass';
+        const fromName = (emailAccount as any).customFromName || emailAccount.name || 'MakeTicket';
         const fromEmail = (emailAccount as any).customFromEmail || emailAccount.email;
         const fromHeader = `${fromName} <${fromEmail}>`;
 

@@ -65,7 +65,7 @@ const generateDefaultEmailHtml = (data: {
             <p style="color: #64748b; font-size: 14px;">Please save this email or take a screenshot. You'll need to show the QR code at check-in.</p>
         </div>
         <div class="footer">
-            <p>Sent via GrabMyPass</p>
+            <p>Sent via MakeTicket</p>
         </div>
     </div>
 </body>
@@ -107,7 +107,7 @@ const emailWorker = new Worker('email-queue', async (job) => {
     try {
         // Ensure DB connection
         if (mongoose.connection.readyState === 0) {
-            await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/grabmypass');
+            await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/maketicket');
         }
 
         if (job.name === 'send-ticket') {
@@ -219,7 +219,7 @@ const emailWorker = new Worker('email-queue', async (job) => {
                     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
                     // Determine the "From" address - use custom domain if configured
-                    const senderName = (emailAccount as any).customFromName || emailAccount.name || 'GrabMyPass';
+                    const senderName = (emailAccount as any).customFromName || emailAccount.name || 'MakeTicket';
                     const senderEmail = (emailAccount as any).customFromEmail || emailAccount.email;
                     const fromHeader = `${senderName} <${senderEmail}>`;
 
@@ -307,7 +307,7 @@ const emailWorker = new Worker('email-queue', async (job) => {
                 eventId: eventDetails._id || eventDetails.id,
                 ticketId: ticketData._id,
                 type: 'registration',
-                fromEmail: fromEmail || 'system@grabmypass.com',
+                fromEmail: fromEmail || 'system@maketicket.app',
                 toEmail: recipientEmail,
                 toName: ticketData.guestName,
                 subject: emailSubject,

@@ -251,7 +251,7 @@ export const sendBulkEmail = async (req: Request, res: Response) => {
                 }
 
                 // Determine the "From" address - use custom domain if configured
-                const senderName = (emailAccount as any).customFromName || emailAccount.name || 'GrabMyPass';
+                const senderName = (emailAccount as any).customFromName || emailAccount.name || 'MakeTicket';
                 const senderEmail = (emailAccount as any).customFromEmail || emailAccount.email;
                 const fromHeader = `${senderName} <${senderEmail}>`;
 

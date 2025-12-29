@@ -23,7 +23,7 @@ export default function ContactPage() {
                             </div>
                             <div>
                                 <h3 className="font-semibold text-slate-900">Email</h3>
-                                <p className="text-slate-600">support@grabmypass.com</p>
+                                <p className="text-slate-600">support@maketicket.app</p>
                             </div>
                         </div>
                         <div className="flex items-start gap-4">

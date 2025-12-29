@@ -24,7 +24,7 @@ export default function CareersPage() {
             department: 'Operations',
             location: 'Bangalore',
             type: 'Full-time',
-            description: 'Help our customers get the most out of GrabMyPass.'
+            description: 'Help our customers get the most out of MakeTicket.'
         },
         {
             title: 'Backend Engineer',
@@ -42,7 +42,7 @@ export default function CareersPage() {
         >
             <div className="max-w-3xl">
                 <div className="bg-gradient-to-r from-indigo-50 to-violet-50 rounded-2xl p-8 mb-12">
-                    <h2 className="text-2xl font-bold text-slate-900 mb-4">Why GrabMyPass?</h2>
+                    <h2 className="text-2xl font-bold text-slate-900 mb-4">Why MakeTicket?</h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
                             <div className="text-3xl font-bold text-indigo-600">100%</div>

@@ -29,7 +29,7 @@ export default function CommunityPage() {
         {
             icon: Users,
             title: 'Ambassador Program',
-            description: 'Become a GrabMyPass ambassador and earn rewards.',
+            description: 'Become a MakeTicket ambassador and earn rewards.',
             action: 'Apply Now',
             color: 'purple'
         }

@@ -140,9 +140,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <aside className={`w-64 ${isAdminRoute ? 'bg-slate-900' : 'bg-white'} border-r ${isAdminRoute ? 'border-slate-800' : 'border-slate-200'} hidden md:flex flex-col fixed inset-y-0 z-50`}>
                 <div className={`h-16 flex items-center px-6 border-b ${isAdminRoute ? 'border-slate-800' : 'border-slate-100'}`}>
                     <div className={`flex items-center gap-2 ${isAdminRoute ? 'text-purple-400' : 'text-indigo-600'}`}>
-                        {isAdminRoute ? <ShieldCheck className="h-6 w-6" /> : <img src="/logo.png" alt="GrabMyPass" className="h-8 w-8 rounded-lg" />}
+                        {isAdminRoute ? <ShieldCheck className="h-6 w-6" /> : <img src="/logo.png" alt="MakeTicket" className="h-8 w-8 rounded-lg" />}
                         <span className={`font-bold text-xl tracking-tight ${isAdminRoute ? 'text-white' : 'text-slate-900'}`}>
-                            {isAdminRoute ? 'Admin Panel' : 'GrabMyPass'}
+                            {isAdminRoute ? 'Admin Panel' : 'MakeTicket'}
                         </span>
                     </div>
                 </div>
@@ -384,9 +384,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <aside className={`fixed inset-y-0 left-0 w-72 ${isAdminRoute ? 'bg-slate-900' : 'bg-white'} shadow-xl flex flex-col`}>
                         <div className={`h-16 flex items-center justify-between px-6 border-b ${isAdminRoute ? 'border-slate-800' : 'border-slate-100'}`}>
                             <div className={`flex items-center gap-2 ${isAdminRoute ? 'text-purple-400' : 'text-indigo-600'}`}>
-                                {isAdminRoute ? <ShieldCheck className="h-6 w-6" /> : <img src="/logo.png" alt="GrabMyPass" className="h-8 w-8 rounded-lg" />}
+                                {isAdminRoute ? <ShieldCheck className="h-6 w-6" /> : <img src="/logo.png" alt="MakeTicket" className="h-8 w-8 rounded-lg" />}
                                 <span className={`font-bold text-xl tracking-tight ${isAdminRoute ? 'text-white' : 'text-slate-900'}`}>
-                                    {isAdminRoute ? 'Admin Panel' : 'GrabMyPass'}
+                                    {isAdminRoute ? 'Admin Panel' : 'MakeTicket'}
                                 </span>
                             </div>
                             <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(false)} className={isAdminRoute ? 'text-slate-400 hover:text-white' : ''}>
@@ -505,8 +505,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             <Menu className="h-6 w-6 text-slate-600" />
                         </Button>
                         <div className={`flex items-center gap-2 ${isAdminRoute ? 'text-purple-600' : 'text-indigo-600'}`}>
-                            {isAdminRoute ? <ShieldCheck className="h-5 w-5" /> : <img src="/logo.png" alt="GrabMyPass" className="h-6 w-6 rounded-md" />}
-                            <span className="font-bold text-sm">{isAdminRoute ? 'Admin' : 'GrabMyPass'}</span>
+                            {isAdminRoute ? <ShieldCheck className="h-5 w-5" /> : <img src="/logo.png" alt="MakeTicket" className="h-6 w-6 rounded-md" />}
+                            <span className="font-bold text-sm">{isAdminRoute ? 'Admin' : 'MakeTicket'}</span>
                         </div>
                     </div>
 

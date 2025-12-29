@@ -86,7 +86,7 @@ export default function CoordinatorDashboardPage() {
                                 <div className="bg-indigo-600 p-2 rounded-lg">
                                     <Ticket className="h-5 w-5 text-white" />
                                 </div>
-                                <span className="font-bold text-xl text-slate-900">GrabMyPass</span>
+                                <span className="font-bold text-xl text-slate-900">MakeTicket</span>
                             </Link>
                             <span className="text-slate-300">|</span>
                             <span className="text-slate-600 font-medium">Coordinator Dashboard</span>
