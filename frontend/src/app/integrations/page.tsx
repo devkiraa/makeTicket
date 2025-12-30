@@ -27,8 +27,8 @@ export default function IntegrationsPage() {
     const integrations = [
         { name: 'Google Calendar', description: 'Sync events automatically', category: 'Productivity', status: 'Available' },
         { name: 'Zapier', description: 'Connect to 5000+ apps', category: 'Automation', status: 'Available' },
+        { name: 'Razorpay', description: 'Indian payment gateway', category: 'Payments', status: 'Available' },
         { name: 'Stripe', description: 'Accept payments globally', category: 'Payments', status: 'Coming Soon' },
-        { name: 'Razorpay', description: 'Indian payment gateway', category: 'Payments', status: 'Coming Soon' },
         { name: 'Slack', description: 'Get notifications in Slack', category: 'Communication', status: 'Available' },
         { name: 'Discord', description: 'Community notifications', category: 'Communication', status: 'Coming Soon' },
         { name: 'Mailchimp', description: 'Sync attendees to lists', category: 'Marketing', status: 'Available' },

@@ -21,7 +21,8 @@ import {
     Menu,
     X,
     Ghost,
-    Monitor
+    Monitor,
+    Wallet
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -353,6 +354,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 </Button>
                             )}
 
+                            {/* Billing - only for hosts/admins */}
+                            {!isUserRole && (
+                                <Button
+                                    variant="ghost"
+                                    className={`w-full justify-start font-medium ${pathname === '/dashboard/billing' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                                    onClick={() => router.push('/dashboard/billing')}
+                                >
+                                    <Wallet className="mr-3 h-5 w-5" />
+                                    Billing
+                                </Button>
+                            )}
+
                             <Button
                                 variant="ghost"
                                 className={`w-full justify-start font-medium ${pathname === '/dashboard/settings' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
@@ -465,6 +478,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     {isAdmin && (
                                         <Button variant="ghost" className="w-full justify-start font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 mb-2" onClick={() => { router.push('/dashboard/admin'); setMobileMenuOpen(false); }}>
                                             <ShieldCheck className="mr-3 h-5 w-5" /> Admin Panel
+                                        </Button>
+                                    )}
+                                    {!isUserRole && (
+                                        <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/billing' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`} onClick={() => { router.push('/dashboard/billing'); setMobileMenuOpen(false); }}>
+                                            <Wallet className="mr-3 h-5 w-5" /> Billing
                                         </Button>
                                     )}
                                     <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/settings' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`} onClick={() => { router.push('/dashboard/settings'); setMobileMenuOpen(false); }}>

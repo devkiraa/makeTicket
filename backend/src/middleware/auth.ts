@@ -50,3 +50,38 @@ export const verifyToken = async (req: Request, res: Response, next: NextFunctio
         return res.status(401).json({ message: 'Unauthorized - Invalid Token' });
     }
 };
+
+/**
+ * Optional authentication middleware
+ * Attaches user to request if valid token exists, but doesn't block if no token
+ * Useful for routes that work for both guests and logged-in users
+ */
+export const optionalAuth = async (req: Request, res: Response, next: NextFunction) => {
+    const token = req.cookies.auth_token || 
+                  req.headers.authorization?.split(' ')[1] ||
+                  req.query.token as string;
+
+    if (!token) {
+        // No token - continue as guest
+        return next();
+    }
+
+    try {
+        const decoded: any = jwt.verify(token, process.env.JWT_SECRET || 'test_secret');
+
+        if (decoded.sessionId) {
+            const session = await Session.findById(decoded.sessionId);
+            
+            // If session is valid, attach user
+            if (session && session.isValid && session.expiresAt > new Date()) {
+                // @ts-ignore
+                req.user = decoded;
+            }
+        }
+        
+        next();
+    } catch (error) {
+        // Invalid token - continue as guest (don't block the request)
+        next();
+    }
+};

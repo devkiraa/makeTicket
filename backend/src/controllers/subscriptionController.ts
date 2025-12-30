@@ -1,0 +1,379 @@
+import { Request, Response } from 'express';
+import { Payment } from '../models/Payment';
+import { Subscription, PLAN_CONFIGS } from '../models/Subscription';
+import { User } from '../models/User';
+import * as razorpayService from '../services/razorpayService';
+import crypto from 'crypto';
+
+/**
+ * Get Razorpay configuration (public key for frontend)
+ */
+export const getRazorpayConfig = async (req: Request, res: Response) => {
+    try {
+        res.json({
+            keyId: razorpayService.getKeyId(),
+            configured: razorpayService.isConfigured()
+        });
+    } catch (error: any) {
+        res.status(500).json({ message: 'Failed to get Razorpay config', error: error.message });
+    }
+};
+
+/**
+ * Get user's current subscription
+ */
+export const getSubscription = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user.id;
+
+        let subscription = await Subscription.findOne({ userId });
+        
+        // Create default free subscription if none exists
+        if (!subscription) {
+            subscription = await Subscription.create({
+                userId,
+                plan: 'free',
+                status: 'active',
+                limits: PLAN_CONFIGS.free.limits
+            });
+        }
+
+        res.json({
+            subscription,
+            planConfig: PLAN_CONFIGS[subscription.plan as keyof typeof PLAN_CONFIGS]
+        });
+
+    } catch (error: any) {
+        console.error('Get subscription error:', error);
+        res.status(500).json({ message: 'Failed to fetch subscription', error: error.message });
+    }
+};
+
+/**
+ * Get available plans
+ */
+export const getPlans = async (req: Request, res: Response) => {
+    try {
+        const plans = Object.entries(PLAN_CONFIGS).map(([key, config]) => ({
+            id: key,
+            ...config
+        }));
+
+        res.json(plans);
+    } catch (error: any) {
+        res.status(500).json({ message: 'Failed to fetch plans', error: error.message });
+    }
+};
+
+/**
+ * Create order to upgrade to Pro plan
+ */
+export const createUpgradeOrder = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user.id;
+        const { plan } = req.body;
+
+        if (plan !== 'pro') {
+            return res.status(400).json({ message: 'Invalid plan. Only Pro upgrade is available.' });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Check current subscription
+        const currentSub = await Subscription.findOne({ userId });
+        if (currentSub?.plan === 'pro' && currentSub.status === 'active') {
+            return res.status(400).json({ message: 'You are already on the Pro plan' });
+        }
+
+        const planConfig = PLAN_CONFIGS.pro;
+        const receipt = `pro_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+
+        // Create Razorpay order
+        const order = await razorpayService.createOrder({
+            amount: planConfig.price,
+            currency: 'INR',
+            receipt: receipt,
+            notes: {
+                userId: userId,
+                plan: 'pro',
+                userEmail: user.email
+            }
+        });
+
+        // Store payment record
+        await Payment.create({
+            razorpayOrderId: order.id,
+            userId: userId,
+            amount: order.amount,
+            currency: order.currency,
+            status: 'created',
+            type: 'subscription',
+            plan: 'pro',
+            receipt: receipt,
+            notes: order.notes,
+            expiresAt: new Date(Date.now() + 30 * 60 * 1000) // 30 minutes expiry
+        });
+
+        res.json({
+            orderId: order.id,
+            amount: order.amount,
+            currency: order.currency,
+            keyId: razorpayService.getKeyId(),
+            plan: 'pro',
+            planName: planConfig.name,
+            prefill: {
+                name: user.name || '',
+                email: user.email,
+                contact: ''
+            }
+        });
+
+    } catch (error: any) {
+        console.error('Create upgrade order error:', error);
+        res.status(500).json({ message: 'Failed to create order', error: error.message });
+    }
+};
+
+/**
+ * Verify payment and activate subscription
+ */
+export const verifyPayment = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user.id;
+        const { 
+            razorpay_order_id, 
+            razorpay_payment_id, 
+            razorpay_signature 
+        } = req.body;
+
+        if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+            return res.status(400).json({ message: 'Missing payment verification parameters' });
+        }
+
+        // Find payment record
+        const payment = await Payment.findOne({ razorpayOrderId: razorpay_order_id, userId });
+        if (!payment) {
+            return res.status(404).json({ message: 'Payment order not found' });
+        }
+
+        if (payment.status === 'paid') {
+            return res.status(400).json({ message: 'Payment already verified' });
+        }
+
+        // Verify signature
+        const isValid = razorpayService.verifyPaymentSignature(
+            razorpay_order_id,
+            razorpay_payment_id,
+            razorpay_signature
+        );
+
+        if (!isValid) {
+            payment.status = 'failed';
+            payment.failedAt = new Date();
+            await payment.save();
+            return res.status(400).json({ message: 'Payment verification failed. Invalid signature.' });
+        }
+
+        // Fetch payment details from Razorpay
+        const paymentDetails = await razorpayService.fetchPayment(razorpay_payment_id);
+
+        // Update payment record
+        payment.razorpayPaymentId = razorpay_payment_id;
+        payment.razorpaySignature = razorpay_signature;
+        payment.status = 'paid';
+        payment.paidAt = new Date();
+        payment.method = paymentDetails.method;
+        payment.bank = paymentDetails.bank;
+        payment.wallet = paymentDetails.wallet;
+        payment.vpa = paymentDetails.vpa;
+        await payment.save();
+
+        // Activate/Update subscription
+        const planConfig = PLAN_CONFIGS[payment.plan as keyof typeof PLAN_CONFIGS];
+        const now = new Date();
+        const periodEnd = new Date(now);
+        periodEnd.setMonth(periodEnd.getMonth() + 1); // 1 month subscription
+
+        await Subscription.findOneAndUpdate(
+            { userId },
+            {
+                userId,
+                plan: payment.plan,
+                status: 'active',
+                currentPeriodStart: now,
+                currentPeriodEnd: periodEnd,
+                limits: planConfig.limits,
+                lastPaymentId: razorpay_payment_id,
+                lastPaymentDate: now,
+                lastPaymentAmount: payment.amount / 100
+            },
+            { upsert: true, new: true }
+        );
+
+        res.json({
+            success: true,
+            message: 'Payment verified! Your Pro plan is now active.',
+            subscription: {
+                plan: payment.plan,
+                status: 'active',
+                validUntil: periodEnd
+            }
+        });
+
+    } catch (error: any) {
+        console.error('Verify payment error:', error);
+        res.status(500).json({ message: 'Payment verification failed', error: error.message });
+    }
+};
+
+/**
+ * Handle Razorpay webhook
+ */
+export const handleWebhook = async (req: Request, res: Response) => {
+    try {
+        const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+        const signature = req.headers['x-razorpay-signature'] as string;
+
+        // Verify webhook signature if secret is configured
+        if (webhookSecret && signature) {
+            const isValid = razorpayService.verifyWebhookSignature(
+                JSON.stringify(req.body),
+                signature,
+                webhookSecret
+            );
+            if (!isValid) {
+                return res.status(400).json({ message: 'Invalid webhook signature' });
+            }
+        }
+
+        const { event, payload } = req.body;
+
+        switch (event) {
+            case 'payment.captured':
+                const capturedPayment = await Payment.findOne({ 
+                    razorpayOrderId: payload.payment.entity.order_id 
+                });
+                if (capturedPayment && capturedPayment.status !== 'paid') {
+                    capturedPayment.status = 'paid';
+                    capturedPayment.razorpayPaymentId = payload.payment.entity.id;
+                    capturedPayment.paidAt = new Date();
+                    capturedPayment.method = payload.payment.entity.method;
+                    await capturedPayment.save();
+                }
+                break;
+
+            case 'payment.failed':
+                const failedPayment = await Payment.findOne({ 
+                    razorpayOrderId: payload.payment.entity.order_id 
+                });
+                if (failedPayment) {
+                    failedPayment.status = 'failed';
+                    failedPayment.failedAt = new Date();
+                    await failedPayment.save();
+                }
+                break;
+
+            case 'subscription.cancelled':
+                // Handle subscription cancellation
+                const cancelledSub = await Subscription.findOne({
+                    razorpaySubscriptionId: payload.subscription.entity.id
+                });
+                if (cancelledSub) {
+                    cancelledSub.status = 'cancelled';
+                    cancelledSub.cancelledAt = new Date();
+                    await cancelledSub.save();
+                }
+                break;
+
+            default:
+                console.log('Unhandled webhook event:', event);
+        }
+
+        res.json({ received: true });
+
+    } catch (error: any) {
+        console.error('Webhook error:', error);
+        res.status(500).json({ message: 'Webhook processing failed', error: error.message });
+    }
+};
+
+/**
+ * Get payment history
+ */
+export const getPaymentHistory = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user.id;
+
+        const payments = await Payment.find({ userId, status: 'paid' })
+            .sort({ createdAt: -1 })
+            .limit(20);
+
+        res.json(payments);
+
+    } catch (error: any) {
+        console.error('Get payment history error:', error);
+        res.status(500).json({ message: 'Failed to fetch payment history', error: error.message });
+    }
+};
+
+/**
+ * Cancel subscription (downgrade to free)
+ */
+export const cancelSubscription = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user.id;
+        const { reason } = req.body;
+
+        const subscription = await Subscription.findOne({ userId });
+        if (!subscription) {
+            return res.status(404).json({ message: 'No subscription found' });
+        }
+
+        if (subscription.plan === 'free') {
+            return res.status(400).json({ message: 'You are already on the free plan' });
+        }
+
+        // Mark as cancelled - will downgrade at period end
+        subscription.status = 'cancelled';
+        subscription.cancelledAt = new Date();
+        subscription.cancelReason = reason;
+        await subscription.save();
+
+        res.json({
+            success: true,
+            message: 'Subscription cancelled. You will be downgraded to Free at the end of your billing period.',
+            validUntil: subscription.currentPeriodEnd
+        });
+
+    } catch (error: any) {
+        console.error('Cancel subscription error:', error);
+        res.status(500).json({ message: 'Failed to cancel subscription', error: error.message });
+    }
+};
+
+/**
+ * Check if user has access to a feature
+ */
+export const checkFeatureAccess = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user.id;
+        const { feature } = req.params;
+
+        const subscription = await Subscription.findOne({ userId });
+        
+        if (!subscription || !subscription.limits) {
+            // Default to free plan limits
+            const hasAccess = PLAN_CONFIGS.free.limits[feature as keyof typeof PLAN_CONFIGS.free.limits] || false;
+            return res.json({ hasAccess, plan: 'free' });
+        }
+
+        const hasAccess = subscription.limits[feature as keyof typeof subscription.limits] || false;
+        res.json({ hasAccess, plan: subscription.plan });
+
+    } catch (error: any) {
+        res.status(500).json({ message: 'Failed to check feature access', error: error.message });
+    }
+};

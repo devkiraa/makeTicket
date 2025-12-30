@@ -29,6 +29,7 @@
     "nodemailer": "^6.9.7",
     "passkit-generator": "^3.5.7",
     "qrcode": "^1.5.4",
+    "razorpay": "^2.9.6",
     "react-email": "^1.10.0",
     "resend": "^6.6.0",
     "rotating-file-stream": "^3.2.7",

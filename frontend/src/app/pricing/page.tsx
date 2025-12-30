@@ -1,35 +1,23 @@
+'use client';
+
 import StaticPageLayout from '@/components/StaticPageLayout';
 import { Button } from '@/components/ui/button';
 import { Check } from 'lucide-react';
 import Link from 'next/link';
-import type { Metadata } from 'next';
-
-export const metadata: Metadata = {
-    title: 'Pricing - Free Event Ticketing | MakeTicket',
-    description: 'MakeTicket pricing plans: Free tier for small events, Pro for growing organizers, Enterprise for large organizations. Start creating tickets for free today.',
-    keywords: [
-        'free event ticketing',
-        'ticketing pricing',
-        'event software pricing',
-        'free ticket generator',
-        'event management cost',
-        'affordable ticketing',
-        'ticket platform pricing'
-    ],
-    openGraph: {
-        title: 'MakeTicket Pricing - Start Free, Scale as You Grow',
-        description: 'Free tier for small events. Pro features for growing organizers. Enterprise solutions for large organizations.',
-        url: 'https://maketicket.app/pricing',
-        type: 'website',
-    },
-    alternates: {
-        canonical: 'https://maketicket.app/pricing',
-    },
-};
+import { useEffect, useState } from 'react';
 
 export default function PricingPage() {
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+    useEffect(() => {
+        // Check if user is logged in
+        const token = localStorage.getItem('auth_token');
+        setIsLoggedIn(!!token);
+    }, []);
+
     const plans = [
         {
+            id: 'free',
             name: 'Free',
             price: '₹0',
             period: 'forever',
@@ -46,6 +34,7 @@ export default function PricingPage() {
             popular: false
         },
         {
+            id: 'pro',
             name: 'Pro',
             price: '₹999',
             period: '/month',
@@ -61,9 +50,11 @@ export default function PricingPage() {
                 'Export attendee data'
             ],
             cta: 'Start Free Trial',
+            ctaLoggedIn: 'Upgrade Now',
             popular: true
         },
         {
+            id: 'enterprise',
             name: 'Enterprise',
             price: 'Custom',
             period: '',
@@ -82,6 +73,23 @@ export default function PricingPage() {
             popular: false
         }
     ];
+
+    const getButtonLink = (plan: typeof plans[0]) => {
+        if (plan.id === 'enterprise') {
+            return '/contact?subject=Enterprise%20Plan';
+        }
+        if (isLoggedIn) {
+            return '/dashboard/billing';
+        }
+        return '/register';
+    };
+
+    const getButtonText = (plan: typeof plans[0]) => {
+        if (isLoggedIn && plan.id === 'pro') {
+            return plan.ctaLoggedIn || plan.cta;
+        }
+        return plan.cta;
+    };
 
     return (
         <StaticPageLayout
@@ -108,12 +116,12 @@ export default function PricingPage() {
                             <span className="text-slate-500">{plan.period}</span>
                         </div>
                         <p className="text-slate-600 mb-6">{plan.description}</p>
-                        <Link href="/login">
+                        <Link href={getButtonLink(plan)}>
                             <Button className={`w-full rounded-full mb-6 ${plan.popular
                                 ? 'bg-indigo-600 hover:bg-indigo-700'
                                 : 'bg-slate-900 hover:bg-slate-800'
                                 }`}>
-                                {plan.cta}
+                                {getButtonText(plan)}
                             </Button>
                         </Link>
                         <ul className="space-y-3">
@@ -126,6 +134,29 @@ export default function PricingPage() {
                         </ul>
                     </div>
                 ))}
+            </div>
+
+            {/* Trust badges */}
+            <div className="mt-16 text-center">
+                <p className="text-sm text-slate-500 mb-4">Secure payments powered by</p>
+                <div className="flex items-center justify-center gap-8">
+                    <div className="flex items-center gap-2 text-slate-600">
+                        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                        </svg>
+                        <span className="text-sm font-medium">PCI-DSS Compliant</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-600">
+                        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+                        </svg>
+                        <span className="text-sm font-medium">256-bit SSL</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-600">
+                        <img src="https://cdn.razorpay.com/static/assets/logo/payment.svg" alt="Razorpay" className="h-6" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+                        <span className="text-sm font-medium">Razorpay</span>
+                    </div>
+                </div>
             </div>
         </StaticPageLayout>
     );

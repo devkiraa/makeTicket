@@ -16,7 +16,11 @@ import {
   Smartphone,
   Star,
   ChevronRight,
-  Play
+  Play,
+  Crown,
+  Building2,
+  Check,
+  X
 } from "lucide-react"
 import type { Metadata } from "next"
 
@@ -506,6 +510,155 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* Pricing Section */}
+        <section id="pricing" className="py-24 bg-gradient-to-b from-slate-50 to-white">
+          <div className="container px-4 md:px-6">
+            <div className="text-center mb-16">
+              <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200/50 bg-white px-4 py-1.5 text-sm font-medium text-indigo-700 mb-4">
+                <Sparkles className="w-4 h-4" />
+                <span>Simple Pricing</span>
+              </div>
+              <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-4">
+                Start free, <span className="text-indigo-600">scale as you grow</span>
+              </h2>
+              <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+                No hidden fees. No surprises. Choose the plan that fits your needs.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+              {/* Free Plan */}
+              <div className="relative rounded-2xl border border-slate-200 bg-white p-8 shadow-sm hover:shadow-lg transition-shadow">
+                <div className="flex items-center gap-2 mb-2">
+                  <Zap className="w-5 h-5 text-slate-600" />
+                  <h3 className="text-xl font-semibold text-slate-900">Free</h3>
+                </div>
+                <div className="flex items-baseline gap-1 mb-2">
+                  <span className="text-4xl font-bold text-slate-900">₹0</span>
+                  <span className="text-slate-500">/forever</span>
+                </div>
+                <p className="text-slate-600 mb-6">Perfect for small events and getting started.</p>
+                
+                <Link href="/register">
+                  <Button className="w-full rounded-full mb-6 bg-slate-900 hover:bg-slate-800">
+                    Get Started Free
+                  </Button>
+                </Link>
+                
+                <ul className="space-y-3">
+                  {[
+                    'Up to 100 attendees per event',
+                    'Unlimited events',
+                    'QR code tickets',
+                    'Email confirmations',
+                    'Basic analytics',
+                    'Community support'
+                  ].map((feature, i) => (
+                    <li key={i} className="flex items-start gap-3 text-sm text-slate-600">
+                      <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Pro Plan */}
+              <div className="relative rounded-2xl border-2 border-indigo-600 bg-white p-8 shadow-xl ring-1 ring-indigo-600/10">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-xs font-semibold px-3 py-1 rounded-full">
+                  Most Popular
+                </div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Crown className="w-5 h-5 text-yellow-500" />
+                  <h3 className="text-xl font-semibold text-slate-900">Pro</h3>
+                </div>
+                <div className="flex items-baseline gap-1 mb-2">
+                  <span className="text-4xl font-bold text-slate-900">₹999</span>
+                  <span className="text-slate-500">/month</span>
+                </div>
+                <p className="text-slate-600 mb-6">For growing organizers who need more power.</p>
+                
+                <Link href="/register">
+                  <Button className="w-full rounded-full mb-6 bg-indigo-600 hover:bg-indigo-700">
+                    Start Free Trial
+                  </Button>
+                </Link>
+                
+                <ul className="space-y-3">
+                  {[
+                    'Up to 1,000 attendees per event',
+                    'Custom branding',
+                    'Priority email delivery',
+                    'Advanced analytics',
+                    'Team members (up to 10)',
+                    'Email support',
+                    'Custom email templates',
+                    'Export attendee data'
+                  ].map((feature, i) => (
+                    <li key={i} className="flex items-start gap-3 text-sm text-slate-600">
+                      <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Enterprise Plan */}
+              <div className="relative rounded-2xl border border-slate-200 bg-white p-8 shadow-sm hover:shadow-lg transition-shadow">
+                <div className="flex items-center gap-2 mb-2">
+                  <Building2 className="w-5 h-5 text-purple-600" />
+                  <h3 className="text-xl font-semibold text-slate-900">Enterprise</h3>
+                </div>
+                <div className="flex items-baseline gap-1 mb-2">
+                  <span className="text-4xl font-bold text-slate-900">Custom</span>
+                </div>
+                <p className="text-slate-600 mb-6">For large organizations with complex needs.</p>
+                
+                <Link href="/contact?subject=Enterprise%20Plan">
+                  <Button variant="outline" className="w-full rounded-full mb-6 border-slate-300 hover:bg-slate-50">
+                    Contact Sales
+                  </Button>
+                </Link>
+                
+                <ul className="space-y-3">
+                  {[
+                    'Unlimited attendees',
+                    'White-label solution',
+                    'API access',
+                    'Dedicated support',
+                    'Custom integrations',
+                    'SLA guarantee',
+                    'On-premise option',
+                    'Training & onboarding'
+                  ].map((feature, i) => (
+                    <li key={i} className="flex items-start gap-3 text-sm text-slate-600">
+                      <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* Trust badges */}
+            <div className="mt-16 text-center">
+              <p className="text-sm text-slate-500 mb-4">Secure payments powered by</p>
+              <div className="flex items-center justify-center gap-8 flex-wrap">
+                <div className="flex items-center gap-2 text-slate-600">
+                  <ShieldCheck className="w-5 h-5 text-green-600" />
+                  <span className="text-sm font-medium">PCI-DSS Compliant</span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-600">
+                  <ShieldCheck className="w-5 h-5 text-green-600" />
+                  <span className="text-sm font-medium">256-bit SSL</span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-600">
+                  <span className="text-sm font-medium">Powered by Razorpay</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* CTA Section */}
         <section className="py-24 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-700" />
@@ -581,6 +734,7 @@ export default function LandingPage() {
               <ul className="space-y-2 text-slate-400 text-sm">
                 <li><Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link></li>
                 <li><Link href="/terms" className="hover:text-white transition-colors">Terms</Link></li>
+                <li><Link href="/refunds" className="hover:text-white transition-colors">Refunds</Link></li>
                 <li><Link href="/cookies" className="hover:text-white transition-colors">Cookies</Link></li>
                 <li><Link href="/licenses" className="hover:text-white transition-colors">Licenses</Link></li>
               </ul>

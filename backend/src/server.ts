@@ -458,6 +458,10 @@ app.use('/api/google-forms', googleFormsRouter);
 import { googleSheetsRouter } from './routes/googleSheets';
 app.use('/api/google-sheets', googleSheetsRouter);
 
+// Payment Integration (Razorpay)
+import paymentRouter from './routes/payment';
+app.use('/api/payment', paymentRouter);
+
 // Start Server
 app.listen(PORT, async () => {
     let publicIp = 'unknown';
