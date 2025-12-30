@@ -171,7 +171,7 @@ export const handleDriveCallback = async (code: string, adminId: string) => {
         refreshToken: tokens.refresh_token,
         tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined,
         lastBackup: null,
-        backupFrequency: 'daily'
+        backupFrequency: '4x_daily'
     };
     await settings.save();
 
@@ -184,6 +184,96 @@ export const handleDriveCallback = async (code: string, adminId: string) => {
     }
 
     return { email, folderId };
+};
+
+type LogWindow = {
+    start: Date;
+    end: Date;
+    dateKey: string; // YYYY-MM-DD (based on window start)
+    label: string;   // e.g. 00-06, 06-12, 12-18, 18-24
+};
+
+const SLOT_HOURS = [0, 6, 12, 18] as const;
+
+const toDateKey = (d: Date) => d.toISOString().split('T')[0];
+
+const floorToSlotBoundary = (d: Date): Date => {
+    const hour = d.getHours();
+    const slotStart = [...SLOT_HOURS].filter(h => h <= hour).pop() ?? 0;
+    const floored = new Date(d);
+    floored.setHours(slotStart, 0, 0, 0);
+    return floored;
+};
+
+const nextSlotBoundary = (d: Date): Date => {
+    const hour = d.getHours();
+    const next = [...SLOT_HOURS].find(h => h > hour);
+    const t = new Date(d);
+    if (next === undefined) {
+        // next day 00:00
+        t.setDate(t.getDate() + 1);
+        t.setHours(0, 0, 0, 0);
+        return t;
+    }
+    t.setHours(next, 0, 0, 0);
+    return t;
+};
+
+const getWindowLabel = (start: Date, end: Date): string => {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const startH = start.getHours();
+    const endH = end.getHours();
+    // endH can be 0 at midnight; represent as 24 for the 18-24 window
+    const prettyEnd = (endH === 0 && end.getDate() !== start.getDate()) ? 24 : endH;
+    return `${pad(startH)}-${pad(prettyEnd)}`;
+};
+
+const getCurrentSlotWindow = (now: Date): LogWindow => {
+    const start = floorToSlotBoundary(now);
+    const end = nextSlotBoundary(now);
+    return {
+        start,
+        end,
+        dateKey: toDateKey(start),
+        label: getWindowLabel(start, end),
+    };
+};
+
+const getPreviousCompletedSlotWindow = (now: Date): LogWindow => {
+    // Upload the last completed 6-hour window ending at the most recent boundary
+    const end = floorToSlotBoundary(now);
+    const start = new Date(end);
+    start.setHours(start.getHours() - 6);
+    return {
+        start,
+        end,
+        dateKey: toDateKey(start),
+        label: getWindowLabel(start, end),
+    };
+};
+
+const filterLogContentToWindow = (logContent: string, window: LogWindow): string => {
+    const lines = logContent.split('\n').filter(Boolean);
+    const startMs = window.start.getTime();
+    const endMs = window.end.getTime();
+
+    const selected: string[] = [];
+    for (const line of lines) {
+        try {
+            const parsed = JSON.parse(line);
+            const ts = parsed?.timestamp;
+            if (typeof ts !== 'string') continue;
+            const ms = Date.parse(ts);
+            if (Number.isNaN(ms)) continue;
+            if (ms >= startMs && ms < endMs) {
+                selected.push(line);
+            }
+        } catch {
+            // ignore non-JSON lines
+        }
+    }
+
+    return selected.length ? selected.join('\n') + '\n' : '';
 };
 
 // Create logs folder in Google Drive
@@ -263,9 +353,12 @@ export const uploadLogsToDrive = async (): Promise<{ success: boolean; fileId?: 
             return { success: false, error: 'No log file found' };
         }
 
-        const logContent = fs.readFileSync(logPath, 'utf8');
-        const today = new Date().toISOString().split('T')[0];
-        const filename = `logs-${today}.log`;
+        const rawLogContent = fs.readFileSync(logPath, 'utf8');
+
+        // Manual backups upload the current slot window (e.g. 06-12)
+        const window = getCurrentSlotWindow(new Date());
+        const logContent = filterLogContentToWindow(rawLogContent, window);
+        const filename = `logs-${window.dateKey}-${window.label}.log`;
 
         // Check if today's file already exists
         const existingFile = await drive.files.list({
@@ -349,25 +442,110 @@ export const disconnectDrive = async () => {
 
 // Schedule daily backup (call this from server.ts or a cron job)
 export const scheduleDailyBackup = () => {
-    // Run backup at midnight every day
+    // Run backup 4x/day aligned to 00:00, 06:00, 12:00, 18:00.
+    // Each run uploads the PREVIOUS completed 6-hour window.
     const now = new Date();
-    const midnight = new Date(now);
-    midnight.setHours(24, 0, 0, 0);
-    
-    const msUntilMidnight = midnight.getTime() - now.getTime();
-    
-    setTimeout(() => {
-        uploadLogsToDrive().then(result => {
-            logger.info('backup.daily_completed', { success: result.success, file_id: result.fileId, error: result.error });
-        });
-        
-        // Schedule next backup (every 24 hours)
-        setInterval(() => {
-            uploadLogsToDrive().then(result => {
-                logger.info('backup.daily_completed', { success: result.success, file_id: result.fileId, error: result.error });
+    const nextBoundary = nextSlotBoundary(now);
+    const msUntilNext = nextBoundary.getTime() - now.getTime();
+
+    const run = () => {
+        const window = getPreviousCompletedSlotWindow(new Date());
+        uploadLogsToDriveWindow(window).then(result => {
+            logger.info('backup.window_completed', {
+                success: result.success,
+                file_id: result.fileId,
+                error: result.error,
+                window: { start: window.start.toISOString(), end: window.end.toISOString(), label: window.label }
             });
-        }, 24 * 60 * 60 * 1000);
-    }, msUntilMidnight);
-    
-    logger.info('backup.scheduled', { minutes_until_next: Math.round(msUntilMidnight / 1000 / 60) });
+        });
+    };
+
+    setTimeout(() => {
+        run();
+        setInterval(run, 6 * 60 * 60 * 1000);
+    }, msUntilNext);
+
+    logger.info('backup.scheduled', { minutes_until_next: Math.round(msUntilNext / 1000 / 60) });
+};
+
+const uploadLogsToDriveWindow = async (window: LogWindow): Promise<{ success: boolean; fileId?: string; error?: string }> => {
+    try {
+        const settings = await (SystemSettings as any).getSettings();
+
+        if (!settings.logBackup?.enabled || settings.logBackup.provider !== 'google_drive') {
+            return { success: false, error: 'Google Drive backup not configured' };
+        }
+
+        const { accessToken, refreshToken, folderId } = settings.logBackup;
+
+        if (!accessToken || !refreshToken || !folderId) {
+            return { success: false, error: 'Missing Drive credentials' };
+        }
+
+        const oauth2Client = new google.auth.OAuth2(
+            process.env.GOOGLE_CLIENT_ID,
+            process.env.GOOGLE_CLIENT_SECRET
+        );
+        oauth2Client.setCredentials({ access_token: accessToken, refresh_token: refreshToken });
+
+        oauth2Client.on('tokens', async (tokens) => {
+            if (tokens.access_token) {
+                settings.logBackup.accessToken = tokens.access_token;
+                if (tokens.refresh_token) {
+                    settings.logBackup.refreshToken = tokens.refresh_token;
+                }
+                await settings.save();
+            }
+        });
+
+        const drive = google.drive({ version: 'v3', auth: oauth2Client });
+
+        const logPath = path.join(logsDir, 'access.log');
+        if (!fs.existsSync(logPath)) {
+            return { success: false, error: 'No log file found' };
+        }
+
+        const rawLogContent = fs.readFileSync(logPath, 'utf8');
+        const logContent = filterLogContentToWindow(rawLogContent, window);
+        const filename = `logs-${window.dateKey}-${window.label}.log`;
+
+        const existingFile = await drive.files.list({
+            q: `name='${filename}' and '${folderId}' in parents and trashed=false`,
+            fields: 'files(id)'
+        });
+
+        let fileId: string;
+        if (existingFile.data.files && existingFile.data.files.length > 0) {
+            fileId = existingFile.data.files[0].id!;
+            await drive.files.update({
+                fileId,
+                media: {
+                    mimeType: 'text/plain',
+                    body: logContent
+                }
+            });
+        } else {
+            const file = await drive.files.create({
+                requestBody: {
+                    name: filename,
+                    parents: [folderId]
+                },
+                media: {
+                    mimeType: 'text/plain',
+                    body: logContent
+                },
+                fields: 'id'
+            });
+            fileId = file.data.id!;
+        }
+
+        settings.logBackup.lastBackup = new Date();
+        await settings.save();
+
+        logger.info('drive.upload_success', { file_id: fileId, filename });
+        return { success: true, fileId };
+    } catch (error: any) {
+        logger.error('drive.upload_failed', { error: error.message }, error);
+        return { success: false, error: error.message };
+    }
 };

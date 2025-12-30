@@ -16,7 +16,13 @@ import {
     History,
     Shield,
     Rocket,
-    RefreshCcw
+    RefreshCcw,
+    BarChart3,
+    Users,
+    CalendarDays,
+    Mail,
+    Palette,
+    FileText
 } from 'lucide-react';
 import { useRazorpay } from '@/hooks/useRazorpay';
 
@@ -26,6 +32,49 @@ const formatDate = (dateString: string): string => {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
 };
+
+interface PlanUsage {
+    plan: string;
+    planName: string;
+    planDescription?: string;
+    limits: {
+        maxEventsPerMonth: number;
+        maxAttendeesPerEvent: number;
+        maxTotalAttendeesPerMonth: number;
+        maxCoordinatorsPerEvent: number;
+        maxEmailTemplates: number;
+        maxTicketTemplates: number;
+        maxCustomFields: number;
+        maxFileUploadSizeMB: number;
+        maxStorageMB: number;
+        emailsPerDay: number;
+        emailsPerMonth: number;
+        apiRequestsPerDay: number;
+        apiRequestsPerMonth: number;
+    };
+    features: {
+        emailNotifications: boolean;
+        customBranding: boolean;
+        advancedAnalytics: boolean;
+        apiAccess: boolean;
+        customEmailTemplates: boolean;
+        customTicketTemplates: boolean;
+        exportData: boolean;
+        prioritySupport: boolean;
+        [key: string]: boolean;
+    };
+    usage: {
+        eventsThisMonth: number;
+        eventsTotal: number;
+        attendeesTotal: number;
+        teamMembers: number;
+        emailsThisMonth: number;
+        emailTemplates: number;
+        ticketTemplates: number;
+        storageMB: number;
+        apiRequestsToday: number;
+    };
+}
 
 interface Subscription {
     plan: string;
@@ -142,8 +191,10 @@ const PLANS = [
 export default function BillingPage() {
     const [subscription, setSubscription] = useState<Subscription | null>(null);
     const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
+    const [planUsage, setPlanUsage] = useState<PlanUsage | null>(null);
     const [loadingSubscription, setLoadingSubscription] = useState(true);
     const [loadingHistory, setLoadingHistory] = useState(true);
+    const [loadingUsage, setLoadingUsage] = useState(true);
     const [upgrading, setUpgrading] = useState(false);
     const [cancelling, setCancelling] = useState(false);
     const [renewing, setRenewing] = useState(false);
@@ -166,8 +217,29 @@ export default function BillingPage() {
     useEffect(() => {
         loadSubscription();
         loadPaymentHistory();
+        loadPlanUsage();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    const loadPlanUsage = async () => {
+        setLoadingUsage(true);
+        try {
+            const token = localStorage.getItem('auth_token');
+            if (!token) return;
+
+            const res = await fetch(`${API_URL}/payment/plan-summary`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setPlanUsage(data);
+            }
+        } catch (err) {
+            console.error('Failed to load plan usage:', err);
+        } finally {
+            setLoadingUsage(false);
+        }
+    };
 
     const loadSubscription = async () => {
         setLoadingSubscription(true);
@@ -421,8 +493,222 @@ export default function BillingPage() {
                     )}
                 </div>
 
+                {/* Plan Usage Section */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                        <BarChart3 className="h-5 w-5 text-indigo-600" />
+                        Plan Usage
+                    </h2>
+                    
+                    {loadingUsage ? (
+                        <div className="flex items-center justify-center py-8">
+                            <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+                        </div>
+                    ) : planUsage ? (
+                        <div className="space-y-6">
+                            {/* Usage Progress Bars */}
+                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {/* Events This Month */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                                            <CalendarDays className="h-4 w-4" />
+                                            Events This Month
+                                        </span>
+                                        <span className="font-medium text-gray-900 dark:text-white">
+                                            {planUsage.usage.eventsThisMonth} / {planUsage.limits.maxEventsPerMonth === -1 ? '∞' : planUsage.limits.maxEventsPerMonth}
+                                        </span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                                        <div 
+                                            className={`h-2.5 rounded-full transition-all ${
+                                                planUsage.limits.maxEventsPerMonth === -1 ? 'bg-green-500' :
+                                                (planUsage.usage.eventsThisMonth / planUsage.limits.maxEventsPerMonth) > 0.9 ? 'bg-red-500' :
+                                                (planUsage.usage.eventsThisMonth / planUsage.limits.maxEventsPerMonth) > 0.7 ? 'bg-yellow-500' : 'bg-indigo-600'
+                                            }`}
+                                            style={{ 
+                                                width: planUsage.limits.maxEventsPerMonth === -1 
+                                                    ? '100%' 
+                                                    : `${Math.min((planUsage.usage.eventsThisMonth / planUsage.limits.maxEventsPerMonth) * 100, 100)}%` 
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Total Attendees */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                                            <Users className="h-4 w-4" />
+                                            Total Attendees
+                                        </span>
+                                        <span className="font-medium text-gray-900 dark:text-white">
+                                            {planUsage.usage.attendeesTotal} / {planUsage.limits.maxTotalAttendeesPerMonth === -1 ? '∞' : planUsage.limits.maxTotalAttendeesPerMonth}
+                                        </span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                                        <div 
+                                            className={`h-2.5 rounded-full transition-all ${
+                                                planUsage.limits.maxTotalAttendeesPerMonth === -1 ? 'bg-green-500' :
+                                                (planUsage.usage.attendeesTotal / planUsage.limits.maxTotalAttendeesPerMonth) > 0.9 ? 'bg-red-500' :
+                                                (planUsage.usage.attendeesTotal / planUsage.limits.maxTotalAttendeesPerMonth) > 0.7 ? 'bg-yellow-500' : 'bg-indigo-600'
+                                            }`}
+                                            style={{ 
+                                                width: planUsage.limits.maxTotalAttendeesPerMonth === -1 
+                                                    ? '100%' 
+                                                    : `${Math.min((planUsage.usage.attendeesTotal / planUsage.limits.maxTotalAttendeesPerMonth) * 100, 100)}%` 
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Email Templates */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                                            <Mail className="h-4 w-4" />
+                                            Email Templates
+                                        </span>
+                                        <span className="font-medium text-gray-900 dark:text-white">
+                                            {planUsage.usage.emailTemplates} / {planUsage.limits.maxEmailTemplates === -1 ? '∞' : planUsage.limits.maxEmailTemplates}
+                                        </span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                                        <div 
+                                            className={`h-2.5 rounded-full transition-all ${
+                                                planUsage.limits.maxEmailTemplates === -1 ? 'bg-green-500' :
+                                                (planUsage.usage.emailTemplates / planUsage.limits.maxEmailTemplates) > 0.9 ? 'bg-red-500' :
+                                                (planUsage.usage.emailTemplates / planUsage.limits.maxEmailTemplates) > 0.7 ? 'bg-yellow-500' : 'bg-indigo-600'
+                                            }`}
+                                            style={{ 
+                                                width: planUsage.limits.maxEmailTemplates === -1 
+                                                    ? '100%' 
+                                                    : `${Math.min((planUsage.usage.emailTemplates / planUsage.limits.maxEmailTemplates) * 100, 100)}%` 
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Ticket Templates */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                                            <FileText className="h-4 w-4" />
+                                            Ticket Templates
+                                        </span>
+                                        <span className="font-medium text-gray-900 dark:text-white">
+                                            {planUsage.usage.ticketTemplates} / {planUsage.limits.maxTicketTemplates === -1 ? '∞' : planUsage.limits.maxTicketTemplates}
+                                        </span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                                        <div 
+                                            className={`h-2.5 rounded-full transition-all ${
+                                                planUsage.limits.maxTicketTemplates === -1 ? 'bg-green-500' :
+                                                (planUsage.usage.ticketTemplates / planUsage.limits.maxTicketTemplates) > 0.9 ? 'bg-red-500' :
+                                                (planUsage.usage.ticketTemplates / planUsage.limits.maxTicketTemplates) > 0.7 ? 'bg-yellow-500' : 'bg-indigo-600'
+                                            }`}
+                                            style={{ 
+                                                width: planUsage.limits.maxTicketTemplates === -1 
+                                                    ? '100%' 
+                                                    : `${Math.min((planUsage.usage.ticketTemplates / planUsage.limits.maxTicketTemplates) * 100, 100)}%` 
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Coordinators */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                                            <Users className="h-4 w-4" />
+                                            Team Members
+                                        </span>
+                                        <span className="font-medium text-gray-900 dark:text-white">
+                                            {planUsage.usage.teamMembers} / {planUsage.limits.maxCoordinatorsPerEvent === -1 ? '∞' : planUsage.limits.maxCoordinatorsPerEvent}
+                                        </span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+                                        <div 
+                                            className={`h-2.5 rounded-full transition-all ${
+                                                planUsage.limits.maxCoordinatorsPerEvent === -1 ? 'bg-green-500' :
+                                                (planUsage.usage.teamMembers / planUsage.limits.maxCoordinatorsPerEvent) > 0.9 ? 'bg-red-500' :
+                                                (planUsage.usage.teamMembers / planUsage.limits.maxCoordinatorsPerEvent) > 0.7 ? 'bg-yellow-500' : 'bg-indigo-600'
+                                            }`}
+                                            style={{ 
+                                                width: planUsage.limits.maxCoordinatorsPerEvent === -1 
+                                                    ? '100%' 
+                                                    : `${Math.min((planUsage.usage.teamMembers / planUsage.limits.maxCoordinatorsPerEvent) * 100, 100)}%` 
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Key Features */}
+                            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Available Features</h4>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                    <div className={`flex items-center gap-2 text-sm ${planUsage.features.customBranding ? 'text-green-600' : 'text-gray-400'}`}>
+                                        {planUsage.features.customBranding ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                                        <span>Custom Branding</span>
+                                    </div>
+                                    <div className={`flex items-center gap-2 text-sm ${planUsage.features.advancedAnalytics ? 'text-green-600' : 'text-gray-400'}`}>
+                                        {planUsage.features.advancedAnalytics ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                                        <span>Advanced Analytics</span>
+                                    </div>
+                                    <div className={`flex items-center gap-2 text-sm ${planUsage.features.apiAccess ? 'text-green-600' : 'text-gray-400'}`}>
+                                        {planUsage.features.apiAccess ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                                        <span>API Access</span>
+                                    </div>
+                                    <div className={`flex items-center gap-2 text-sm ${planUsage.features.exportData ? 'text-green-600' : 'text-gray-400'}`}>
+                                        {planUsage.features.exportData ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                                        <span>Export Data</span>
+                                    </div>
+                                    <div className={`flex items-center gap-2 text-sm ${planUsage.features.customEmailTemplates ? 'text-green-600' : 'text-gray-400'}`}>
+                                        {planUsage.features.customEmailTemplates ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                                        <span>Custom Email Templates</span>
+                                    </div>
+                                    <div className={`flex items-center gap-2 text-sm ${planUsage.features.customTicketTemplates ? 'text-green-600' : 'text-gray-400'}`}>
+                                        {planUsage.features.customTicketTemplates ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                                        <span>Custom Ticket Templates</span>
+                                    </div>
+                                    <div className={`flex items-center gap-2 text-sm ${planUsage.features.prioritySupport ? 'text-green-600' : 'text-gray-400'}`}>
+                                        {planUsage.features.prioritySupport ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                                        <span>Priority Support</span>
+                                    </div>
+                                    <div className={`flex items-center gap-2 text-sm ${planUsage.features.emailNotifications ? 'text-green-600' : 'text-gray-400'}`}>
+                                        {planUsage.features.emailNotifications ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                                        <span>Email Notifications</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Upgrade CTA if on free */}
+                            {planUsage.plan === 'free' && (
+                                <div className="mt-4 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+                                    <div className="flex items-center justify-between flex-wrap gap-3">
+                                        <div>
+                                            <p className="font-medium text-indigo-900 dark:text-indigo-200">Need more capacity?</p>
+                                            <p className="text-sm text-indigo-700 dark:text-indigo-300">Upgrade your plan to unlock more events, attendees, and premium features.</p>
+                                        </div>
+                                        <button
+                                            onClick={() => document.getElementById('plans-section')?.scrollIntoView({ behavior: 'smooth' })}
+                                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium flex items-center gap-2"
+                                        >
+                                            <Zap className="h-4 w-4" />
+                                            View Plans
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <p className="text-gray-600 dark:text-gray-400">Unable to load usage information.</p>
+                    )}
+                </div>
+
                 {/* Plans */}
-                <div className="mb-8">
+                <div className="mb-8" id="plans-section">
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
                         Available Plans
                     </h2>

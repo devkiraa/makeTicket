@@ -21,6 +21,10 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust proxy - needed to get real client IP behind Render/Vercel/nginx
+// Must be set before any middleware reads req.ip
+app.set('trust proxy', true);
+
 import fs from 'fs';
 import path from 'path';
 import * as rfs from 'rotating-file-stream';
@@ -52,6 +56,28 @@ app.use((req, res, next) => {
     const start = Date.now();
     res.on('finish', () => {
         const duration = Date.now() - start;
+
+        const clientIp = req.ip ||
+            req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() ||
+            req.socket.remoteAddress ||
+            'unknown';
+
+        const forwardedFor = req.headers['x-forwarded-for']?.toString();
+        const realIp = req.headers['x-real-ip']?.toString();
+        const cfConnectingIp = req.headers['cf-connecting-ip']?.toString();
+        const forwardedProto = req.headers['x-forwarded-proto']?.toString();
+        const forwardedHost = req.headers['x-forwarded-host']?.toString();
+        const forwardedPort = req.headers['x-forwarded-port']?.toString();
+        const origin = req.headers['origin']?.toString();
+        const referer = req.headers['referer']?.toString();
+
+        const user = (req as any).user;
+        const userId = user?.id || user?._id;
+        const role = user?.role;
+        const sessionId = user?.sessionId;
+        const isImpersonated = !!user?.isImpersonated;
+        const adminId = user?.adminId;
+
         const logLine = JSON.stringify({
             timestamp: new Date().toISOString(),
             method: req.method,
@@ -60,7 +86,20 @@ app.use((req, res, next) => {
             duration_ms: duration,
             request_id: req.requestId,
             trace_id: req.traceId,
-            ip: req.ip,
+            user_id: userId ? String(userId) : undefined,
+            session_id: sessionId ? String(sessionId) : undefined,
+            role: role ? String(role) : undefined,
+            is_impersonated: isImpersonated || undefined,
+            admin_id: adminId ? String(adminId) : undefined,
+            client_ip: clientIp,
+            forwarded_for: forwardedFor,
+            real_ip: realIp,
+            cf_connecting_ip: cfConnectingIp,
+            forwarded_proto: forwardedProto,
+            forwarded_host: forwardedHost,
+            forwarded_port: forwardedPort,
+            origin,
+            referer,
             user_agent: req.get('user-agent'),
         });
         accessLogStream.write(logLine + '\n');
@@ -68,9 +107,6 @@ app.use((req, res, next) => {
     });
     next();
 });
-
-// Trust proxy - needed to get real client IP behind Render/Vercel/nginx
-app.set('trust proxy', true);
 
 app.use(cors({
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',

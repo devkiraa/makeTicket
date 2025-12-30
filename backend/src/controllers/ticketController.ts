@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import { sendTicketEmail } from '../services/emailService';
 import { createNotification } from './notificationController';
 import { addRegistrationToSheet } from './googleSheetsController';
+import { checkCanAddAttendee } from '../services/planLimitService';
 
 // Register for Event
 export const registerTicket = async (req: Request, res: Response) => {
@@ -15,6 +16,17 @@ export const registerTicket = async (req: Request, res: Response) => {
 
         const event = await Event.findById(eventId);
         if (!event) return res.status(404).json({ message: 'Event not found' });
+
+        // Check plan limit for attendees
+        const planCheck = await checkCanAddAttendee(event.hostId.toString(), eventId);
+        if (!planCheck.allowed) {
+            return res.status(403).json({
+                message: planCheck.message,
+                planLimit: true,
+                currentUsage: planCheck.current,
+                limit: planCheck.limit
+            });
+        }
 
         // Check if event is closed
         if (event.status === 'closed') {

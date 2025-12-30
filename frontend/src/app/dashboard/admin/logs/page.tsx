@@ -45,6 +45,8 @@ export default function LogsPage() {
     const [logs, setLogs] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [userIdQuery, setUserIdQuery] = useState('');
+    const [ipQuery, setIpQuery] = useState('');
     const [isStreaming, setIsStreaming] = useState(false);
     const [selectedFile, setSelectedFile] = useState('access.log');
     const [availableFiles, setAvailableFiles] = useState<LogFile[]>([]);
@@ -62,6 +64,53 @@ export default function LogsPage() {
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
+    const tryParseJson = (line: string): any | null => {
+        try {
+            return JSON.parse(line);
+        } catch {
+            return null;
+        }
+    };
+
+    const getLogStatus = (line: string): number | null => {
+        const parsed = tryParseJson(line);
+        const status = parsed?.status ?? parsed?.http?.status_code;
+        return typeof status === 'number' ? status : null;
+    };
+
+    const formatLogLine = (line: string): string => {
+        const parsed = tryParseJson(line);
+        if (!parsed) return line;
+
+        const timestamp = typeof parsed.timestamp === 'string' ? parsed.timestamp : '';
+        const method = typeof parsed.method === 'string' ? parsed.method : (typeof parsed.http?.method === 'string' ? parsed.http.method : '');
+        const url = typeof parsed.url === 'string' ? parsed.url : (typeof parsed.http?.path === 'string' ? parsed.http.path : '');
+        const status = getLogStatus(line);
+        const durationMs = typeof parsed.duration_ms === 'number'
+            ? parsed.duration_ms
+            : (typeof parsed.http?.response_time_ms === 'number' ? parsed.http.response_time_ms : null);
+
+        const userId = typeof parsed.user_id === 'string' ? parsed.user_id : (parsed.user_id ? String(parsed.user_id) : '');
+        const clientIp = typeof parsed.client_ip === 'string' ? parsed.client_ip : (parsed.client_ip ? String(parsed.client_ip) : '');
+        const suffixParts: string[] = [];
+        if (userId) suffixParts.push(`uid=${userId}`);
+        if (clientIp) suffixParts.push(`ip=${clientIp}`);
+        const suffix = suffixParts.length ? ` ${suffixParts.join(' ')}` : '';
+
+        if (method && url && status !== null) {
+            return `${timestamp} ${method} ${url} ${status}${durationMs !== null ? ` ${durationMs}ms` : ''}${suffix}`.trim();
+        }
+
+        const level = typeof parsed.level === 'string' ? parsed.level : '';
+        const event = typeof parsed.event === 'string' ? parsed.event : '';
+        const message = typeof parsed.message === 'string' ? parsed.message : '';
+        if (level && event) {
+            return `${timestamp} ${level} ${event}${message ? ` - ${message}` : ''}`.trim();
+        }
+
+        return line;
+    };
+
     // Fetch logs from API
     const fetchLogs = useCallback(async () => {
         setLoading(true);
@@ -72,6 +121,8 @@ export default function LogsPage() {
                 lines: '200'
             });
             if (searchQuery) params.append('search', searchQuery);
+            if (userIdQuery.trim()) params.append('userId', userIdQuery.trim());
+            if (ipQuery.trim()) params.append('ip', ipQuery.trim());
 
             const res = await fetch(`${API_URL}/admin/logs?${params}`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -87,7 +138,7 @@ export default function LogsPage() {
         } finally {
             setLoading(false);
         }
-    }, [API_URL, selectedFile, searchQuery]);
+    }, [API_URL, selectedFile, searchQuery, userIdQuery, ipQuery]);
 
     // Start real-time streaming
     const startStreaming = useCallback(() => {
@@ -256,13 +307,19 @@ export default function LogsPage() {
     };
 
     // Filter logs
-    const filteredLogs = logs.filter(log => {
+    const filteredLogs = logs.filter((log) => {
+        const status = getLogStatus(log);
+
         if (filterLevel === 'errors') {
-            return log.includes(' 4') || log.includes(' 5'); // 4xx or 5xx
+            if (status !== null) return status >= 400;
+            return log.includes(' 4') || log.includes(' 5');
         }
+
         if (filterLevel === 'success') {
-            return log.includes(' 2'); // 2xx
+            if (status !== null) return status >= 200 && status < 300;
+            return log.includes(' 2');
         }
+
         return true;
     });
 
@@ -275,6 +332,23 @@ export default function LogsPage() {
 
     // Get log line styling
     const getLogStyle = (log: string) => {
+        const parsed = tryParseJson(log);
+        const level = typeof parsed?.level === 'string' ? parsed.level : null;
+        if (level) {
+            if (level === 'ERROR' || level === 'FATAL') return 'text-red-400 bg-red-950/30';
+            if (level === 'WARN') return 'text-orange-400';
+            if (level === 'INFO') return 'text-green-400';
+            if (level === 'DEBUG' || level === 'TRACE') return 'text-blue-400';
+        }
+
+        const status = getLogStatus(log);
+        if (status !== null) {
+            if (status >= 500) return 'text-red-400 bg-red-950/30';
+            if (status >= 400) return 'text-orange-400';
+            if (status >= 300) return 'text-blue-400';
+            if (status >= 200) return 'text-green-400';
+        }
+
         if (log.includes(' 500 ') || log.includes(' 502 ') || log.includes(' 503 ')) {
             return 'text-red-400 bg-red-950/30';
         }
@@ -495,6 +569,26 @@ export default function LogsPage() {
                     />
                 </div>
 
+                {/* User ID */}
+                <div className="w-full sm:w-56">
+                    <Input
+                        placeholder="User ID"
+                        value={userIdQuery}
+                        onChange={(e) => setUserIdQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && fetchLogs()}
+                    />
+                </div>
+
+                {/* IP Address */}
+                <div className="w-full sm:w-56">
+                    <Input
+                        placeholder="IP Address"
+                        value={ipQuery}
+                        onChange={(e) => setIpQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && fetchLogs()}
+                    />
+                </div>
+
                 {/* Filter */}
                 <div className="flex gap-1 p-1 bg-slate-100 rounded-lg">
                     <button
@@ -567,11 +661,12 @@ export default function LogsPage() {
                                     <div 
                                         key={i} 
                                         className={`whitespace-pre-wrap break-all py-1 px-2 rounded ${getLogStyle(log)} hover:bg-slate-900/50 transition-colors`}
+                                        title={log}
                                     >
                                         <span className="text-slate-600 mr-3 select-none">
                                             {(filteredLogs.length - i).toString().padStart(3, '0')}
                                         </span>
-                                        {log}
+                                        {formatLogLine(log)}
                                     </div>
                                 ))}
                             </div>

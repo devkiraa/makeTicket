@@ -5,6 +5,12 @@ import { Event } from '../models/Event';
 import { Ticket } from '../models/Ticket';
 import { Payment } from '../models/Payment';
 import { Subscription } from '../models/Subscription';
+import { PlanConfig, DEFAULT_PLAN_CONFIGS } from '../models/PlanConfig';
+import { 
+    getAllPlanConfigs, 
+    clearPlanConfigCache,
+    getUserPlanSummary 
+} from '../services/planLimitService';
 import fs from 'fs';
 import path from 'path';
 import {
@@ -375,15 +381,66 @@ export const getServerLogs = async (req: Request, res: Response) => {
     try {
         const requestedFile = (req.query.file as string) || 'access.log';
         const search = req.query.search as string;
+        const userIdFilter = (req.query.userId as string) || (req.query.user_id as string);
+        const ipFilter = (req.query.ip as string) || (req.query.client_ip as string);
         const lines = parseInt(req.query.lines as string) || 100;
 
         // Get available files
         const availableFiles = getAvailableLogFiles();
 
-        // Get logs - search if query provided, otherwise get recent
-        const logs = search 
-            ? searchLogs(search, requestedFile)
-            : getLogsFromFile(requestedFile, lines);
+        const parseJsonLine = (line: string): any | null => {
+            try {
+                return JSON.parse(line);
+            } catch {
+                return null;
+            }
+        };
+
+        const normalize = (v: string) => v.trim();
+
+        // Get logs - support structured filtering by userId/ip (and optional search)
+        let logs: string[];
+
+        const hasStructuredFilters = !!(userIdFilter || ipFilter);
+        if (hasStructuredFilters) {
+            const recent = getLogsFromFile(requestedFile, Math.max(2000, lines * 20));
+            const searchLower = search ? search.toLowerCase() : null;
+            const wantedUserId = userIdFilter ? normalize(userIdFilter) : null;
+            const wantedIp = ipFilter ? normalize(ipFilter) : null;
+
+            logs = recent.filter((line) => {
+                const parsed = parseJsonLine(line);
+
+                if (searchLower && !line.toLowerCase().includes(searchLower)) {
+                    return false;
+                }
+
+                if (wantedUserId) {
+                    const lineUserId = parsed?.user_id ?? parsed?.userId ?? parsed?.user_id;
+                    if (lineUserId) {
+                        if (String(lineUserId) !== wantedUserId) return false;
+                    } else {
+                        // fallback substring match for non-JSON lines
+                        if (!line.includes(wantedUserId)) return false;
+                    }
+                }
+
+                if (wantedIp) {
+                    const lineIp = parsed?.client_ip ?? parsed?.ip ?? parsed?.clientIp;
+                    if (lineIp) {
+                        if (String(lineIp) !== wantedIp) return false;
+                    } else {
+                        if (!line.includes(wantedIp)) return false;
+                    }
+                }
+
+                return true;
+            }).slice(0, lines);
+        } else {
+            logs = search
+                ? searchLogs(search, requestedFile)
+                : getLogsFromFile(requestedFile, lines);
+        }
 
         // Get backup status
         const backupStatus = await getBackupStatus();
@@ -1753,6 +1810,283 @@ export const getPaymentDetails = async (req: Request, res: Response) => {
     } catch (error: any) {
         logger.error('admin.Get payment details error:', { error: (error as Error)?.message || 'Unknown error' });
         res.status(500).json({ message: 'Failed to fetch payment details', error: error.message });
+    }
+};
+
+// ==================== PLAN CONFIGURATION MANAGEMENT ====================
+
+/**
+ * Get all plan configurations
+ */
+export const getPlanConfigs = async (req: Request, res: Response) => {
+    try {
+        const configs = await getAllPlanConfigs();
+        res.json({ configs });
+    } catch (error: any) {
+        logger.error('admin.get_plan_configs_failed', { error: error.message });
+        res.status(500).json({ message: 'Failed to fetch plan configurations' });
+    }
+};
+
+/**
+ * Get a single plan configuration
+ */
+export const getPlanConfigById = async (req: Request, res: Response) => {
+    try {
+        const { planId } = req.params;
+        
+        let config: any = await PlanConfig.findOne({ planId }).lean();
+        
+        // If not in DB, return default
+        if (!config) {
+            config = DEFAULT_PLAN_CONFIGS[planId as keyof typeof DEFAULT_PLAN_CONFIGS];
+            if (!config) {
+                return res.status(404).json({ message: 'Plan not found' });
+            }
+        }
+
+        res.json({ config });
+    } catch (error: any) {
+        logger.error('admin.get_plan_config_failed', { error: error.message });
+        res.status(500).json({ message: 'Failed to fetch plan configuration' });
+    }
+};
+
+/**
+ * Update plan configuration
+ */
+export const updatePlanConfig = async (req: Request, res: Response) => {
+    try {
+        const { planId } = req.params;
+        const updates = req.body;
+
+        // Validate planId
+        if (!['free', 'starter', 'pro', 'enterprise'].includes(planId)) {
+            return res.status(400).json({ message: 'Invalid plan ID' });
+        }
+
+        // Find or create the config
+        let config = await PlanConfig.findOne({ planId });
+        
+        if (!config) {
+            // Create from defaults
+            const defaults = DEFAULT_PLAN_CONFIGS[planId as keyof typeof DEFAULT_PLAN_CONFIGS];
+            config = new PlanConfig({ ...defaults, planId });
+        }
+
+        // Update fields
+        if (updates.name) config.name = updates.name;
+        if (updates.description) config.description = updates.description;
+        if (updates.price !== undefined) config.price = updates.price;
+        if (updates.isActive !== undefined) config.isActive = updates.isActive;
+        if (updates.badge !== undefined) config.badge = updates.badge;
+        if (updates.themeColor) config.themeColor = updates.themeColor;
+        if (updates.displayOrder !== undefined) config.displayOrder = updates.displayOrder;
+        if (updates.razorpayPlanId) config.razorpayPlanId = updates.razorpayPlanId;
+
+        // Update limits
+        if (updates.limits) {
+            config.limits = { ...config.limits, ...updates.limits };
+        }
+
+        // Update features
+        if (updates.features) {
+            config.features = { ...config.features, ...updates.features };
+        }
+
+        await config.save();
+
+        // Clear cache so changes take effect immediately
+        clearPlanConfigCache();
+
+        // Log the change
+        logger.info('admin.plan_config_updated', { 
+            planId, 
+            updatedBy: (req as any).userId,
+            changes: Object.keys(updates)
+        });
+
+        res.json({ 
+            message: 'Plan configuration updated successfully',
+            config 
+        });
+    } catch (error: any) {
+        logger.error('admin.update_plan_config_failed', { error: error.message });
+        res.status(500).json({ message: 'Failed to update plan configuration' });
+    }
+};
+
+/**
+ * Reset plan configuration to defaults
+ */
+export const resetPlanConfig = async (req: Request, res: Response) => {
+    try {
+        const { planId } = req.params;
+
+        // Validate planId
+        if (!['free', 'starter', 'pro', 'enterprise'].includes(planId)) {
+            return res.status(400).json({ message: 'Invalid plan ID' });
+        }
+
+        const defaults = DEFAULT_PLAN_CONFIGS[planId as keyof typeof DEFAULT_PLAN_CONFIGS];
+        
+        await PlanConfig.findOneAndUpdate(
+            { planId },
+            { ...defaults },
+            { upsert: true, new: true }
+        );
+
+        // Clear cache
+        clearPlanConfigCache();
+
+        logger.info('admin.plan_config_reset', { 
+            planId, 
+            resetBy: (req as any).userId 
+        });
+
+        res.json({ 
+            message: 'Plan configuration reset to defaults',
+            config: defaults 
+        });
+    } catch (error: any) {
+        logger.error('admin.reset_plan_config_failed', { error: error.message });
+        res.status(500).json({ message: 'Failed to reset plan configuration' });
+    }
+};
+
+/**
+ * Get usage statistics for all plans
+ */
+export const getPlanUsageStats = async (req: Request, res: Response) => {
+    try {
+        // Get subscription counts by plan
+        const planStats = await Subscription.aggregate([
+            {
+                $group: {
+                    _id: '$plan',
+                    count: { $sum: 1 },
+                    activeCount: {
+                        $sum: { $cond: [{ $eq: ['$status', 'active'] }, 1, 0] }
+                    }
+                }
+            }
+        ]);
+
+        // Get revenue by plan
+        const revenueByPlan = await Payment.aggregate([
+            { $match: { status: 'captured' } },
+            {
+                $group: {
+                    _id: '$plan',
+                    totalRevenue: { $sum: '$amount' },
+                    paymentCount: { $sum: 1 }
+                }
+            }
+        ]);
+
+        // Get event creation stats by plan
+        const eventStats = await Event.aggregate([
+            {
+                $lookup: {
+                    from: 'subscriptions',
+                    localField: 'createdBy',
+                    foreignField: 'userId',
+                    as: 'subscription'
+                }
+            },
+            { $unwind: { path: '$subscription', preserveNullAndEmptyArrays: true } },
+            {
+                $group: {
+                    _id: { $ifNull: ['$subscription.plan', 'free'] },
+                    eventCount: { $sum: 1 },
+                    avgAttendeesPerEvent: { $avg: '$attendeeCount' }
+                }
+            }
+        ]);
+
+        res.json({
+            subscriptionStats: planStats,
+            revenueByPlan: revenueByPlan.map(r => ({
+                ...r,
+                totalRevenue: r.totalRevenue / 100 // Convert from paise to rupees
+            })),
+            eventStats
+        });
+    } catch (error: any) {
+        logger.error('admin.get_plan_usage_stats_failed', { error: error.message });
+        res.status(500).json({ message: 'Failed to fetch plan usage statistics' });
+    }
+};
+
+/**
+ * Get a user's plan summary (for admin to view)
+ */
+export const getUserPlanDetails = async (req: Request, res: Response) => {
+    try {
+        const { userId } = req.params;
+
+        const summary = await getUserPlanSummary(userId);
+        
+        // Also get the subscription record
+        const subscription = await Subscription.findOne({ userId }).lean();
+
+        res.json({
+            ...summary,
+            subscription
+        });
+    } catch (error: any) {
+        logger.error('admin.get_user_plan_details_failed', { error: error.message });
+        res.status(500).json({ message: 'Failed to fetch user plan details' });
+    }
+};
+
+/**
+ * Manually set a user's plan (admin override)
+ */
+export const setUserPlan = async (req: Request, res: Response) => {
+    try {
+        const { userId } = req.params;
+        const { plan, reason } = req.body;
+
+        // Validate plan
+        if (!['free', 'starter', 'pro', 'enterprise'].includes(plan)) {
+            return res.status(400).json({ message: 'Invalid plan' });
+        }
+
+        // Get plan config for limits
+        const planConfig = await PlanConfig.findOne({ planId: plan }).lean() 
+            || DEFAULT_PLAN_CONFIGS[plan as keyof typeof DEFAULT_PLAN_CONFIGS];
+
+        // Update or create subscription
+        const subscription = await Subscription.findOneAndUpdate(
+            { userId },
+            {
+                plan,
+                status: 'active',
+                limits: planConfig.limits,
+                // Set period for 1 year for manual assignments
+                currentPeriodStart: new Date(),
+                currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+                $unset: { cancelledAt: 1, cancelReason: 1 }
+            },
+            { upsert: true, new: true }
+        );
+
+        // Log the admin action
+        logger.info('admin.user_plan_set', {
+            userId,
+            newPlan: plan,
+            setBy: (req as any).userId,
+            reason
+        });
+
+        res.json({
+            message: `User plan updated to ${plan}`,
+            subscription
+        });
+    } catch (error: any) {
+        logger.error('admin.set_user_plan_failed', { error: error.message });
+        res.status(500).json({ message: 'Failed to update user plan' });
     }
 };
 

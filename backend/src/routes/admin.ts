@@ -37,7 +37,15 @@ import {
     getAllSubscriptions,
     getCancelledSubscriptions,
     processRefund,
-    getPaymentDetails
+    getPaymentDetails,
+    // Plan Configuration
+    getPlanConfigs,
+    getPlanConfigById,
+    updatePlanConfig,
+    resetPlanConfig,
+    getPlanUsageStats,
+    getUserPlanDetails,
+    setUserPlan
 } from '../controllers/adminController';
 
 export const adminRouter = express.Router();
@@ -99,3 +107,12 @@ adminRouter.get('/revenue/payments/:paymentId', getPaymentDetails);
 adminRouter.get('/revenue/subscriptions', getAllSubscriptions);
 adminRouter.get('/revenue/cancelled', getCancelledSubscriptions);
 adminRouter.post('/revenue/refund/:paymentId', processRefund);
+
+// Plan Configuration Management
+adminRouter.get('/plans', getPlanConfigs);
+adminRouter.get('/plans/stats', getPlanUsageStats);
+adminRouter.get('/plans/:planId', getPlanConfigById);
+adminRouter.patch('/plans/:planId', updatePlanConfig);
+adminRouter.post('/plans/:planId/reset', resetPlanConfig);
+adminRouter.get('/users/:userId/plan', getUserPlanDetails);
+adminRouter.post('/users/:userId/plan', setUserPlan);

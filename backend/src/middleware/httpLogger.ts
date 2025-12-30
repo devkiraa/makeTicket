@@ -32,12 +32,6 @@ export function httpLoggingMiddleware(req: Request, res: Response, next: NextFun
     // Check if this is a reduced logging path
     const isReducedLogPath = REDUCED_LOG_PATHS.some(p => path.includes(p));
     
-    // Extract user ID from auth token if available
-    const userId = (req as { user?: { _id?: string } }).user?._id;
-    if (userId) {
-        setContext({ user_id: String(userId) });
-    }
-    
     // Get client IP (respecting proxy)
     const clientIp = req.ip || 
                      req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() || 
@@ -60,6 +54,13 @@ export function httpLoggingMiddleware(req: Request, res: Response, next: NextFun
     res.send = function(body): Response {
         const responseTime = Date.now() - startTime;
         const statusCode = res.statusCode;
+
+        // Attach user_id to context if auth middleware set it later in the pipeline
+        const user = (req as any).user;
+        const userId = user?.id || user?._id;
+        if (userId) {
+            setContext({ user_id: String(userId) });
+        }
         
         // Determine log level based on status code
         const logData = {

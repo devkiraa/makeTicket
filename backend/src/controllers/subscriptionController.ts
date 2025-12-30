@@ -3,6 +3,7 @@ import { Payment } from '../models/Payment';
 import { Subscription, PLAN_CONFIGS } from '../models/Subscription';
 import { User } from '../models/User';
 import * as razorpayService from '../services/razorpayService';
+import { getUserPlanSummary, checkCanCreateEvent, checkCanAddAttendee, getAllPlanConfigs } from '../services/planLimitService';
 import crypto from 'crypto';
 
 /**
@@ -441,5 +442,57 @@ export const checkFeatureAccess = async (req: Request, res: Response) => {
 
     } catch (error: any) {
         res.status(500).json({ message: 'Failed to check feature access', error: error.message });
+    }
+};
+
+/**
+ * Get user's plan summary with usage stats
+ */
+export const getPlanSummary = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user.id;
+        const summary = await getUserPlanSummary(userId);
+        res.json(summary);
+    } catch (error: any) {
+        res.status(500).json({ message: 'Failed to get plan summary', error: error.message });
+    }
+};
+
+/**
+ * Check if user can create an event (with remaining count)
+ */
+export const checkEventLimit = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user.id;
+        const result = await checkCanCreateEvent(userId);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: 'Failed to check event limit', error: error.message });
+    }
+};
+
+/**
+ * Check if event can accept more attendees
+ */
+export const checkAttendeeLimit = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user.id;
+        const { eventId } = req.params;
+        const result = await checkCanAddAttendee(userId, eventId);
+        res.json(result);
+    } catch (error: any) {
+        res.status(500).json({ message: 'Failed to check attendee limit', error: error.message });
+    }
+};
+
+/**
+ * Get all available plans with dynamic config
+ */
+export const getAvailablePlans = async (req: Request, res: Response) => {
+    try {
+        const configs = await getAllPlanConfigs();
+        res.json(configs);
+    } catch (error: any) {
+        res.status(500).json({ message: 'Failed to fetch plans', error: error.message });
     }
 };

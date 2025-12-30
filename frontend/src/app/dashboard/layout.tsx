@@ -226,6 +226,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             </Button>
 
                             <div className="pt-4 mt-4 border-t border-slate-800">
+                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3">Billing</span>
+                            </div>
+                            <Button
+                                variant="ghost"
+                                className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/plans' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                                onClick={() => router.push('/dashboard/admin/plans')}
+                            >
+                                <CreditCard className="mr-3 h-5 w-5" />
+                                Plan Limits
+                            </Button>
+
+                            <div className="pt-4 mt-4 border-t border-slate-800">
                                 <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3">System</span>
                             </div>
                             <Button

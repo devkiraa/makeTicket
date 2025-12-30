@@ -2,6 +2,7 @@ import express from 'express';
 import { createEvent, getEvent, getMyEvents, updateEvent, checkEventSlug, deleteEvent } from '../controllers/eventController';
 import { registerTicket, validateTicket, getEventAttendees, checkRegistration, approveTicket, rejectTicket, getPendingTickets } from '../controllers/ticketController';
 import { verifyToken } from '../middleware/auth';
+import { canCreateEvent, canAddAttendee, canAddCoordinator, canCreateEmailTemplate, canCreateTicketTemplate } from '../middleware/planLimits';
 import { googleAuthRedirect, googleAuthCallback, getProfile, getSessions, revokeSession, updateProfile, checkUsernameAvailability } from '../controllers/authController';
 import { getPublicUserProfile } from '../controllers/userController';
 import { getDashboardStats, getAllAttendees, getMyRegistrations, upgradeToHost } from '../controllers/dashboardController';
@@ -34,7 +35,7 @@ apiRouter.get('/auth/sessions', verifyToken, getSessions);
 apiRouter.delete('/auth/sessions/:sessionId', verifyToken, revokeSession);
 
 // Events
-apiRouter.post('/events', verifyToken, createEvent);
+apiRouter.post('/events', verifyToken, canCreateEvent, createEvent);
 apiRouter.get('/events/my', verifyToken, getMyEvents);
 apiRouter.get('/events/check-slug', verifyToken, checkEventSlug); // Check slug availability
 apiRouter.patch('/events/update/:id', verifyToken, updateEvent); // Explicit update route
@@ -64,7 +65,7 @@ apiRouter.post('/dashboard/upgrade-to-host', verifyToken, upgradeToHost); // Upg
 
 // Coordinators
 
-apiRouter.post('/coordinators', verifyToken, addCoordinator); // Host adds coordinator
+apiRouter.post('/coordinators', verifyToken, canAddCoordinator, addCoordinator); // Host adds coordinator
 apiRouter.get('/coordinators/my-events', verifyToken, getMyCoordinatedEvents); // Get events I'm coordinating
 apiRouter.get('/coordinators/invite/:token', getInviteDetails); // Public - get invite details
 apiRouter.post('/coordinators/invite/:token/accept', verifyToken, acceptInvite); // Accept invite
@@ -108,7 +109,7 @@ apiRouter.delete('/email/accounts/:accountId', verifyToken, deleteEmailAccount);
 apiRouter.post('/email/zeptomail', verifyToken, createZeptoMailAccount);
 
 // Email Templates
-apiRouter.post('/email/templates', verifyToken, createEmailTemplate);
+apiRouter.post('/email/templates', verifyToken, canCreateEmailTemplate, createEmailTemplate);
 apiRouter.get('/email/templates', verifyToken, getEmailTemplates);
 apiRouter.get('/email/templates/placeholders', verifyToken, getPlaceholders);
 apiRouter.get('/email/templates/:templateId', verifyToken, getEmailTemplate);
@@ -131,7 +132,7 @@ import {
     getTemplateSpecs
 } from '../controllers/ticketTemplateController';
 
-apiRouter.post('/ticket-templates', verifyToken, createTicketTemplate);
+apiRouter.post('/ticket-templates', verifyToken, canCreateTicketTemplate, createTicketTemplate);
 apiRouter.get('/ticket-templates', verifyToken, getTicketTemplates);
 apiRouter.get('/ticket-templates/specs', verifyToken, getTemplateSpecs);
 apiRouter.get('/ticket-templates/default', verifyToken, getDefaultTicketTemplate);
