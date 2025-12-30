@@ -705,10 +705,66 @@ export const getPlaceholders = async (req: Request, res: Response) => {
         { key: '{{qr_code_url}}', description: 'URL to QR code image' },
         { key: '{{event_link}}', description: 'Link to event page' },
         { key: '{{host_name}}', description: 'Event host\'s name' },
-        { key: '{{host_email}}', description: 'Event host\'s email' }
+        { key: '{{host_email}}', description: 'Event host\'s email' },
+        { key: '{{organizer_name}}', description: 'Event organizer\'s name' },
+        { key: '{{ticket_type}}', description: 'Type of ticket' },
+        { key: '{{venue_address}}', description: 'Full venue address' },
+        { key: '{{qr_code}}', description: 'QR code image (inline)' }
     ];
 
     res.json(placeholders);
+};
+
+// Get available system templates for users (active only)
+export const getAvailableTemplates = async (req: Request, res: Response) => {
+    try {
+        const { type, category } = req.query;
+
+        const query: any = { 
+            isSystem: true, 
+            isActive: true 
+        };
+        
+        if (type) query.type = type;
+        if (category) query.category = category;
+
+        const templates = await EmailTemplate.find(query)
+            .select('name description subject body type category isDefault previewImage usageCount')
+            .sort({ isDefault: -1, usageCount: -1, name: 1 });
+
+        res.json(templates);
+    } catch (error) {
+        console.error('Get available templates error:', error);
+        res.status(500).json({ message: 'Failed to fetch templates' });
+    }
+};
+
+// Get a single system template by ID (for users to use)
+export const getSystemTemplateById = async (req: Request, res: Response) => {
+    try {
+        const { templateId } = req.params;
+
+        const template = await EmailTemplate.findOne({ 
+            _id: templateId, 
+            isSystem: true, 
+            isActive: true 
+        }).select('name description subject body type category isDefault previewImage');
+
+        if (!template) {
+            return res.status(404).json({ message: 'Template not found or not available' });
+        }
+
+        // Increment usage count
+        await EmailTemplate.updateOne(
+            { _id: templateId },
+            { $inc: { usageCount: 1 } }
+        );
+
+        res.json(template);
+    } catch (error) {
+        console.error('Get system template error:', error);
+        res.status(500).json({ message: 'Failed to fetch template' });
+    }
 };
 
 // ==================== EMAIL LOGS ====================

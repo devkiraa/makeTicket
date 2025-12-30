@@ -41,6 +41,15 @@ const SubscriptionSchema = new mongoose.Schema({
         slaGuarantee: { type: Boolean, default: false },
         whiteLabel: { type: Boolean, default: false }
     },
+
+    // Per-account plan overrides (primarily for Enterprise custom quotas)
+    // Shape matches PlanConfig.limits / PlanConfig.features (stored as Mixed to avoid schema drift).
+    planOverrides: {
+        limits: { type: mongoose.Schema.Types.Mixed },
+        features: { type: mongoose.Schema.Types.Mixed },
+        updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        updatedAt: { type: Date }
+    },
     
     // Payment History Reference
     lastPaymentId: { type: String },

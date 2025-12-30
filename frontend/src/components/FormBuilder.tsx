@@ -39,6 +39,7 @@ import {
     Upload
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
+import { usePlanSummary } from '@/hooks/use-plan-summary';
 import {
     Select,
     SelectContent,
@@ -111,6 +112,9 @@ const FIELD_TYPES = [
 ];
 
 export function FormBuilder({ questions, onChange, draftId, headerImage, onHeaderImageChange }: FormBuilderProps) {
+    const { summary: planSummary } = usePlanSummary();
+    const isGoogleFormsLocked = !!planSummary && planSummary.features?.googleFormsIntegration === false;
+
     const [activeItem, setActiveItem] = useState<string | null>(null);
 
     // Google Forms state
@@ -130,8 +134,13 @@ export function FormBuilder({ questions, onChange, draftId, headerImage, onHeade
     const [formUrl, setFormUrl] = useState('');
     const [urlError, setUrlError] = useState('');
 
-    // Check Google Forms access on mount
+    // Check Google Forms access on mount (only if feature is available)
     useEffect(() => {
+        if (isGoogleFormsLocked) {
+            setCheckingAccess(false);
+            return;
+        }
+
         checkGoogleFormsAccess();
 
         // Check URL params for connection success
@@ -145,7 +154,7 @@ export function FormBuilder({ questions, onChange, draftId, headerImage, onHeade
             const newUrl = window.location.pathname + (queryString ? '?' + queryString : '');
             window.history.replaceState({}, document.title, newUrl);
         }
-    }, []);
+    }, [isGoogleFormsLocked]);
 
     const checkGoogleFormsAccess = async () => {
         const token = localStorage.getItem('auth_token');
@@ -525,7 +534,33 @@ export function FormBuilder({ questions, onChange, draftId, headerImage, onHeade
                 )}
 
                 {/* Google Forms Import Section */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4">
+                {isGoogleFormsLocked ? (
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="p-2 bg-white rounded-lg shadow-sm">
+                                <FileSpreadsheet className="w-5 h-5 text-slate-400" />
+                            </div>
+                            <div>
+                                <h3 className="font-medium text-slate-900">Import from Google Forms</h3>
+                                <p className="text-xs text-slate-500">Upgrade required</p>
+                            </div>
+                        </div>
+
+                        <p className="text-sm text-slate-600 mb-3">
+                            Google Forms integration is not available on your current plan.
+                        </p>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                window.location.href = '/dashboard/billing';
+                            }}
+                            className="bg-white"
+                        >
+                            View plans
+                        </Button>
+                    </div>
+                ) : (
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4">
                     <div className="flex items-center gap-3 mb-3">
                         <div className="p-2 bg-white rounded-lg shadow-sm">
                             <FileSpreadsheet className="w-5 h-5 text-blue-600" />
@@ -707,7 +742,8 @@ export function FormBuilder({ questions, onChange, draftId, headerImage, onHeade
                             </div>
                         </div>
                     )}
-                </div>
+                    </div>
+                )}
             </div>
 
             {/* Form Items */}

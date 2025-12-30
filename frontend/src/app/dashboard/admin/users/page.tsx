@@ -57,6 +57,63 @@ interface User {
     avatar?: string;
 }
 
+type EnterpriseQuotaForm = {
+    maxEventsPerMonth: string;
+    maxAttendeesPerEvent: string;
+    maxTeamMembers: string;
+    maxCoordinatorsPerEvent: string;
+    maxEmailsPerMonth: string;
+    maxEmailTemplates: string;
+    maxTicketTemplates: string;
+};
+
+type TriState = 'inherit' | 'enabled' | 'disabled';
+
+const ENTERPRISE_FEATURE_KEYS = [
+    'customBranding',
+    'removeMakeTicketBranding',
+    'whiteLabel',
+    'customDomain',
+    'priorityEmail',
+    'customEmailTemplates',
+    'customSmtp',
+    'basicAnalytics',
+    'advancedAnalytics',
+    'exportData',
+    'realtimeDashboard',
+    'googleFormsIntegration',
+    'googleSheetsIntegration',
+    'webhooks',
+    'apiAccess',
+    'zapierIntegration',
+    'acceptPayments',
+    'multiCurrency',
+    'googleWalletPass',
+    'appleWalletPass',
+    'emailSupport',
+    'prioritySupport',
+    'dedicatedSupport',
+    'phoneSupport',
+    'slaGuarantee',
+    'ssoIntegration',
+    'auditLogs',
+    'advancedSecurity',
+    'waitlistManagement',
+    'recurringEvents',
+    'privateEvents',
+    'eventDuplication',
+    'bulkImport',
+    'checkInApp',
+    'qrScanning'
+] as const;
+
+const formatFeatureLabel = (feature: string) => {
+    return feature
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/^./, (c) => c.toUpperCase())
+        .trim();
+};
+
 export default function UserManagementPage() {
     const router = useRouter();
     const { toast } = useToast();
@@ -75,6 +132,176 @@ export default function UserManagementPage() {
     const [suspensionReason, setSuspensionReason] = useState('');
     const [roleModalOpen, setRoleModalOpen] = useState(false);
     const [newRole, setNewRole] = useState<'admin' | 'host' | 'user'>('user');
+
+    // Enterprise Quota Overrides
+    const [quotaModalOpen, setQuotaModalOpen] = useState(false);
+    const [quotaLoading, setQuotaLoading] = useState(false);
+    const [quotaSaving, setQuotaSaving] = useState(false);
+    const [quotaPlan, setQuotaPlan] = useState<string>('free');
+    const [quotaEffectiveLimits, setQuotaEffectiveLimits] = useState<Record<string, any>>({});
+    const [quotaEffectiveFeatures, setQuotaEffectiveFeatures] = useState<Record<string, any>>({});
+    const [quotaForm, setQuotaForm] = useState<EnterpriseQuotaForm>({
+        maxEventsPerMonth: '',
+        maxAttendeesPerEvent: '',
+        maxTeamMembers: '',
+        maxCoordinatorsPerEvent: '',
+        maxEmailsPerMonth: '',
+        maxEmailTemplates: '',
+        maxTicketTemplates: ''
+    });
+    const [quotaFeatureForm, setQuotaFeatureForm] = useState<Record<string, TriState>>(() => {
+        const initial: Record<string, TriState> = {};
+        for (const key of ENTERPRISE_FEATURE_KEYS) initial[key] = 'inherit';
+        return initial;
+    });
+
+    const openEnterpriseQuotas = async (user: User) => {
+        const token = localStorage.getItem('auth_token');
+        setSelectedUser(user);
+        setQuotaLoading(true);
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/admin/users/${user._id}/plan`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (!res.ok) throw new Error('Failed to load user plan');
+            const data = await res.json();
+
+            setQuotaPlan(data.plan || 'free');
+            setQuotaEffectiveLimits(data.limits || {});
+            setQuotaEffectiveFeatures(data.features || {});
+
+            if ((data.plan || 'free') !== 'enterprise') {
+                toast({
+                    title: 'Not Enterprise',
+                    description: 'Enterprise quotas can only be set for Enterprise accounts.',
+                    variant: 'destructive'
+                });
+                return;
+            }
+
+            const overrides = data.subscription?.planOverrides?.limits || {};
+            const featureOverrides = data.subscription?.planOverrides?.features || {};
+            setQuotaForm({
+                maxEventsPerMonth: typeof overrides.maxEventsPerMonth === 'number' ? String(overrides.maxEventsPerMonth) : '',
+                maxAttendeesPerEvent: typeof overrides.maxAttendeesPerEvent === 'number' ? String(overrides.maxAttendeesPerEvent) : '',
+                maxTeamMembers: typeof overrides.maxTeamMembers === 'number' ? String(overrides.maxTeamMembers) : '',
+                maxCoordinatorsPerEvent: typeof overrides.maxCoordinatorsPerEvent === 'number' ? String(overrides.maxCoordinatorsPerEvent) : '',
+                maxEmailsPerMonth: typeof overrides.maxEmailsPerMonth === 'number' ? String(overrides.maxEmailsPerMonth) : '',
+                maxEmailTemplates: typeof overrides.maxEmailTemplates === 'number' ? String(overrides.maxEmailTemplates) : '',
+                maxTicketTemplates: typeof overrides.maxTicketTemplates === 'number' ? String(overrides.maxTicketTemplates) : ''
+            });
+
+            setQuotaFeatureForm(() => {
+                const next: Record<string, TriState> = {};
+                for (const key of ENTERPRISE_FEATURE_KEYS) {
+                    const v = featureOverrides[key];
+                    if (v === true) next[key] = 'enabled';
+                    else if (v === false) next[key] = 'disabled';
+                    else next[key] = 'inherit';
+                }
+                return next;
+            });
+
+            setQuotaModalOpen(true);
+        } catch (error) {
+            console.error(error);
+            toast({ title: 'Error', description: 'Failed to load enterprise quotas', variant: 'destructive' });
+        } finally {
+            setQuotaLoading(false);
+        }
+    };
+
+    const parseOptionalNumber = (value: string): number | null => {
+        if (value.trim() === '') return null;
+        const n = Number(value);
+        if (!Number.isFinite(n)) throw new Error('Invalid number');
+        return n;
+    };
+
+    const saveEnterpriseQuotas = async () => {
+        if (!selectedUser) return;
+        if (quotaPlan !== 'enterprise') return;
+
+        const token = localStorage.getItem('auth_token');
+        setQuotaSaving(true);
+        try {
+            const limits: Record<string, number | null> = {
+                maxEventsPerMonth: parseOptionalNumber(quotaForm.maxEventsPerMonth),
+                maxAttendeesPerEvent: parseOptionalNumber(quotaForm.maxAttendeesPerEvent),
+                maxTeamMembers: parseOptionalNumber(quotaForm.maxTeamMembers),
+                maxCoordinatorsPerEvent: parseOptionalNumber(quotaForm.maxCoordinatorsPerEvent),
+                maxEmailsPerMonth: parseOptionalNumber(quotaForm.maxEmailsPerMonth),
+                maxEmailTemplates: parseOptionalNumber(quotaForm.maxEmailTemplates),
+                maxTicketTemplates: parseOptionalNumber(quotaForm.maxTicketTemplates)
+            };
+
+            const features: Record<string, boolean | null> = {};
+            for (const key of ENTERPRISE_FEATURE_KEYS) {
+                const state = quotaFeatureForm[key];
+                if (state === 'inherit') features[key] = null;
+                if (state === 'enabled') features[key] = true;
+                if (state === 'disabled') features[key] = false;
+            }
+
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/admin/users/${selectedUser._id}/plan-overrides`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ limits, features })
+            });
+
+            if (!res.ok) throw new Error('Failed to save quotas');
+            const data = await res.json();
+
+            setQuotaEffectiveLimits(data.summary?.limits || quotaEffectiveLimits);
+            setQuotaEffectiveFeatures(data.summary?.features || quotaEffectiveFeatures);
+            toast({ title: 'Saved', description: 'Enterprise quotas updated.' });
+            setQuotaModalOpen(false);
+        } catch (error: any) {
+            toast({ title: 'Error', description: error?.message || 'Failed to save quotas', variant: 'destructive' });
+        } finally {
+            setQuotaSaving(false);
+        }
+    };
+
+    const resetEnterpriseQuotas = async () => {
+        if (!selectedUser) return;
+        const token = localStorage.getItem('auth_token');
+        setQuotaSaving(true);
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/admin/users/${selectedUser._id}/plan-overrides`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error('Failed to reset quotas');
+            const data = await res.json();
+            setQuotaForm({
+                maxEventsPerMonth: '',
+                maxAttendeesPerEvent: '',
+                maxTeamMembers: '',
+                maxCoordinatorsPerEvent: '',
+                maxEmailsPerMonth: '',
+                maxEmailTemplates: '',
+                maxTicketTemplates: ''
+            });
+            setQuotaFeatureForm(() => {
+                const next: Record<string, TriState> = {};
+                for (const key of ENTERPRISE_FEATURE_KEYS) next[key] = 'inherit';
+                return next;
+            });
+            setQuotaEffectiveLimits(data.summary?.limits || {});
+            setQuotaEffectiveFeatures(data.summary?.features || {});
+            toast({ title: 'Reset', description: 'Enterprise quota overrides cleared.' });
+            setQuotaModalOpen(false);
+        } catch (error: any) {
+            toast({ title: 'Error', description: error?.message || 'Failed to reset quotas', variant: 'destructive' });
+        } finally {
+            setQuotaSaving(false);
+        }
+    };
 
     const fetchUsers = useCallback(async () => {
         setLoading(true);
@@ -337,6 +564,9 @@ export default function UserManagementPage() {
                                                         <DropdownMenuItem onClick={() => handleImpersonate(user)} className="text-orange-600">
                                                             <Ghost className="mr-2 h-4 w-4" /> Impersonate
                                                         </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => openEnterpriseQuotas(user)} disabled={quotaLoading}>
+                                                            <Clock className="mr-2 h-4 w-4" /> Enterprise quotas
+                                                        </DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => router.push(`mailto:${user.email}`)}>
                                                             <Mail className="mr-2 h-4 w-4" /> Send Email
                                                         </DropdownMenuItem>
@@ -445,6 +675,127 @@ export default function UserManagementPage() {
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setRoleModalOpen(false)}>Cancel</Button>
                         <Button onClick={handleUpdateRole}>Update Role</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Enterprise Quotas Dialog */}
+            <Dialog open={quotaModalOpen} onOpenChange={setQuotaModalOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Enterprise quotas</DialogTitle>
+                        <DialogDescription>
+                            Set per-account overrides for <b>{selectedUser?.email}</b>. Leave blank to inherit the Enterprise plan. Use <b>-1</b> for unlimited.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-3 py-2">
+                        <div>
+                            <label className="text-sm font-medium block text-slate-700">Events per month</label>
+                            <Input
+                                value={quotaForm.maxEventsPerMonth}
+                                onChange={(e) => setQuotaForm({ ...quotaForm, maxEventsPerMonth: e.target.value })}
+                                placeholder={typeof quotaEffectiveLimits.maxEventsPerMonth === 'number' ? String(quotaEffectiveLimits.maxEventsPerMonth) : ''}
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-sm font-medium block text-slate-700">Attendees per event</label>
+                            <Input
+                                value={quotaForm.maxAttendeesPerEvent}
+                                onChange={(e) => setQuotaForm({ ...quotaForm, maxAttendeesPerEvent: e.target.value })}
+                                placeholder={typeof quotaEffectiveLimits.maxAttendeesPerEvent === 'number' ? String(quotaEffectiveLimits.maxAttendeesPerEvent) : ''}
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-sm font-medium block text-slate-700">Team members</label>
+                            <Input
+                                value={quotaForm.maxTeamMembers}
+                                onChange={(e) => setQuotaForm({ ...quotaForm, maxTeamMembers: e.target.value })}
+                                placeholder={typeof quotaEffectiveLimits.maxTeamMembers === 'number' ? String(quotaEffectiveLimits.maxTeamMembers) : ''}
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-sm font-medium block text-slate-700">Coordinators per event</label>
+                            <Input
+                                value={quotaForm.maxCoordinatorsPerEvent}
+                                onChange={(e) => setQuotaForm({ ...quotaForm, maxCoordinatorsPerEvent: e.target.value })}
+                                placeholder={typeof quotaEffectiveLimits.maxCoordinatorsPerEvent === 'number' ? String(quotaEffectiveLimits.maxCoordinatorsPerEvent) : ''}
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-sm font-medium block text-slate-700">Emails per month</label>
+                            <Input
+                                value={quotaForm.maxEmailsPerMonth}
+                                onChange={(e) => setQuotaForm({ ...quotaForm, maxEmailsPerMonth: e.target.value })}
+                                placeholder={typeof quotaEffectiveLimits.maxEmailsPerMonth === 'number' ? String(quotaEffectiveLimits.maxEmailsPerMonth) : ''}
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-sm font-medium block text-slate-700">Email templates</label>
+                            <Input
+                                value={quotaForm.maxEmailTemplates}
+                                onChange={(e) => setQuotaForm({ ...quotaForm, maxEmailTemplates: e.target.value })}
+                                placeholder={typeof quotaEffectiveLimits.maxEmailTemplates === 'number' ? String(quotaEffectiveLimits.maxEmailTemplates) : ''}
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-sm font-medium block text-slate-700">Ticket templates</label>
+                            <Input
+                                value={quotaForm.maxTicketTemplates}
+                                onChange={(e) => setQuotaForm({ ...quotaForm, maxTicketTemplates: e.target.value })}
+                                placeholder={typeof quotaEffectiveLimits.maxTicketTemplates === 'number' ? String(quotaEffectiveLimits.maxTicketTemplates) : ''}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="border-t pt-4">
+                        <div className="text-sm font-semibold text-slate-900">Features (one-by-one)</div>
+                        <div className="text-xs text-slate-500 mb-3">
+                            Choose <b>Inherit</b> to use the Enterprise plan value, or force enable/disable.
+                        </div>
+
+                        <div className="space-y-3 max-h-[280px] overflow-auto pr-2">
+                            {ENTERPRISE_FEATURE_KEYS.map((featureKey) => (
+                                <div key={featureKey} className="flex items-center justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <div className="text-sm font-medium text-slate-800 truncate">{formatFeatureLabel(featureKey)}</div>
+                                        <div className="text-xs text-slate-500">
+                                            Effective: <b>{String(!!quotaEffectiveFeatures?.[featureKey])}</b>
+                                        </div>
+                                    </div>
+                                    <div className="w-44 shrink-0">
+                                        <Select
+                                            value={quotaFeatureForm[featureKey]}
+                                            onValueChange={(v: string) => setQuotaFeatureForm({
+                                                ...quotaFeatureForm,
+                                                [featureKey]: v as TriState
+                                            })}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="inherit">Inherit</SelectItem>
+                                                <SelectItem value="enabled">Enabled</SelectItem>
+                                                <SelectItem value="disabled">Disabled</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setQuotaModalOpen(false)} disabled={quotaSaving}>Cancel</Button>
+                        <Button variant="destructive" onClick={resetEnterpriseQuotas} disabled={quotaSaving}>Reset overrides</Button>
+                        <Button onClick={saveEnterpriseQuotas} disabled={quotaSaving}>Save</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

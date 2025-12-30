@@ -2,7 +2,15 @@ import express from 'express';
 import { createEvent, getEvent, getMyEvents, updateEvent, checkEventSlug, deleteEvent } from '../controllers/eventController';
 import { registerTicket, validateTicket, getEventAttendees, checkRegistration, approveTicket, rejectTicket, getPendingTickets } from '../controllers/ticketController';
 import { verifyToken } from '../middleware/auth';
-import { canCreateEvent, canAddAttendee, canAddCoordinator, canCreateEmailTemplate, canCreateTicketTemplate } from '../middleware/planLimits';
+import {
+    canCreateEvent,
+    canAddAttendee,
+    canAddCoordinator,
+    canCreateEmailTemplate,
+    canCreateTicketTemplate,
+    requireExportData,
+    requireBulkImport
+} from '../middleware/planLimits';
 import { googleAuthRedirect, googleAuthCallback, getProfile, getSessions, revokeSession, updateProfile, checkUsernameAvailability } from '../controllers/authController';
 import { getPublicUserProfile } from '../controllers/userController';
 import { getDashboardStats, getAllAttendees, getMyRegistrations, upgradeToHost } from '../controllers/dashboardController';
@@ -93,7 +101,9 @@ import {
     getPlaceholders,
     getEmailLogs,
     getEmailLogStats,
-    getEmailLogDetail
+    getEmailLogDetail,
+    getAvailableTemplates,
+    getSystemTemplateById
 } from '../controllers/emailController';
 
 // Email Accounts (Gmail OAuth)
@@ -108,13 +118,17 @@ apiRouter.delete('/email/accounts/:accountId', verifyToken, deleteEmailAccount);
 // ZeptoMail
 apiRouter.post('/email/zeptomail', verifyToken, createZeptoMailAccount);
 
-// Email Templates
+// Email Templates (User's own templates)
 apiRouter.post('/email/templates', verifyToken, canCreateEmailTemplate, createEmailTemplate);
 apiRouter.get('/email/templates', verifyToken, getEmailTemplates);
 apiRouter.get('/email/templates/placeholders', verifyToken, getPlaceholders);
 apiRouter.get('/email/templates/:templateId', verifyToken, getEmailTemplate);
 apiRouter.patch('/email/templates/:templateId', verifyToken, updateEmailTemplate);
 apiRouter.delete('/email/templates/:templateId', verifyToken, deleteEmailTemplate);
+
+// System Email Templates (Available to all users - read only)
+apiRouter.get('/email/system-templates', verifyToken, getAvailableTemplates);
+apiRouter.get('/email/system-templates/:templateId', verifyToken, getSystemTemplateById);
 
 // Email Logs
 apiRouter.get('/email/logs', verifyToken, getEmailLogs);
@@ -169,8 +183,8 @@ import {
 
 apiRouter.get('/contacts', verifyToken, getContacts);
 apiRouter.get('/contacts/stats', verifyToken, getContactStats);
-apiRouter.post('/contacts/sync', verifyToken, syncContacts);
-apiRouter.get('/contacts/export', verifyToken, exportContacts);
+apiRouter.post('/contacts/sync', verifyToken, requireBulkImport, syncContacts);
+apiRouter.get('/contacts/export', verifyToken, requireExportData, exportContacts);
 apiRouter.post('/contacts/email', verifyToken, sendBulkEmail);
 apiRouter.delete('/contacts/:contactId', verifyToken, deleteContact);
 

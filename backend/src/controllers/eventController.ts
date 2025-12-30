@@ -2,6 +2,7 @@ import { User } from '../models/User';
 import { Request, Response } from 'express';
 import { Event } from '../models/Event';
 import { Ticket } from '../models/Ticket';
+import { checkFeatureAccess as checkPlanFeatureAccess } from '../services/planLimitService';
 
 // Create Event
 export const createEvent = async (req: Request, res: Response) => {
@@ -16,6 +17,31 @@ export const createEvent = async (req: Request, res: Response) => {
             ticketTemplateId, attachTicket,
             waitlistEnabled, approvalRequired
         } = req.body;
+
+        // Feature gating
+        if (typeof price === 'number' && price > 0) {
+            const paymentsCheck = await checkPlanFeatureAccess(userId, 'acceptPayments');
+            if (!paymentsCheck.allowed) {
+                return res.status(403).json({
+                    message: paymentsCheck.message,
+                    feature: paymentsCheck.feature,
+                    upgradeRequired: paymentsCheck.upgradeRequired,
+                    code: 'FEATURE_NOT_AVAILABLE'
+                });
+            }
+        }
+
+        if (waitlistEnabled === true) {
+            const waitlistCheck = await checkPlanFeatureAccess(userId, 'waitlistManagement');
+            if (!waitlistCheck.allowed) {
+                return res.status(403).json({
+                    message: waitlistCheck.message,
+                    feature: waitlistCheck.feature,
+                    upgradeRequired: waitlistCheck.upgradeRequired,
+                    code: 'FEATURE_NOT_AVAILABLE'
+                });
+            }
+        }
 
         // Clean ObjectIds (handle empty strings)
         const cleanEmailTemplateId = (emailTemplateId && emailTemplateId !== '') ? emailTemplateId : undefined;
@@ -132,6 +158,31 @@ export const updateEvent = async (req: Request, res: Response) => {
         const existingEvent = await Event.findById(id);
         if (!existingEvent) {
             return res.status(404).json({ message: 'Event not found' });
+        }
+
+        // Feature gating for updates (only check if toggled/used)
+        if (typeof updates.price === 'number' && updates.price > 0) {
+            const paymentsCheck = await checkPlanFeatureAccess(userId, 'acceptPayments');
+            if (!paymentsCheck.allowed) {
+                return res.status(403).json({
+                    message: paymentsCheck.message,
+                    feature: paymentsCheck.feature,
+                    upgradeRequired: paymentsCheck.upgradeRequired,
+                    code: 'FEATURE_NOT_AVAILABLE'
+                });
+            }
+        }
+
+        if (updates.waitlistEnabled === true) {
+            const waitlistCheck = await checkPlanFeatureAccess(userId, 'waitlistManagement');
+            if (!waitlistCheck.allowed) {
+                return res.status(403).json({
+                    message: waitlistCheck.message,
+                    feature: waitlistCheck.feature,
+                    upgradeRequired: waitlistCheck.upgradeRequired,
+                    code: 'FEATURE_NOT_AVAILABLE'
+                });
+            }
         }
 
         // Clean up empty ObjectId fields (can't be empty strings)

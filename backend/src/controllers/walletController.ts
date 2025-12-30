@@ -7,6 +7,7 @@ import { Ticket } from '../models/Ticket';
 import { Event } from '../models/Event';
 import fs from 'fs';
 import path from 'path';
+import { checkFeatureAccess as checkPlanFeatureAccess } from '../services/planLimitService';
 
 // --- Google Wallet Configuration ---
 // In a real app, these should come from your Google Cloud Service Account
@@ -30,6 +31,19 @@ export const getApplePass = async (req: Request, res: Response) => {
         }
 
         const event = ticket.eventId as any;
+
+        // Feature gating: Apple Wallet is a paid feature in plan config
+        if (event?.hostId) {
+            const appleWalletCheck = await checkPlanFeatureAccess(event.hostId.toString(), 'appleWalletPass');
+            if (!appleWalletCheck.allowed) {
+                return res.status(403).json({
+                    message: appleWalletCheck.message,
+                    feature: appleWalletCheck.feature,
+                    upgradeRequired: appleWalletCheck.upgradeRequired,
+                    code: 'FEATURE_NOT_AVAILABLE'
+                });
+            }
+        }
 
         // Check for certificates
         const wwdrPath = path.join(CERT_DIR, 'wwdr.pem');

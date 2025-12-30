@@ -6,6 +6,7 @@ import { Ticket } from '../models/Ticket';
 import { Payment } from '../models/Payment';
 import { Subscription } from '../models/Subscription';
 import { PlanConfig, DEFAULT_PLAN_CONFIGS } from '../models/PlanConfig';
+import { EmailTemplate } from '../models/EmailTemplate';
 import { 
     getAllPlanConfigs, 
     clearPlanConfigCache,
@@ -2090,3 +2091,791 @@ export const setUserPlan = async (req: Request, res: Response) => {
     }
 };
 
+/**
+ * Update per-user plan overrides (intended for Enterprise custom quotas/features)
+ * Body:
+ *  - limits: { [key: string]: number | null }
+ *  - features: { [key: string]: boolean | null }
+ * Passing null removes that specific override key.
+ */
+export const updateUserPlanOverrides = async (req: Request, res: Response) => {
+    try {
+        const { userId } = req.params;
+        const { limits, features } = req.body || {};
+
+        const subscription = await Subscription.findOne({ userId });
+        if (!subscription) {
+            return res.status(404).json({ message: 'Subscription not found for user' });
+        }
+
+        if (subscription.plan !== 'enterprise') {
+            return res.status(400).json({ message: 'Plan overrides are supported for enterprise users only' });
+        }
+
+        const nextOverrides: any = {
+            ...(subscription.planOverrides || {})
+        };
+
+        if (limits && typeof limits === 'object') {
+            const current = (subscription.planOverrides as any)?.limits && typeof (subscription.planOverrides as any).limits === 'object'
+                ? { ...(subscription.planOverrides as any).limits }
+                : {};
+
+            for (const [key, value] of Object.entries(limits)) {
+                if (value === null || typeof value === 'undefined') {
+                    delete current[key];
+                } else {
+                    current[key] = value;
+                }
+            }
+
+            nextOverrides.limits = Object.keys(current).length > 0 ? current : undefined;
+        }
+
+        if (features && typeof features === 'object') {
+            const current = (subscription.planOverrides as any)?.features && typeof (subscription.planOverrides as any).features === 'object'
+                ? { ...(subscription.planOverrides as any).features }
+                : {};
+
+            for (const [key, value] of Object.entries(features)) {
+                if (value === null || typeof value === 'undefined') {
+                    delete current[key];
+                } else {
+                    current[key] = value;
+                }
+            }
+
+            nextOverrides.features = Object.keys(current).length > 0 ? current : undefined;
+        }
+
+        const hasAnyOverrides = !!(nextOverrides.limits || nextOverrides.features);
+        if (!hasAnyOverrides) {
+            subscription.planOverrides = undefined as any;
+        } else {
+            // @ts-ignore
+            const adminId = (req as any).user?.id;
+            nextOverrides.updatedBy = adminId || nextOverrides.updatedBy;
+            nextOverrides.updatedAt = new Date();
+            subscription.planOverrides = nextOverrides;
+        }
+
+        await subscription.save();
+
+        const summary = await getUserPlanSummary(userId);
+
+        res.json({
+            message: 'Plan overrides updated',
+            subscription,
+            summary
+        });
+    } catch (error: any) {
+        logger.error('admin.update_user_plan_overrides_failed', { error: error.message });
+        res.status(500).json({ message: 'Failed to update plan overrides' });
+    }
+};
+
+/**
+ * Clear all per-user plan overrides
+ */
+export const clearUserPlanOverrides = async (req: Request, res: Response) => {
+    try {
+        const { userId } = req.params;
+
+        const subscription = await Subscription.findOne({ userId });
+        if (!subscription) {
+            return res.status(404).json({ message: 'Subscription not found for user' });
+        }
+
+        subscription.planOverrides = undefined as any;
+        await subscription.save();
+
+        const summary = await getUserPlanSummary(userId);
+
+        res.json({
+            message: 'Plan overrides cleared',
+            subscription,
+            summary
+        });
+    } catch (error: any) {
+        logger.error('admin.clear_user_plan_overrides_failed', { error: error.message });
+        res.status(500).json({ message: 'Failed to clear plan overrides' });
+    }
+};
+
+// ==================== EMAIL TEMPLATES MANAGEMENT ====================
+
+/**
+ * Get all system email templates (admin only)
+ */
+export const getSystemEmailTemplates = async (req: Request, res: Response) => {
+    try {
+        const { type, category, active } = req.query;
+
+        const query: any = { isSystem: true };
+        if (type) query.type = type;
+        if (category) query.category = category;
+        if (active !== undefined) query.isActive = active === 'true';
+
+        const templates = await EmailTemplate.find(query)
+            .sort({ category: 1, type: 1, name: 1 });
+
+        res.json(templates);
+    } catch (error: any) {
+        logger.error('admin.get_system_templates_failed', { error: error.message });
+        res.status(500).json({ message: 'Failed to fetch system templates' });
+    }
+};
+
+/**
+ * Create a new system email template (admin only)
+ */
+export const createSystemEmailTemplate = async (req: Request, res: Response) => {
+    try {
+        const { name, description, subject, body, type, category, isDefault, isActive, previewImage } = req.body;
+
+        if (!name || !subject || !body) {
+            return res.status(400).json({ message: 'Name, subject, and body are required' });
+        }
+
+        // Check if template with same name exists
+        const existing = await EmailTemplate.findOne({ isSystem: true, name });
+        if (existing) {
+            return res.status(400).json({ message: 'A system template with this name already exists' });
+        }
+
+        // If setting as default, unset other defaults of same type
+        if (isDefault) {
+            await EmailTemplate.updateMany(
+                { isSystem: true, type: type || 'custom' },
+                { isDefault: false }
+            );
+        }
+
+        const template = await EmailTemplate.create({
+            userId: null,
+            name,
+            description,
+            subject,
+            body,
+            type: type || 'custom',
+            category: category || 'event',
+            isSystem: true,
+            isDefault: isDefault || false,
+            isActive: isActive !== false,
+            previewImage
+        });
+
+        logger.info('admin.system_template_created', { templateId: template._id, name });
+        res.status(201).json(template);
+    } catch (error: any) {
+        logger.error('admin.create_system_template_failed', { error: error.message });
+        res.status(500).json({ message: 'Failed to create system template' });
+    }
+};
+
+/**
+ * Update a system email template (admin only)
+ */
+export const updateSystemEmailTemplate = async (req: Request, res: Response) => {
+    try {
+        const { templateId } = req.params;
+        const { name, description, subject, body, type, category, isDefault, isActive, previewImage } = req.body;
+
+        const template = await EmailTemplate.findOne({ _id: templateId, isSystem: true });
+        if (!template) {
+            return res.status(404).json({ message: 'System template not found' });
+        }
+
+        // If setting as default, unset other defaults of same type
+        if (isDefault && !template.isDefault) {
+            await EmailTemplate.updateMany(
+                { isSystem: true, type: type || template.type, _id: { $ne: templateId } },
+                { isDefault: false }
+            );
+        }
+
+        // Update fields
+        if (name !== undefined) template.name = name;
+        if (description !== undefined) template.description = description;
+        if (subject !== undefined) template.subject = subject;
+        if (body !== undefined) template.body = body;
+        if (type !== undefined) template.type = type;
+        if (category !== undefined) template.category = category;
+        if (isDefault !== undefined) template.isDefault = isDefault;
+        if (isActive !== undefined) template.isActive = isActive;
+        if (previewImage !== undefined) template.previewImage = previewImage;
+
+        await template.save();
+
+        logger.info('admin.system_template_updated', { templateId, name: template.name });
+        res.json(template);
+    } catch (error: any) {
+        logger.error('admin.update_system_template_failed', { error: error.message });
+        res.status(500).json({ message: 'Failed to update system template' });
+    }
+};
+
+/**
+ * Toggle system template active status (admin only)
+ */
+export const toggleSystemTemplateStatus = async (req: Request, res: Response) => {
+    try {
+        const { templateId } = req.params;
+
+        const template = await EmailTemplate.findOne({ _id: templateId, isSystem: true });
+        if (!template) {
+            return res.status(404).json({ message: 'System template not found' });
+        }
+
+        template.isActive = !template.isActive;
+        await template.save();
+
+        logger.info('admin.system_template_toggled', { 
+            templateId, 
+            name: template.name, 
+            isActive: template.isActive 
+        });
+
+        res.json({ 
+            message: `Template ${template.isActive ? 'activated' : 'deactivated'}`,
+            template 
+        });
+    } catch (error: any) {
+        logger.error('admin.toggle_system_template_failed', { error: error.message });
+        res.status(500).json({ message: 'Failed to toggle template status' });
+    }
+};
+
+/**
+ * Delete a system email template (admin only)
+ */
+export const deleteSystemEmailTemplate = async (req: Request, res: Response) => {
+    try {
+        const { templateId } = req.params;
+
+        const template = await EmailTemplate.findOneAndDelete({ _id: templateId, isSystem: true });
+        if (!template) {
+            return res.status(404).json({ message: 'System template not found' });
+        }
+
+        logger.info('admin.system_template_deleted', { templateId, name: template.name });
+        res.json({ message: 'System template deleted' });
+    } catch (error: any) {
+        logger.error('admin.delete_system_template_failed', { error: error.message });
+        res.status(500).json({ message: 'Failed to delete system template' });
+    }
+};
+
+/**
+ * Seed default email templates (admin only)
+ */
+export const seedDefaultTemplates = async (req: Request, res: Response) => {
+    try {
+        const defaultTemplates = [
+            {
+                name: 'Event Registration Confirmation',
+                description: 'Sent when a guest successfully registers for an event',
+                subject: 'Your Registration is Confirmed - {{event_title}}',
+                body: `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registration Confirmed</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+    <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f5f5f5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table cellpadding="0" cellspacing="0" border="0" width="600" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                    <!-- Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; border-radius: 12px 12px 0 0; text-align: center;">
+                            <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🎉 You're In!</h1>
+                            <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">Registration Confirmed</p>
+                        </td>
+                    </tr>
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px;">
+                            <p style="color: #333; font-size: 18px; margin: 0 0 20px 0;">Hi {{guest_name}},</p>
+                            <p style="color: #666; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+                                Great news! Your registration for <strong style="color: #667eea;">{{event_title}}</strong> has been confirmed.
+                            </p>
+                            
+                            <!-- Event Details Card -->
+                            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f8f9fa; border-radius: 8px; margin-bottom: 30px;">
+                                <tr>
+                                    <td style="padding: 25px;">
+                                        <p style="color: #333; font-size: 14px; margin: 0 0 15px 0;"><strong>📅 Date:</strong> {{event_date}}</p>
+                                        <p style="color: #333; font-size: 14px; margin: 0 0 15px 0;"><strong>📍 Location:</strong> {{event_location}}</p>
+                                        <p style="color: #333; font-size: 14px; margin: 0;"><strong>🎫 Ticket Code:</strong> {{ticket_code}}</p>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- QR Code -->
+                            <div style="text-align: center; margin-bottom: 30px;">
+                                <p style="color: #666; font-size: 14px; margin: 0 0 15px 0;">Your Entry QR Code:</p>
+                                <img src="{{qr_code}}" alt="QR Code" style="width: 180px; height: 180px; border: 1px solid #eee; border-radius: 8px;">
+                            </div>
+                            
+                            <!-- CTA Button -->
+                            <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{event_link}}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 8px; font-weight: 600; font-size: 16px;">View Event Details</a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 30px; background-color: #f8f9fa; border-radius: 0 0 12px 12px; text-align: center;">
+                            <p style="color: #999; font-size: 14px; margin: 0;">Organized by {{organizer_name}}</p>
+                            <p style="color: #999; font-size: 12px; margin: 10px 0 0 0;">Powered by MakeTicket</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>`,
+                type: 'registration',
+                category: 'event',
+                isSystem: true,
+                isDefault: true,
+                isActive: true
+            },
+            {
+                name: 'Event Reminder',
+                description: 'Reminder email sent before the event starts',
+                subject: 'Reminder: {{event_title}} is Tomorrow!',
+                body: `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+    <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f5f5f5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table cellpadding="0" cellspacing="0" border="0" width="600" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 40px; border-radius: 12px 12px 0 0; text-align: center;">
+                            <h1 style="color: #ffffff; margin: 0; font-size: 28px;">⏰ Don't Forget!</h1>
+                            <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">Event Reminder</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 40px;">
+                            <p style="color: #333; font-size: 18px; margin: 0 0 20px 0;">Hi {{guest_name}},</p>
+                            <p style="color: #666; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+                                Just a friendly reminder that <strong style="color: #f5576c;">{{event_title}}</strong> is coming up soon!
+                            </p>
+                            
+                            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #fff5f5; border-radius: 8px; border-left: 4px solid #f5576c; margin-bottom: 30px;">
+                                <tr>
+                                    <td style="padding: 25px;">
+                                        <p style="color: #333; font-size: 14px; margin: 0 0 15px 0;"><strong>📅 Date:</strong> {{event_date}}</p>
+                                        <p style="color: #333; font-size: 14px; margin: 0 0 15px 0;"><strong>📍 Location:</strong> {{event_location}}</p>
+                                        <p style="color: #333; font-size: 14px; margin: 0;"><strong>🎫 Your Ticket:</strong> {{ticket_code}}</p>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style="color: #666; font-size: 14px; line-height: 1.6; margin: 0 0 30px 0;">
+                                Please arrive 15 minutes early and have your QR code ready for check-in. We look forward to seeing you!
+                            </p>
+                            
+                            <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{event_link}}" style="display: inline-block; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 8px; font-weight: 600; font-size: 16px;">View Event</a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 30px; background-color: #f8f9fa; border-radius: 0 0 12px 12px; text-align: center;">
+                            <p style="color: #999; font-size: 14px; margin: 0;">Organized by {{organizer_name}}</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>`,
+                type: 'reminder',
+                category: 'event',
+                isSystem: true,
+                isDefault: true,
+                isActive: true
+            },
+            {
+                name: 'Event Update Notification',
+                description: 'Sent when event details are updated',
+                subject: 'Important Update: {{event_title}}',
+                body: `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+    <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f5f5f5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table cellpadding="0" cellspacing="0" border="0" width="600" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 40px; border-radius: 12px 12px 0 0; text-align: center;">
+                            <h1 style="color: #ffffff; margin: 0; font-size: 28px;">📢 Event Update</h1>
+                            <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">Important Information</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 40px;">
+                            <p style="color: #333; font-size: 18px; margin: 0 0 20px 0;">Hi {{guest_name}},</p>
+                            <p style="color: #666; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+                                There has been an update to <strong style="color: #4facfe;">{{event_title}}</strong>. Please review the latest details below.
+                            </p>
+                            
+                            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f0f9ff; border-radius: 8px; border-left: 4px solid #4facfe; margin-bottom: 30px;">
+                                <tr>
+                                    <td style="padding: 25px;">
+                                        <p style="color: #333; font-size: 14px; margin: 0 0 15px 0;"><strong>📅 Date:</strong> {{event_date}}</p>
+                                        <p style="color: #333; font-size: 14px; margin: 0;"><strong>📍 Location:</strong> {{event_location}}</p>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style="color: #666; font-size: 14px; line-height: 1.6; margin: 0 0 30px 0;">
+                                Your ticket remains valid. If you have any questions, please contact the event organizer.
+                            </p>
+                            
+                            <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{event_link}}" style="display: inline-block; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 8px; font-weight: 600; font-size: 16px;">View Updated Details</a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 30px; background-color: #f8f9fa; border-radius: 0 0 12px 12px; text-align: center;">
+                            <p style="color: #999; font-size: 14px; margin: 0;">Organized by {{organizer_name}}</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>`,
+                type: 'update',
+                category: 'event',
+                isSystem: true,
+                isDefault: true,
+                isActive: true
+            },
+            {
+                name: 'Event Cancellation Notice',
+                description: 'Sent when an event is cancelled',
+                subject: 'Event Cancelled: {{event_title}}',
+                body: `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+    <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f5f5f5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table cellpadding="0" cellspacing="0" border="0" width="600" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px; border-radius: 12px 12px 0 0; text-align: center;">
+                            <h1 style="color: #ffffff; margin: 0; font-size: 28px;">😔 Event Cancelled</h1>
+                            <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">We're Sorry</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 40px;">
+                            <p style="color: #333; font-size: 18px; margin: 0 0 20px 0;">Hi {{guest_name}},</p>
+                            <p style="color: #666; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+                                We regret to inform you that <strong>{{event_title}}</strong> has been cancelled.
+                            </p>
+                            
+                            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #fef2f2; border-radius: 8px; border-left: 4px solid #ef4444; margin-bottom: 30px;">
+                                <tr>
+                                    <td style="padding: 25px;">
+                                        <p style="color: #333; font-size: 14px; margin: 0 0 15px 0;"><strong>Original Date:</strong> {{event_date}}</p>
+                                        <p style="color: #333; font-size: 14px; margin: 0;"><strong>Location:</strong> {{event_location}}</p>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style="color: #666; font-size: 14px; line-height: 1.6; margin: 0 0 20px 0;">
+                                If you have any questions or concerns, please contact the event organizer directly.
+                            </p>
+                            
+                            <p style="color: #666; font-size: 14px; line-height: 1.6; margin: 0;">
+                                We apologize for any inconvenience this may cause and hope to see you at future events.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 30px; background-color: #f8f9fa; border-radius: 0 0 12px 12px; text-align: center;">
+                            <p style="color: #999; font-size: 14px; margin: 0;">Organized by {{organizer_name}}</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>`,
+                type: 'cancellation',
+                category: 'event',
+                isSystem: true,
+                isDefault: true,
+                isActive: true
+            },
+            {
+                name: 'Thank You Email',
+                description: 'Sent after the event to thank attendees',
+                subject: 'Thank You for Attending {{event_title}}!',
+                body: `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+    <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f5f5f5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table cellpadding="0" cellspacing="0" border="0" width="600" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); padding: 40px; border-radius: 12px 12px 0 0; text-align: center;">
+                            <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🙏 Thank You!</h1>
+                            <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">We Appreciate You</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 40px;">
+                            <p style="color: #333; font-size: 18px; margin: 0 0 20px 0;">Hi {{guest_name}},</p>
+                            <p style="color: #666; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+                                Thank you for attending <strong style="color: #11998e;">{{event_title}}</strong>! We hope you had an amazing experience.
+                            </p>
+                            
+                            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f0fdf4; border-radius: 8px; border-left: 4px solid #38ef7d; margin-bottom: 30px;">
+                                <tr>
+                                    <td style="padding: 25px;">
+                                        <p style="color: #333; font-size: 14px; margin: 0 0 10px 0;">Your participation made this event special! 🌟</p>
+                                        <p style="color: #666; font-size: 14px; margin: 0;">We'd love to hear your feedback.</p>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style="color: #666; font-size: 14px; line-height: 1.6; margin: 0 0 30px 0;">
+                                Stay connected with us for future events. We look forward to seeing you again!
+                            </p>
+                            
+                            <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{event_link}}" style="display: inline-block; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 8px; font-weight: 600; font-size: 16px;">Share Your Feedback</a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 30px; background-color: #f8f9fa; border-radius: 0 0 12px 12px; text-align: center;">
+                            <p style="color: #999; font-size: 14px; margin: 0;">With gratitude, {{organizer_name}}</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>`,
+                type: 'thank_you',
+                category: 'event',
+                isSystem: true,
+                isDefault: true,
+                isActive: true
+            },
+            {
+                name: 'Event Invitation',
+                description: 'Invite someone to register for an event',
+                subject: 'You\'re Invited: {{event_title}}',
+                body: `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+    <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f5f5f5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table cellpadding="0" cellspacing="0" border="0" width="600" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); padding: 40px; border-radius: 12px 12px 0 0; text-align: center;">
+                            <h1 style="color: #ffffff; margin: 0; font-size: 28px;">✨ You're Invited!</h1>
+                            <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">Special Invitation</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 40px;">
+                            <p style="color: #333; font-size: 18px; margin: 0 0 20px 0;">Hi {{guest_name}},</p>
+                            <p style="color: #666; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+                                You've been invited to <strong style="color: #ff6b6b;">{{event_title}}</strong>! We'd love to have you join us.
+                            </p>
+                            
+                            <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #fff5f5; border-radius: 8px; margin-bottom: 30px;">
+                                <tr>
+                                    <td style="padding: 25px;">
+                                        <p style="color: #333; font-size: 14px; margin: 0 0 15px 0;"><strong>📅 Date:</strong> {{event_date}}</p>
+                                        <p style="color: #333; font-size: 14px; margin: 0;"><strong>📍 Location:</strong> {{event_location}}</p>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style="color: #666; font-size: 14px; line-height: 1.6; margin: 0 0 30px 0;">
+                                Secure your spot now! Click the button below to register.
+                            </p>
+                            
+                            <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{event_link}}" style="display: inline-block; background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); color: #ffffff; text-decoration: none; padding: 15px 40px; border-radius: 8px; font-weight: 600; font-size: 16px; text-shadow: 0 1px 2px rgba(0,0,0,0.1);">Register Now</a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 30px; background-color: #f8f9fa; border-radius: 0 0 12px 12px; text-align: center;">
+                            <p style="color: #999; font-size: 14px; margin: 0;">Invitation from {{organizer_name}}</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>`,
+                type: 'invitation',
+                category: 'event',
+                isSystem: true,
+                isDefault: true,
+                isActive: true
+            },
+            {
+                name: 'Simple Registration',
+                description: 'Minimal design registration confirmation',
+                subject: 'Registration Confirmed - {{event_title}}',
+                body: `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #ffffff;">
+    <table cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+        <tr>
+            <td>
+                <h1 style="color: #333; font-size: 24px; margin: 0 0 20px 0; border-bottom: 2px solid #333; padding-bottom: 10px;">Registration Confirmed</h1>
+                
+                <p style="color: #333; font-size: 16px; margin: 0 0 20px 0;">Dear {{guest_name}},</p>
+                
+                <p style="color: #666; font-size: 14px; line-height: 1.6; margin: 0 0 30px 0;">
+                    Your registration for <strong>{{event_title}}</strong> has been confirmed.
+                </p>
+                
+                <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom: 30px;">
+                    <tr>
+                        <td style="padding: 15px 0; border-top: 1px solid #eee;">
+                            <strong style="color: #333;">Event:</strong>
+                            <span style="color: #666; float: right;">{{event_title}}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 15px 0; border-top: 1px solid #eee;">
+                            <strong style="color: #333;">Date:</strong>
+                            <span style="color: #666; float: right;">{{event_date}}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 15px 0; border-top: 1px solid #eee;">
+                            <strong style="color: #333;">Location:</strong>
+                            <span style="color: #666; float: right;">{{event_location}}</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 15px 0; border-top: 1px solid #eee; border-bottom: 1px solid #eee;">
+                            <strong style="color: #333;">Ticket Code:</strong>
+                            <span style="color: #666; float: right; font-family: monospace;">{{ticket_code}}</span>
+                        </td>
+                    </tr>
+                </table>
+                
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <img src="{{qr_code}}" alt="QR Code" style="width: 150px; height: 150px;">
+                    <p style="color: #999; font-size: 12px; margin: 10px 0 0 0;">Present this QR code at entry</p>
+                </div>
+                
+                <p style="color: #999; font-size: 12px; margin: 30px 0 0 0; text-align: center;">
+                    {{organizer_name}} • Powered by MakeTicket
+                </p>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>`,
+                type: 'registration',
+                category: 'event',
+                isSystem: true,
+                isDefault: false,
+                isActive: true
+            }
+        ];
+
+        let created = 0;
+        let skipped = 0;
+
+        for (const templateData of defaultTemplates) {
+            const existing = await EmailTemplate.findOne({ 
+                isSystem: true, 
+                name: templateData.name 
+            });
+
+            if (!existing) {
+                await EmailTemplate.create(templateData);
+                created++;
+            } else {
+                skipped++;
+            }
+        }
+
+        logger.info('admin.templates_seeded', { created, skipped });
+        res.json({ 
+            message: `Seeded ${created} templates, skipped ${skipped} existing`,
+            created,
+            skipped
+        });
+    } catch (error: any) {
+        logger.error('admin.seed_templates_failed', { error: error.message });
+        res.status(500).json({ message: 'Failed to seed templates' });
+    }
+};

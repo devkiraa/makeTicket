@@ -1,5 +1,6 @@
 import express from 'express';
 import { verifyToken } from '../middleware/auth';
+import { requireGoogleSheetsIntegration } from '../middleware/planLimits';
 import {
     checkSheetsAccess,
     getGoogleSheetsConnectUrl,
@@ -16,11 +17,11 @@ export const googleSheetsRouter = express.Router();
 googleSheetsRouter.get('/callback', googleSheetsCallback);
 
 // Protected routes
-googleSheetsRouter.get('/access', verifyToken, checkSheetsAccess);
-googleSheetsRouter.get('/connect', verifyToken, getGoogleSheetsConnectUrl);
+googleSheetsRouter.get('/access', verifyToken, requireGoogleSheetsIntegration, checkSheetsAccess);
+googleSheetsRouter.get('/connect', verifyToken, requireGoogleSheetsIntegration, getGoogleSheetsConnectUrl);
 
 // Event-specific routes
-googleSheetsRouter.post('/events/:eventId/create', verifyToken, createEventSpreadsheet);
-googleSheetsRouter.get('/events/:eventId', verifyToken, getEventSpreadsheet);
-googleSheetsRouter.delete('/events/:eventId', verifyToken, unlinkSpreadsheet);
-googleSheetsRouter.post('/events/:eventId/sync', verifyToken, syncRegistrationsToSheet);
+googleSheetsRouter.post('/events/:eventId/create', verifyToken, requireGoogleSheetsIntegration, createEventSpreadsheet);
+googleSheetsRouter.get('/events/:eventId', verifyToken, requireGoogleSheetsIntegration, getEventSpreadsheet);
+googleSheetsRouter.delete('/events/:eventId', verifyToken, requireGoogleSheetsIntegration, unlinkSpreadsheet);
+googleSheetsRouter.post('/events/:eventId/sync', verifyToken, requireGoogleSheetsIntegration, syncRegistrationsToSheet);

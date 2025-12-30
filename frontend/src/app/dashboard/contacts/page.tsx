@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { usePlanSummary } from '@/hooks/use-plan-summary';
 import {
     Download,
     Search,
@@ -57,6 +58,8 @@ interface EmailTemplate {
 type ViewMode = 'contacts' | 'compose';
 
 export default function ContactsPage() {
+    const { summary: planSummary } = usePlanSummary();
+
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [stats, setStats] = useState<ContactStats | null>(null);
     const [loading, setLoading] = useState(true);
@@ -80,6 +83,9 @@ export default function ContactsPage() {
 
     // Messages
     const [toast, setToast] = useState({ type: '', text: '' });
+
+    const canSyncContacts = !!planSummary?.features?.bulkImport;
+    const canExportContacts = !!planSummary?.features?.exportData;
 
     useEffect(() => {
         fetchContacts();
@@ -157,11 +163,13 @@ export default function ContactsPage() {
                     headers: { 'Authorization': `Bearer ${token}` }
                 }
             );
+            const data = await res.json().catch(() => ({} as any));
             if (res.ok) {
-                const data = await res.json();
                 showToast('success', data.message);
                 fetchContacts();
                 fetchStats();
+            } else {
+                showToast('error', data.message || 'Failed to sync contacts');
             }
         } catch (error) {
             showToast('error', 'Failed to sync contacts');
@@ -185,6 +193,9 @@ export default function ContactsPage() {
                 a.download = 'contacts.csv';
                 a.click();
                 showToast('success', 'Contacts exported successfully');
+            } else {
+                const data = await res.json().catch(() => ({} as any));
+                showToast('error', data.message || 'Failed to export contacts');
             }
         } catch (error) {
             showToast('error', 'Failed to export contacts');
@@ -325,7 +336,7 @@ export default function ContactsPage() {
                                 size="sm"
                                 className="border-slate-200 bg-white hover:bg-slate-50"
                                 onClick={handleSync}
-                                disabled={syncing}
+                                disabled={syncing || !canSyncContacts}
                             >
                                 <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
                                 Sync
@@ -334,7 +345,7 @@ export default function ContactsPage() {
                                 variant="outline"
                                 className="border-slate-200 bg-white hover:bg-slate-50"
                                 onClick={handleExport}
-                                disabled={contacts.length === 0}
+                                disabled={contacts.length === 0 || !canExportContacts}
                             >
                                 <Download className="mr-2 h-4 w-4" />
                                 Export
@@ -645,7 +656,7 @@ export default function ContactsPage() {
                                     </div>
                                     <p className="font-semibold text-slate-700 mb-1">No contacts yet</p>
                                     <p className="text-sm text-slate-500 mb-6">Sync contacts from your event registrations</p>
-                                    <Button onClick={handleSync} disabled={syncing} className="bg-indigo-600 hover:bg-indigo-700">
+                                    <Button onClick={handleSync} disabled={syncing || !canSyncContacts} className="bg-indigo-600 hover:bg-indigo-700">
                                         <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
                                         Sync Contacts
                                     </Button>

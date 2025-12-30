@@ -9,7 +9,8 @@ import {
     ShieldCheck,
     LogOut,
     ArrowLeft,
-    Server
+    Server,
+    Mail
 } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -19,6 +20,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const navItems = [
         { name: 'Overview', href: '/admin', icon: LayoutDashboard },
         { name: 'System Logs', href: '/admin/logs', icon: FileText },
+        { name: 'Email Templates', href: '/admin/email-templates', icon: Mail },
         { name: 'Server Status', href: '/admin/status', icon: Server },
     ];
 

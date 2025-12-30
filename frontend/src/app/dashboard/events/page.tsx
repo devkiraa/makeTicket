@@ -21,7 +21,9 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Search, Filter, Loader2, Calendar, MapPin, ExternalLink, Edit2, Power, Copy, Trash2, AlertTriangle, MoreVertical } from 'lucide-react';
+import { Plus, Search, Filter, Loader2, Calendar, MapPin, ExternalLink, Edit2, Power, Copy, Trash2, AlertTriangle, MoreVertical, Lock } from 'lucide-react';
+import { usePlanSummary } from '@/hooks/use-plan-summary';
+import { LimitWarning } from '@/components/FeatureGate';
 
 export default function EventsPage() {
     const router = useRouter();
@@ -29,6 +31,13 @@ export default function EventsPage() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [username, setUsername] = useState('');
+    
+    // Plan limits
+    const { isAtLimit, getLimit, getUsage, getRemainingQuota, summary: planSummary } = usePlanSummary();
+    const isAtEventLimit = isAtLimit('maxEventsPerMonth');
+    const eventLimit = getLimit('maxEventsPerMonth');
+    const eventsUsed = getUsage('maxEventsPerMonth');
+    const eventsRemaining = getRemainingQuota('maxEventsPerMonth');
 
     const fetchEvents = async () => {
         const token = localStorage.getItem('auth_token');
@@ -173,15 +182,45 @@ export default function EventsPage() {
 
     return (
         <div className="space-y-8">
+            {/* Limit Warning */}
+            <LimitWarning limit="maxEventsPerMonth" showAt={70} />
+            
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">My Events</h1>
                     <p className="text-slate-500">View and manage all your events in one place.</p>
+                    {eventLimit !== -1 && (
+                        <p className="text-xs text-slate-400 mt-1">
+                            {eventsUsed} / {eventLimit} events this month
+                            {eventsRemaining > 0 && eventsRemaining !== -1 && ` • ${eventsRemaining} remaining`}
+                        </p>
+                    )}
                 </div>
-                <Button className="bg-indigo-600 hover:bg-indigo-700 shadow-sm" onClick={() => router.push('/dashboard/events/create')}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create Event
-                </Button>
+                <div className="flex items-center gap-2">
+                    {isAtEventLimit && (
+                        <Button
+                            variant="outline"
+                            className="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                            onClick={() => router.push('/dashboard/billing')}
+                        >
+                            Upgrade Plan
+                        </Button>
+                    )}
+                    <Button 
+                        className={`shadow-sm ${isAtEventLimit ? 'bg-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                        onClick={() => {
+                            if (isAtEventLimit) {
+                                router.push('/dashboard/billing');
+                            } else {
+                                router.push('/dashboard/events/create');
+                            }
+                        }}
+                        title={isAtEventLimit ? 'Upgrade to create more events' : 'Create a new event'}
+                    >
+                        {isAtEventLimit ? <Lock className="mr-2 h-4 w-4" /> : <Plus className="mr-2 h-4 w-4" />}
+                        {isAtEventLimit ? 'Event Limit Reached' : 'Create Event'}
+                    </Button>
+                </div>
             </div>
 
             <div className="flex items-center gap-4">

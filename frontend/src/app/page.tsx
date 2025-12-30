@@ -112,7 +112,7 @@ export default function LandingPage() {
             "name": "Is MakeTicket free to use?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Yes! MakeTicket offers a generous free tier that includes unlimited events, up to 100 attendees per event, QR code tickets, email confirmations, and real-time analytics. Paid plans are available for larger events."
+              "text": "Yes! MakeTicket offers a generous free tier that includes 2 events per month, up to 50 attendees per event, QR code tickets, email confirmations, and basic analytics. Paid plans are available for larger events."
             }
           },
           {

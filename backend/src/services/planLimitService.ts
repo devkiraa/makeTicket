@@ -109,6 +109,39 @@ export const getUserPlan = async (userId: string): Promise<string> => {
     }
 };
 
+const isPlainObject = (value: unknown): value is Record<string, any> => {
+    return !!value && typeof value === 'object' && !Array.isArray(value);
+};
+
+const mergeOverrides = (base: any, overrides: any) => {
+    if (!isPlainObject(overrides)) return base;
+    return { ...base, ...overrides };
+};
+
+// Get user's effective plan config (plan config + per-account overrides)
+// Currently scoped to Enterprise: the plan config stays the source of truth for other plans.
+export const getUserEffectivePlanConfig = async (userId: string): Promise<any> => {
+    const subscription = await Subscription.findOne({ userId }).lean();
+    const plan = subscription?.plan || 'free';
+
+    const baseConfig = await getPlanConfig(plan);
+
+    if (plan !== 'enterprise') {
+        return baseConfig;
+    }
+
+    const overrides = (subscription as any)?.planOverrides;
+    if (!overrides) {
+        return baseConfig;
+    }
+
+    return {
+        ...baseConfig,
+        limits: mergeOverrides(baseConfig?.limits || {}, overrides?.limits),
+        features: mergeOverrides(baseConfig?.features || {}, overrides?.features)
+    };
+};
+
 // Get user's current usage
 export const getUserUsage = async (userId: string): Promise<UserUsage> => {
     const now = new Date();
@@ -162,8 +195,7 @@ export const getUserUsage = async (userId: string): Promise<UserUsage> => {
 
 // Check if user can create a new event
 export const checkCanCreateEvent = async (userId: string): Promise<LimitCheckResult> => {
-    const plan = await getUserPlan(userId);
-    const config = await getPlanConfig(plan);
+    const config = await getUserEffectivePlanConfig(userId);
     const usage = await getUserUsage(userId);
 
     const monthlyLimit = config.limits?.maxEventsPerMonth ?? DEFAULT_PLAN_CONFIGS.free.limits.maxEventsPerMonth;
@@ -205,8 +237,7 @@ export const checkCanCreateEvent = async (userId: string): Promise<LimitCheckRes
 
 // Check if event can accept more attendees
 export const checkCanAddAttendee = async (userId: string, eventId: string): Promise<LimitCheckResult> => {
-    const plan = await getUserPlan(userId);
-    const config = await getPlanConfig(plan);
+    const config = await getUserEffectivePlanConfig(userId);
 
     const attendeeLimit = config.limits?.maxAttendeesPerEvent ?? DEFAULT_PLAN_CONFIGS.free.limits.maxAttendeesPerEvent;
     
@@ -236,8 +267,7 @@ export const checkCanAddAttendee = async (userId: string, eventId: string): Prom
 
 // Check if user can add more coordinators to an event
 export const checkCanAddCoordinator = async (userId: string, eventId: string): Promise<LimitCheckResult> => {
-    const plan = await getUserPlan(userId);
-    const config = await getPlanConfig(plan);
+    const config = await getUserEffectivePlanConfig(userId);
 
     const coordinatorLimit = config.limits?.maxCoordinatorsPerEvent ?? DEFAULT_PLAN_CONFIGS.free.limits.maxCoordinatorsPerEvent;
     
@@ -267,8 +297,7 @@ export const checkCanAddCoordinator = async (userId: string, eventId: string): P
 
 // Check if user can create email template
 export const checkCanCreateEmailTemplate = async (userId: string): Promise<LimitCheckResult> => {
-    const plan = await getUserPlan(userId);
-    const config = await getPlanConfig(plan);
+    const config = await getUserEffectivePlanConfig(userId);
     const usage = await getUserUsage(userId);
 
     const limit = config.limits?.maxEmailTemplates ?? DEFAULT_PLAN_CONFIGS.free.limits.maxEmailTemplates;
@@ -296,8 +325,7 @@ export const checkCanCreateEmailTemplate = async (userId: string): Promise<Limit
 
 // Check if user can create ticket template
 export const checkCanCreateTicketTemplate = async (userId: string): Promise<LimitCheckResult> => {
-    const plan = await getUserPlan(userId);
-    const config = await getPlanConfig(plan);
+    const config = await getUserEffectivePlanConfig(userId);
     const usage = await getUserUsage(userId);
 
     const limit = config.limits?.maxTicketTemplates ?? DEFAULT_PLAN_CONFIGS.free.limits.maxTicketTemplates;
@@ -325,8 +353,7 @@ export const checkCanCreateTicketTemplate = async (userId: string): Promise<Limi
 
 // Check if user can add custom fields
 export const checkCanAddCustomFields = async (userId: string, currentFieldCount: number): Promise<LimitCheckResult> => {
-    const plan = await getUserPlan(userId);
-    const config = await getPlanConfig(plan);
+    const config = await getUserEffectivePlanConfig(userId);
 
     const limit = config.limits?.maxCustomFieldsPerEvent ?? DEFAULT_PLAN_CONFIGS.free.limits.maxCustomFieldsPerEvent;
 
@@ -353,8 +380,7 @@ export const checkCanAddCustomFields = async (userId: string, currentFieldCount:
 
 // Check if a feature is enabled for user's plan
 export const checkFeatureAccess = async (userId: string, feature: string): Promise<FeatureCheckResult> => {
-    const plan = await getUserPlan(userId);
-    const config = await getPlanConfig(plan);
+    const config = await getUserEffectivePlanConfig(userId);
 
     const featureEnabled = config.features?.[feature] ?? false;
 
@@ -383,7 +409,7 @@ export const checkFeatureAccess = async (userId: string, feature: string): Promi
 // Get user's complete plan limits and usage
 export const getUserPlanSummary = async (userId: string) => {
     const plan = await getUserPlan(userId);
-    const config = await getPlanConfig(plan);
+    const config = await getUserEffectivePlanConfig(userId);
     const usage = await getUserUsage(userId);
 
     return {

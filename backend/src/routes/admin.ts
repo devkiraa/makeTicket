@@ -45,7 +45,16 @@ import {
     resetPlanConfig,
     getPlanUsageStats,
     getUserPlanDetails,
-    setUserPlan
+    setUserPlan,
+    updateUserPlanOverrides,
+    clearUserPlanOverrides,
+    // Email Templates
+    getSystemEmailTemplates,
+    createSystemEmailTemplate,
+    updateSystemEmailTemplate,
+    toggleSystemTemplateStatus,
+    deleteSystemEmailTemplate,
+    seedDefaultTemplates
 } from '../controllers/adminController';
 
 export const adminRouter = express.Router();
@@ -116,3 +125,13 @@ adminRouter.patch('/plans/:planId', updatePlanConfig);
 adminRouter.post('/plans/:planId/reset', resetPlanConfig);
 adminRouter.get('/users/:userId/plan', getUserPlanDetails);
 adminRouter.post('/users/:userId/plan', setUserPlan);
+adminRouter.patch('/users/:userId/plan-overrides', updateUserPlanOverrides);
+adminRouter.delete('/users/:userId/plan-overrides', clearUserPlanOverrides);
+
+// Email Template Management
+adminRouter.get('/email-templates', getSystemEmailTemplates);
+adminRouter.post('/email-templates', createSystemEmailTemplate);
+adminRouter.post('/email-templates/seed', seedDefaultTemplates);
+adminRouter.patch('/email-templates/:templateId', updateSystemEmailTemplate);
+adminRouter.patch('/email-templates/:templateId/toggle', toggleSystemTemplateStatus);
+adminRouter.delete('/email-templates/:templateId', deleteSystemEmailTemplate);

@@ -3,8 +3,17 @@ import { Payment } from '../models/Payment';
 import { Subscription, PLAN_CONFIGS } from '../models/Subscription';
 import { User } from '../models/User';
 import * as razorpayService from '../services/razorpayService';
-import { getUserPlanSummary, checkCanCreateEvent, checkCanAddAttendee, getAllPlanConfigs } from '../services/planLimitService';
+import {
+    getUserPlanSummary,
+    checkCanCreateEvent,
+    checkCanAddAttendee,
+    getAllPlanConfigs,
+    getUserPlan,
+    checkFeatureAccess as checkPlanFeatureAccess
+} from '../services/planLimitService';
+import { generateInvoicePDF, generateInvoiceNumber, InvoiceData } from '../services/invoiceGenerator';
 import crypto from 'crypto';
+import path from 'path';
 
 /**
  * Get Razorpay configuration (public key for frontend)
@@ -327,6 +336,122 @@ export const getPaymentHistory = async (req: Request, res: Response) => {
 };
 
 /**
+ * Download invoice PDF for a specific payment
+ */
+export const downloadInvoice = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user.id;
+        const { paymentId } = req.params;
+
+        // Find the payment
+        const payment = await Payment.findOne({ _id: paymentId, userId, status: 'paid' });
+        if (!payment) {
+            return res.status(404).json({ message: 'Payment not found' });
+        }
+
+        // Get user details
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Get plan details
+        const planName = payment.plan ? payment.plan.charAt(0).toUpperCase() + payment.plan.slice(1) : 'Subscription';
+        const planConfig = payment.plan ? PLAN_CONFIGS[payment.plan as keyof typeof PLAN_CONFIGS] : null;
+        
+        // Calculate amounts (stored in paise, convert to rupees)
+        // As an individual seller (not GST registered), no tax breakdown required
+        const amountInRupees = payment.amount / 100;
+
+        // Generate invoice number
+        const invoiceNumber = generateInvoiceNumber(
+            payment.razorpayPaymentId || payment._id.toString(),
+            payment.paidAt || payment.createdAt
+        );
+
+        // Build invoice data
+        const invoiceData: InvoiceData = {
+            invoiceNumber,
+            invoiceDate: payment.paidAt || payment.createdAt,
+            
+            company: {
+                name: 'MakeTicket',
+                address: [
+                    'Kiran S',
+                    'Pathanamthitta, Kerala',
+                    'India - 689691'
+                ],
+                email: 'kiran@maketicket.app',
+                phone: '9446565036',
+                website: 'https://maketicket.app',
+                logo: path.join(__dirname, '../../../frontend/public/logo.png'),
+                // No GST - Individual seller not registered under GST
+            },
+            
+            customer: {
+                name: user.name || user.email.split('@')[0],
+                email: user.email,
+            },
+            
+            payment: {
+                method: payment.method || 'Online Payment',
+                transactionId: payment.razorpayPaymentId || payment._id.toString(),
+                status: 'Paid',
+                paidAt: payment.paidAt || payment.createdAt
+            },
+            
+            items: [
+                {
+                    description: `${planName} Plan Subscription - Monthly`,
+                    quantity: 1,
+                    unitPrice: amountInRupees,
+                    amount: amountInRupees,
+                }
+            ],
+            
+            subtotal: amountInRupees,
+            // No tax - Individual seller not registered under GST
+            total: amountInRupees,
+            currency: payment.currency || 'INR',
+            
+            notes: `Payment receipt for ${planName} Plan subscription. Thank you for choosing MakeTicket!`,
+            terms: [
+                'This is a payment receipt for digital services.',
+                'Subscription auto-renews unless cancelled before the end of the billing period.',
+                'Refund requests must be submitted within 7 days of payment.',
+                'For any inquiries, please contact support@maketicket.in',
+                'Subject to the Terms of Service available at maketicket.in/terms'
+            ]
+        };
+
+        // Generate PDF
+        const pdfBuffer = await generateInvoicePDF(invoiceData);
+
+        // Check if user wants to view in browser or download
+        const viewInBrowser = req.query.view === 'true';
+        const filename = `MakeTicket_Receipt_${invoiceNumber}.pdf`;
+        
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Length', pdfBuffer.length);
+        
+        if (viewInBrowser) {
+            // View in browser (inline)
+            res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+        } else {
+            // Download as attachment
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        }
+
+        // Send PDF
+        res.send(pdfBuffer);
+
+    } catch (error: any) {
+        console.error('Download invoice error:', error);
+        res.status(500).json({ message: 'Failed to generate invoice', error: error.message });
+    }
+};
+
+/**
  * Cancel subscription (downgrade to free)
  */
 export const cancelSubscription = async (req: Request, res: Response) => {
@@ -429,16 +554,12 @@ export const checkFeatureAccess = async (req: Request, res: Response) => {
         const userId = (req as any).user.id;
         const { feature } = req.params;
 
-        const subscription = await Subscription.findOne({ userId });
-        
-        if (!subscription || !subscription.limits) {
-            // Default to free plan limits
-            const hasAccess = PLAN_CONFIGS.free.limits[feature as keyof typeof PLAN_CONFIGS.free.limits] || false;
-            return res.json({ hasAccess, plan: 'free' });
-        }
-
-        const hasAccess = subscription.limits[feature as keyof typeof subscription.limits] || false;
-        res.json({ hasAccess, plan: subscription.plan });
+        const result = await checkPlanFeatureAccess(userId, feature);
+        res.json({
+            hasAccess: result.allowed,
+            plan: await getUserPlan(userId),
+            message: result.message
+        });
 
     } catch (error: any) {
         res.status(500).json({ message: 'Failed to check feature access', error: error.message });

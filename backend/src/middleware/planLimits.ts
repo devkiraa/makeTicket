@@ -10,17 +10,17 @@ import {
 } from '../services/planLimitService';
 import { logger } from '../lib/logger';
 
-// Extend Express Request type
-interface AuthRequest extends Request {
-    userId?: string;
-}
+// Helper to get userId from request (set by verifyToken middleware)
+const getUserId = (req: Request): string | undefined => {
+    return (req as any).user?.id;
+};
 
 /**
  * Middleware to check if user can create an event
  */
-export const canCreateEvent = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const canCreateEvent = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const userId = req.userId;
+        const userId = getUserId(req);
         if (!userId) {
             return res.status(401).json({ message: 'Authentication required' });
         }
@@ -49,9 +49,9 @@ export const canCreateEvent = async (req: AuthRequest, res: Response, next: Next
 /**
  * Middleware to check if event can accept more attendees
  */
-export const canAddAttendee = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const canAddAttendee = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const userId = req.userId;
+        const userId = getUserId(req);
         const eventId = req.params.eventId || req.body.eventId;
 
         if (!userId || !eventId) {
@@ -81,9 +81,9 @@ export const canAddAttendee = async (req: AuthRequest, res: Response, next: Next
 /**
  * Middleware to check if user can add more coordinators
  */
-export const canAddCoordinator = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const canAddCoordinator = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const userId = req.userId;
+        const userId = getUserId(req);
         const eventId = req.params.eventId || req.body.eventId;
 
         if (!userId || !eventId) {
@@ -113,9 +113,9 @@ export const canAddCoordinator = async (req: AuthRequest, res: Response, next: N
 /**
  * Middleware to check if user can create email template
  */
-export const canCreateEmailTemplate = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const canCreateEmailTemplate = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const userId = req.userId;
+        const userId = getUserId(req);
         if (!userId) {
             return res.status(401).json({ message: 'Authentication required' });
         }
@@ -142,9 +142,9 @@ export const canCreateEmailTemplate = async (req: AuthRequest, res: Response, ne
 /**
  * Middleware to check if user can create ticket template
  */
-export const canCreateTicketTemplate = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const canCreateTicketTemplate = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const userId = req.userId;
+        const userId = getUserId(req);
         if (!userId) {
             return res.status(401).json({ message: 'Authentication required' });
         }
@@ -172,9 +172,9 @@ export const canCreateTicketTemplate = async (req: AuthRequest, res: Response, n
  * Factory function to create feature check middleware
  */
 export const requireFeature = (featureName: string) => {
-    return async (req: AuthRequest, res: Response, next: NextFunction) => {
+    return async (req: Request, res: Response, next: NextFunction) => {
         try {
-            const userId = req.userId;
+            const userId = getUserId(req);
             if (!userId) {
                 return res.status(401).json({ message: 'Authentication required' });
             }

@@ -447,7 +447,7 @@ export default function SystemEmailSettingsPage() {
                         <div style="background: #F0FDF4; border-radius: 8px; padding: 20px; margin: 20px 0;">
                             <h3 style="margin-top: 0; color: #059669;">What you can do now:</h3>
                             <ul style="color: #374151; margin-bottom: 0;">
-                                <li>Create unlimited events</li>
+                                <li>Create and manage events</li>
                                 <li>Customize registration forms</li>
                                 <li>Manage attendees and check-ins</li>
                                 <li>Send custom email confirmations</li>

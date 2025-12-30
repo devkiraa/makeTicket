@@ -1,5 +1,6 @@
 import express from 'express';
 import { verifyToken } from '../middleware/auth';
+import { requireGoogleFormsIntegration } from '../middleware/planLimits';
 import {
     checkGoogleFormsAccess,
     getGoogleFormsConnectUrl,
@@ -15,8 +16,8 @@ export const googleFormsRouter = express.Router();
 googleFormsRouter.get('/callback', googleFormsCallback);
 
 // Protected routes
-googleFormsRouter.get('/access', verifyToken, checkGoogleFormsAccess);
-googleFormsRouter.get('/connect', verifyToken, getGoogleFormsConnectUrl);
-googleFormsRouter.get('/list', verifyToken, listGoogleForms);
-googleFormsRouter.get('/form/:formId', verifyToken, getGoogleForm);
-googleFormsRouter.delete('/disconnect', verifyToken, disconnectGoogleForms);
+googleFormsRouter.get('/access', verifyToken, requireGoogleFormsIntegration, checkGoogleFormsAccess);
+googleFormsRouter.get('/connect', verifyToken, requireGoogleFormsIntegration, getGoogleFormsConnectUrl);
+googleFormsRouter.get('/list', verifyToken, requireGoogleFormsIntegration, listGoogleForms);
+googleFormsRouter.get('/form/:formId', verifyToken, requireGoogleFormsIntegration, getGoogleForm);
+googleFormsRouter.delete('/disconnect', verifyToken, requireGoogleFormsIntegration, disconnectGoogleForms);

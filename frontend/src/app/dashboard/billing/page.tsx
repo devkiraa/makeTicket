@@ -22,7 +22,8 @@ import {
     CalendarDays,
     Mail,
     Palette,
-    FileText
+    FileText,
+    Eye
 } from 'lucide-react';
 import { useRazorpay } from '@/hooks/useRazorpay';
 
@@ -261,12 +262,71 @@ export default function BillingPage() {
             });
             if (res.ok) {
                 const data = await res.json();
-                setPaymentHistory(data.payments || []);
+                // Handle both array and object response formats
+                const payments = Array.isArray(data) ? data : (data.payments || []);
+                setPaymentHistory(payments);
             }
         } catch (err) {
             console.error('Failed to load payment history:', err);
         } finally {
             setLoadingHistory(false);
+        }
+    };
+
+    const handleViewInvoice = async (paymentId: string) => {
+        try {
+            const token = localStorage.getItem('auth_token');
+            if (!token) return;
+
+            const res = await fetch(`${API_URL}/payment/invoice/${paymentId}?view=true`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (res.ok) {
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                window.open(url, '_blank');
+            } else {
+                const errorData = await res.json();
+                console.error('Failed to view receipt:', errorData);
+                setError('Failed to view receipt. Please try again.');
+            }
+        } catch (err) {
+            console.error('Failed to view receipt:', err);
+            setError('Failed to view receipt. Please try again.');
+        }
+    };
+
+    const handleDownloadInvoice = async (paymentId: string) => {
+        try {
+            const token = localStorage.getItem('auth_token');
+            if (!token) return;
+
+            const res = await fetch(`${API_URL}/payment/invoice/${paymentId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (res.ok) {
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                // Extract filename from Content-Disposition header or use default
+                const contentDisposition = res.headers.get('Content-Disposition');
+                const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
+                a.download = filenameMatch ? filenameMatch[1] : `MakeTicket_Receipt_${paymentId}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            } else {
+                const errorData = await res.json();
+                console.error('Failed to download receipt:', errorData);
+                setError('Failed to download receipt. Please try again.');
+            }
+        } catch (err) {
+            console.error('Failed to download receipt:', err);
+            setError('Failed to download receipt. Please try again.');
         }
     };
 
@@ -843,7 +903,7 @@ export default function BillingPage() {
                                                 {payment.plan} Plan
                                             </td>
                                             <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-white">
-                                                {payment.currency === 'INR' ? '₹' : payment.currency} {payment.amount}
+                                                {payment.currency === 'INR' ? '₹' : payment.currency} {(payment.amount / 100).toFixed(2)}
                                             </td>
                                             <td className="py-3 px-4">
                                                 <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
@@ -857,19 +917,24 @@ export default function BillingPage() {
                                                 </span>
                                             </td>
                                             <td className="py-3 px-4">
-                                                {payment.invoiceUrl ? (
-                                                    <a 
-                                                        href={payment.invoiceUrl} 
-                                                        target="_blank" 
-                                                        rel="noopener noreferrer"
-                                                        className="text-indigo-600 hover:text-indigo-700 inline-flex items-center gap-1 text-sm"
+                                                <div className="flex items-center gap-3">
+                                                    <button 
+                                                        onClick={() => handleViewInvoice(payment._id)}
+                                                        className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 inline-flex items-center gap-1 text-sm cursor-pointer"
+                                                        title="View Receipt"
+                                                    >
+                                                        <Eye className="h-4 w-4" />
+                                                        View
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleDownloadInvoice(payment._id)}
+                                                        className="text-indigo-600 hover:text-indigo-700 inline-flex items-center gap-1 text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        title="Download Receipt"
                                                     >
                                                         <Download className="h-4 w-4" />
                                                         Download
-                                                    </a>
-                                                ) : (
-                                                    <span className="text-gray-400 text-sm">-</span>
-                                                )}
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}

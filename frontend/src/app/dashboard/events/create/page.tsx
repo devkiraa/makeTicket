@@ -19,12 +19,22 @@ import {
 import { createPortal } from 'react-dom';
 import { Switch } from '@/components/ui/switch';
 import { FormBuilder } from '@/components/FormBuilder';
+import { usePlanSummary } from '@/hooks/use-plan-summary';
+import { LockedBadge, LimitWarning } from '@/components/FeatureGate';
+import { Lock } from 'lucide-react';
 
 function CreateEventContent() {
     const router = useRouter();
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false); // Track if editing existing event
+
+    const { isFeatureLocked, isAtLimit, hasFeature, summary: planSummary } = usePlanSummary();
+    
+    // Feature gates
+    const isAcceptPaymentsLocked = isFeatureLocked('acceptPayments');
+    const isWaitlistLocked = isFeatureLocked('waitlistManagement');
+    const isCustomEmailTemplatesLocked = isFeatureLocked('customEmailTemplates');
 
 
     // Step 1: Basic Details
@@ -42,6 +52,14 @@ function CreateEventContent() {
         ticketTemplateId: '', // Selected ticket template
         attachTicket: true // Attach ticket to email
     });
+
+    useEffect(() => {
+        if (!isAcceptPaymentsLocked) return;
+
+        if (Number(formData.price) > 0) {
+            setFormData(prev => ({ ...prev, price: 0 }));
+        }
+    }, [isAcceptPaymentsLocked, formData.price]);
 
     // Step 2: Form Builder
     const [questions, setQuestions] = useState<any[]>([
@@ -557,19 +575,51 @@ function CreateEventContent() {
                             <Input id="location" name="location" value={formData.location} onChange={handleInputChange} placeholder="e.g. Grand Hotel, New York or Online" className="bg-white" />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="price">Ticket Price (INR)</Label>
-                            <Input
-                                id="price"
-                                name="price"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={formData.price}
-                                onChange={handleInputChange}
-                                placeholder="0.00 (Leave 0 for Free)"
-                                className="bg-white"
-                            />
-                            <p className="text-xs text-slate-500">Set to 0 for free events.</p>
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor="price">Ticket Price (INR)</Label>
+                                {isAcceptPaymentsLocked && <LockedBadge feature="acceptPayments" />}
+                            </div>
+                            <div className="relative">
+                                <Input
+                                    id="price"
+                                    name="price"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={isAcceptPaymentsLocked ? 0 : formData.price}
+                                    onChange={(e) => {
+                                        if (isAcceptPaymentsLocked) {
+                                            setFormData(prev => ({ ...prev, price: 0 }));
+                                            return;
+                                        }
+                                        handleInputChange(e);
+                                    }}
+                                    placeholder="0.00 (Leave 0 for Free)"
+                                    className={`bg-white ${isAcceptPaymentsLocked ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                    disabled={isAcceptPaymentsLocked}
+                                />
+                                {isAcceptPaymentsLocked && (
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                        <Lock className="h-4 w-4 text-slate-400" />
+                                    </div>
+                                )}
+                            </div>
+                            {isAcceptPaymentsLocked ? (
+                                <p className="text-xs text-amber-600 flex items-center gap-1">
+                                    <Lock className="h-3 w-3" />
+                                    Paid events require a paid plan.{' '}
+                                    <Button
+                                        type="button"
+                                        variant="link"
+                                        className="h-auto p-0 text-xs text-amber-700 font-medium"
+                                        onClick={() => router.push('/dashboard/billing')}
+                                    >
+                                        Upgrade now
+                                    </Button>
+                                </p>
+                            ) : (
+                                <p className="text-xs text-slate-500">Set to 0 for free events.</p>
+                            )}
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="maxRegistrations">Maximum Registrations</Label>

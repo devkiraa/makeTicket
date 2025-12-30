@@ -8,6 +8,7 @@ import {
     verifyPayment,
     handleWebhook,
     getPaymentHistory,
+    downloadInvoice,
     cancelSubscription,
     renewSubscription,
     checkFeatureAccess,
@@ -32,6 +33,7 @@ router.get('/subscription', verifyToken, getSubscription);
 router.post('/upgrade', verifyToken, createUpgradeOrder);
 router.post('/verify', verifyToken, verifyPayment);
 router.get('/history', verifyToken, getPaymentHistory);
+router.get('/invoice/:paymentId', verifyToken, downloadInvoice);
 router.post('/cancel', verifyToken, cancelSubscription);
 router.post('/renew', verifyToken, renewSubscription);
 router.get('/feature/:feature', verifyToken, checkFeatureAccess);
