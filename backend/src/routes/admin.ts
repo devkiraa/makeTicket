@@ -29,8 +29,10 @@ import {
     getSystemEmailAuthUrl,
     systemEmailCallback,
     getEmailStats,
+    getAllEmailLogs,
     getZeptoMailCredits,
     sendZeptoMailTestEmail,
+    testSystemEmailType,
     // Revenue Management
     getRevenueStats,
     getAllPayments,
@@ -107,10 +109,12 @@ adminRouter.patch('/settings', updateSystemSettings);
 adminRouter.post('/settings/test-email', testSystemEmail);
 adminRouter.get('/system-email/auth-url', getSystemEmailAuthUrl);      // Get Gmail OAuth URL
 
-// Email Statistics
+// Email Statistics & Logs
 adminRouter.get('/email/stats', getEmailStats);
+adminRouter.get('/email/logs', getAllEmailLogs);
 adminRouter.get('/email/zeptomail/credits', getZeptoMailCredits);
 adminRouter.post('/email/zeptomail/test', sendZeptoMailTestEmail);
+adminRouter.post('/email/test-type', testSystemEmailType);
 
 // Revenue Management
 adminRouter.get('/revenue/stats', getRevenueStats);

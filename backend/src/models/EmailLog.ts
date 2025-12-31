@@ -13,7 +13,10 @@ const EmailLogSchema = new mongoose.Schema({
             'registration', 'reminder', 'update', 'cancellation', 'test', 'custom',
             // System email types
             'system_welcome', 'system_passwordReset', 'system_hostUpgrade',
-            'system_suspension', 'system_loginAlert'
+            'system_suspension', 'system_loginAlert',
+            // Test email types (for admin testing specific templates)
+            'test_welcomeEmail', 'test_passwordReset', 'test_hostUpgradeConfirmation',
+            'test_suspensionNotice', 'test_loginAlert'
         ],
         default: 'registration'
     },

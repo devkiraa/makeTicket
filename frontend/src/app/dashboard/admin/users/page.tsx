@@ -55,6 +55,7 @@ interface User {
     status: 'active' | 'suspended';
     createdAt: string;
     avatar?: string;
+    plan?: string;
 }
 
 type EnterpriseQuotaForm = {
@@ -132,6 +133,10 @@ export default function UserManagementPage() {
     const [suspensionReason, setSuspensionReason] = useState('');
     const [roleModalOpen, setRoleModalOpen] = useState(false);
     const [newRole, setNewRole] = useState<'admin' | 'host' | 'user'>('user');
+
+    // Plan Management States
+    const [planModalOpen, setPlanModalOpen] = useState(false);
+    const [selectedPlan, setSelectedPlan] = useState<string>('free');
 
     // Enterprise Quota Overrides
     const [quotaModalOpen, setQuotaModalOpen] = useState(false);
@@ -403,9 +408,34 @@ export default function UserManagementPage() {
             localStorage.setItem('auth_token', data.token);
 
             toast({ title: "Impersonating", description: `You are now logged in as ${user.email}` });
-            router.push('/dashboard');
+
+            // Force hard reload to ensure all contexts (auth, sidebar, etc.) are reset
+            window.location.href = '/dashboard';
         } catch (error) {
             toast({ title: "Error", description: "Failed to impersonate user", variant: "destructive" });
+        }
+    };
+
+    const handleUpdatePlan = async () => {
+        if (!selectedUser) return;
+        const token = localStorage.getItem('auth_token');
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/admin/users/${selectedUser._id}/plan`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ plan: selectedPlan, reason: 'Admin manual update' })
+            });
+
+            if (!res.ok) throw new Error('Failed to update plan');
+
+            toast({ title: "Success", description: `User plan updated to ${selectedPlan}` });
+            setPlanModalOpen(false);
+            fetchUsers();
+        } catch (error) {
+            toast({ title: "Error", description: "Plan update failed", variant: "destructive" });
         }
     };
 
@@ -485,6 +515,7 @@ export default function UserManagementPage() {
                                 <tr>
                                     <th className="px-6 py-4 font-medium">User</th>
                                     <th className="px-6 py-4 font-medium">Role</th>
+                                    <th className="px-6 py-4 font-medium">Plan</th>
                                     <th className="px-6 py-4 font-medium">Status</th>
                                     <th className="px-6 py-4 font-medium">Joined</th>
                                     <th className="px-6 py-4 font-medium text-right">Actions</th>
@@ -535,6 +566,16 @@ export default function UserManagementPage() {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4">
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize
+                                                    ${user.plan === 'enterprise' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                        user.plan === 'pro' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                                                            user.plan === 'starter' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                                                'bg-slate-50 text-slate-600 border-slate-200'}
+                                                `}>
+                                                    {user.plan || 'free'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
                                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border
                                                     ${user.status === 'active' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}
                                                 `}>
@@ -560,6 +601,13 @@ export default function UserManagementPage() {
                                                             setRoleModalOpen(true);
                                                         }}>
                                                             <Shield className="mr-2 h-4 w-4" /> Manage Role
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => {
+                                                            setSelectedUser(user);
+                                                            setSelectedPlan(user.plan || 'free');
+                                                            setPlanModalOpen(true);
+                                                        }}>
+                                                            <RefreshCw className="mr-2 h-4 w-4" /> Change Plan
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => handleImpersonate(user)} className="text-orange-600">
                                                             <Ghost className="mr-2 h-4 w-4" /> Impersonate
@@ -675,6 +723,39 @@ export default function UserManagementPage() {
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setRoleModalOpen(false)}>Cancel</Button>
                         <Button onClick={handleUpdateRole}>Update Role</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Plan Management Dialog */}
+            <Dialog open={planModalOpen} onOpenChange={setPlanModalOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Change User Plan</DialogTitle>
+                        <DialogDescription>
+                            Manually assign a subscription plan to <b>{selectedUser?.email}</b>.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <label className="text-sm font-medium mb-2 block text-slate-700">Select Plan</label>
+                        <Select value={selectedPlan} onValueChange={setSelectedPlan}>
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="free">Free</SelectItem>
+                                <SelectItem value="starter">Starter (Paid)</SelectItem>
+                                <SelectItem value="pro">Pro (Paid)</SelectItem>
+                                <SelectItem value="enterprise">Enterprise</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <p className="text-xs text-slate-500 mt-2">
+                            Note: This will override any existing Stripe subscription status and grant full access to the selected plan features immediately (valid for 1 year).
+                        </p>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setPlanModalOpen(false)}>Cancel</Button>
+                        <Button onClick={handleUpdatePlan}>Update Plan</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -799,6 +880,6 @@ export default function UserManagementPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+        </div >
     );
 }

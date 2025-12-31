@@ -22,7 +22,8 @@ import {
     Github,
     Globe,
     Trash2,
-    ChevronDown
+    ChevronDown,
+    ShieldCheck
 } from 'lucide-react';
 
 const getDeviceDetails = (ua: string) => {
@@ -605,6 +606,10 @@ export default function ProfilePage() {
                 </CardContent>
             </Card>
 
+
+            {/* Security Settings (2FA) */}
+            <TwoFactorSetup isEnabled={user.isTwoFactorEnabled} />
+
             {/* Email Settings */}
             <Card className="border-slate-200 shadow-sm">
                 <CardContent className="p-6">
@@ -689,40 +694,42 @@ export default function ProfilePage() {
             </div>
 
             {/* Past Logouts */}
-            {pastSessions.length > 0 && (
-                <div className="space-y-4 pt-4">
-                    <h2 className="text-lg font-semibold text-slate-900 px-1">Session History ({pastSessions.length})</h2>
-                    <div className="space-y-2">
-                        {(showAllHistory ? pastSessions : pastSessions.slice(0, 2)).map((session) => {
-                            const { browser, os } = getDeviceDetails(session.userAgent);
-                            return (
-                                <div key={session.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100 text-sm">
-                                    <div className="flex items-center gap-3">
-                                        <LogOut className="w-4 h-4 text-slate-400" />
-                                        <div>
-                                            <span className="text-slate-700 font-medium">{browser} on {os}</span>
-                                            <span className="text-slate-400 mx-2">•</span>
-                                            <span className="text-slate-500">{new Date(session.lastActiveAt).toLocaleDateString()}</span>
+            {
+                pastSessions.length > 0 && (
+                    <div className="space-y-4 pt-4">
+                        <h2 className="text-lg font-semibold text-slate-900 px-1">Session History ({pastSessions.length})</h2>
+                        <div className="space-y-2">
+                            {(showAllHistory ? pastSessions : pastSessions.slice(0, 2)).map((session) => {
+                                const { browser, os } = getDeviceDetails(session.userAgent);
+                                return (
+                                    <div key={session.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100 text-sm">
+                                        <div className="flex items-center gap-3">
+                                            <LogOut className="w-4 h-4 text-slate-400" />
+                                            <div>
+                                                <span className="text-slate-700 font-medium">{browser} on {os}</span>
+                                                <span className="text-slate-400 mx-2">•</span>
+                                                <span className="text-slate-500">{new Date(session.lastActiveAt).toLocaleDateString()}</span>
+                                            </div>
                                         </div>
+                                        <span className="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded">Expired</span>
                                     </div>
-                                    <span className="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded">Expired</span>
-                                </div>
-                            );
-                        })}
-                    </div>
+                                );
+                            })}
+                        </div>
 
-                    {pastSessions.length > 2 && (
-                        <Button
-                            variant="ghost"
-                            className="w-full text-slate-600 hover:text-slate-900"
-                            onClick={() => setShowAllHistory(!showAllHistory)}
-                        >
-                            <ChevronDown className={`w-4 h-4 mr-2 transition-transform ${showAllHistory ? 'rotate-180' : ''}`} />
-                            {showAllHistory ? 'Show Less' : `Show ${pastSessions.length - 2} More`}
-                        </Button>
-                    )}
-                </div>
-            )}
+                        {pastSessions.length > 2 && (
+                            <Button
+                                variant="ghost"
+                                className="w-full text-slate-600 hover:text-slate-900"
+                                onClick={() => setShowAllHistory(!showAllHistory)}
+                            >
+                                <ChevronDown className={`w-4 h-4 mr-2 transition-transform ${showAllHistory ? 'rotate-180' : ''}`} />
+                                {showAllHistory ? 'Show Less' : `Show ${pastSessions.length - 2} More`}
+                            </Button>
+                        )}
+                    </div>
+                )
+            }
 
             {/* Footer Branding */}
             <div className="flex justify-between items-center pt-8 border-t border-slate-200 mt-12 mb-8">
@@ -733,11 +740,265 @@ export default function ProfilePage() {
             </div>
 
             {/* Success/Error Message */}
-            {message.text && (
-                <div className={`fixed bottom-4 right-4 p-4 rounded-lg shadow-lg text-white ${message.type === 'error' ? 'bg-red-600' : 'bg-green-600'}`}>
-                    {message.text}
-                </div>
-            )}
-        </div>
+            {
+                message.text && (
+                    <div className={`fixed bottom-4 right-4 p-4 rounded-lg shadow-lg text-white ${message.type === 'error' ? 'bg-red-600' : 'bg-green-600'}`}>
+                        {message.text}
+                    </div>
+                )
+            }
+        </div >
     )
+}
+
+function TwoFactorSetup({ isEnabled }: { isEnabled: boolean }) {
+    const [status, setStatus] = useState<'disabled' | 'setup' | 'enabled'>(isEnabled ? 'enabled' : 'disabled');
+    const [qrCode, setQrCode] = useState('');
+    const [secret, setSecret] = useState('');
+    const [code, setCode] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [message, setMessage] = useState('');
+    const [showDisableDialog, setShowDisableDialog] = useState(false);
+    const [disablePassword, setDisablePassword] = useState('');
+    const [disableError, setDisableError] = useState('');
+
+    const startSetup = async () => {
+        setLoading(true);
+        const token = localStorage.getItem('auth_token');
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/2fa/setup`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setQrCode(data.qrCode);
+                setSecret(data.secret);
+                setStatus('setup');
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const verifyCode = async () => {
+        setLoading(true);
+        const token = localStorage.getItem('auth_token');
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/2fa/verify`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: code })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setStatus('enabled');
+                setMessage('2FA Enabled Successfully!');
+            } else {
+                setMessage(data.message || 'Verification Failed');
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const cancelSetup = () => {
+        setStatus('disabled');
+        setQrCode('');
+        setSecret('');
+        setCode('');
+        setMessage('');
+    };
+
+    const disable2FA = async () => {
+        if (!disablePassword) {
+            setDisableError('Please enter your password');
+            return;
+        }
+        setLoading(true);
+        setDisableError('');
+        const token = localStorage.getItem('auth_token');
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/2fa/disable`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: disablePassword })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setStatus('disabled');
+                setShowDisableDialog(false);
+                setDisablePassword('');
+            } else {
+                setDisableError(data.message || 'Incorrect password');
+            }
+        } catch (e) {
+            console.error(e);
+            setDisableError('Failed to disable 2FA');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <Card className="border-slate-200 shadow-sm">
+            <CardContent className="p-6">
+                <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className={`p-3 rounded-lg ${status === 'enabled' ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-500'}`}>
+                            <ShieldCheck className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className="font-semibold text-slate-900">Two-Factor Authentication</h3>
+                            <p className="text-sm text-slate-500">
+                                {status === 'enabled'
+                                    ? 'Your account is secured with 2FA.'
+                                    : 'Add an extra layer of security to your account.'}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {status === 'disabled' && (
+                    <div className="mt-4 pl-14">
+                        <Button onClick={startSetup} disabled={loading}>
+                            {loading ? 'Loading...' : 'Enable 2FA'}
+                        </Button>
+                    </div>
+                )}
+
+                {status === 'setup' && (
+                    <div className="mt-6 pl-14 space-y-4">
+                        <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 max-w-md">
+                            <p className="text-sm font-medium mb-4">1. Scan this QR Code with Google Authenticator</p>
+                            <div className="flex justify-center bg-white p-4 rounded border border-slate-200">
+                                {qrCode && <img src={qrCode} alt="2FA QR Code" className="w-48 h-48" />}
+                            </div>
+                            <p className="text-xs text-center text-slate-500 mt-2 font-mono">{secret}</p>
+                        </div>
+
+                        <div className="max-w-xs">
+                            <p className="text-sm font-medium mb-2">2. Enter the 6-digit code</p>
+                            <div className="flex gap-2">
+                                <Input
+                                    value={code}
+                                    onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                    placeholder="000 000"
+                                    className="text-center text-lg tracking-widest"
+                                />
+                                <Button onClick={verifyCode} disabled={loading || code.length !== 6}>
+                                    Verify
+                                </Button>
+                            </div>
+                            {message && <p className={`text-xs mt-2 ${message.includes('Success') ? 'text-green-600' : 'text-red-500'}`}>{message}</p>}
+                        </div>
+
+                        <div className="pt-2">
+                            <Button variant="ghost" className="text-slate-500" onClick={cancelSetup}>
+                                Cancel Setup
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                {status === 'enabled' && !showDisableDialog && (
+                    <div className="mt-4 pl-14 text-sm text-slate-500">
+                        <Button variant="outline" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setShowDisableDialog(true)}>
+                            Disable 2FA
+                        </Button>
+                    </div>
+                )}
+
+                {status === 'enabled' && showDisableDialog && (
+                    <div className="mt-4 pl-14 space-y-3 max-w-sm">
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                            <p className="text-sm font-medium text-red-800 mb-3">
+                                Enter your password to disable 2FA
+                            </p>
+                            <Input
+                                type="password"
+                                placeholder="Your password"
+                                value={disablePassword}
+                                onChange={(e) => setDisablePassword(e.target.value)}
+                                className="mb-2"
+                            />
+                            {disableError && <p className="text-xs text-red-600 mb-2">{disableError}</p>}
+                            <div className="flex gap-2 mb-3">
+                                <Button
+                                    variant="destructive"
+                                    onClick={disable2FA}
+                                    disabled={loading}
+                                    className="flex-1"
+                                >
+                                    {loading ? 'Disabling...' : 'Confirm Disable'}
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => { setShowDisableDialog(false); setDisablePassword(''); setDisableError(''); }}
+                                    className="flex-1"
+                                >
+                                    Cancel
+                                </Button>
+                            </div>
+                            <ForgotPasswordLink />
+                        </div>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+function ForgotPasswordLink() {
+    const [sending, setSending] = useState(false);
+    const [sent, setSent] = useState(false);
+
+    const handleForgotPassword = async () => {
+        setSending(true);
+        const token = localStorage.getItem('auth_token');
+        try {
+            // Get user email first
+            const meRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/me`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (meRes.ok) {
+                const user = await meRes.json();
+                // Send forgot password request
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/forgot-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: user.email })
+                });
+                if (res.ok) {
+                    setSent(true);
+                }
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setSending(false);
+        }
+    };
+
+    if (sent) {
+        return (
+            <p className="text-xs text-green-600 text-center">
+                ✓ Password reset email sent! Check your inbox.
+            </p>
+        );
+    }
+
+    return (
+        <button
+            onClick={handleForgotPassword}
+            disabled={sending}
+            className="text-xs text-indigo-600 hover:text-indigo-700 hover:underline w-full text-center"
+        >
+            {sending ? 'Sending...' : "Forgot your password?"}
+        </button>
+    );
 }

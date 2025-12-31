@@ -7,10 +7,10 @@ import { Payment } from '../models/Payment';
 import { Subscription } from '../models/Subscription';
 import { PlanConfig, DEFAULT_PLAN_CONFIGS } from '../models/PlanConfig';
 import { EmailTemplate } from '../models/EmailTemplate';
-import { 
-    getAllPlanConfigs, 
+import {
+    getAllPlanConfigs,
     clearPlanConfigCache,
-    getUserPlanSummary 
+    getUserPlanSummary
 } from '../services/planLimitService';
 import fs from 'fs';
 import path from 'path';
@@ -178,7 +178,7 @@ export const getServerStatus = async (req: Request, res: Response) => {
                 pingCount: keepAliveStatus.pingCount,
                 lastPingSuccess: keepAliveStatus.lastPingSuccess,
                 intervalMinutes: keepAliveStatus.interval / 60000,
-                nextPingIn: keepAliveStatus.lastPing 
+                nextPingIn: keepAliveStatus.lastPing
                     ? Math.max(0, keepAliveStatus.interval - (now - new Date(keepAliveStatus.lastPing).getTime()))
                     : null
             },
@@ -258,10 +258,25 @@ export const getAllUsers = async (req: Request, res: Response) => {
             .sort({ [sortBy]: order })
             .skip(skip)
             .limit(limit)
-            .select('-password -smtpConfig');
+            .select('-password -smtpConfig')
+            .lean();
+
+        // Fetch subscriptions for these users
+        const userIds = users.map(u => u._id);
+        const subscriptions = await Subscription.find({ userId: { $in: userIds } }).select('userId plan status').lean();
+
+        // Merge plan info
+        const usersWithPlans = users.map((user: any) => {
+            const sub = subscriptions.find(s => s.userId.toString() === user._id.toString());
+            return {
+                ...user,
+                plan: sub?.plan || 'free',
+                planStatus: sub?.status
+            };
+        });
 
         res.json({
-            users,
+            users: usersWithPlans,
             total,
             page,
             pages: Math.ceil(total / limit)
@@ -446,9 +461,9 @@ export const getServerLogs = async (req: Request, res: Response) => {
         // Get backup status
         const backupStatus = await getBackupStatus();
 
-        res.json({ 
-            logs, 
-            availableFiles, 
+        res.json({
+            logs,
+            availableFiles,
             currentFile: requestedFile,
             backupStatus,
             totalBuffered: getBufferedLogs().length
@@ -463,7 +478,7 @@ export const getServerLogs = async (req: Request, res: Response) => {
 export const streamLogs = async (req: Request, res: Response) => {
     // Manual auth check for SSE (can't use middleware as it returns JSON on failure)
     const token = req.query.token as string;
-    
+
     if (!token) {
         res.setHeader('Content-Type', 'text/event-stream');
         res.write(`data: ${JSON.stringify({ type: 'error', message: 'Unauthorized - No token' })}\n\n`);
@@ -472,7 +487,7 @@ export const streamLogs = async (req: Request, res: Response) => {
 
     try {
         const decoded: any = jwt.verify(token, process.env.JWT_SECRET || 'test_secret');
-        
+
         // Check if admin
         if (decoded.role !== 'admin') {
             res.setHeader('Content-Type', 'text/event-stream');
@@ -525,7 +540,7 @@ export const clearServerLogs = async (req: Request, res: Response) => {
     try {
         const filename = (req.query.file as string) || 'access.log';
         const success = clearLogs(filename);
-        
+
         if (success) {
             // Audit log
             await AuditLog.create({
@@ -571,7 +586,7 @@ export const getLogsDriveAuthUrl = async (req: Request, res: Response) => {
     try {
         // @ts-ignore
         const adminId = req.user?.id;
-        
+
         if (!adminId) {
             return res.status(401).json({ message: 'Not authenticated' });
         }
@@ -605,11 +620,11 @@ export const logsDriveCallback = async (req: Request, res: Response) => {
 
         logger.info('admin.Processing Drive callback', { adminId });
         const result = await handleDriveCallback(code as string, adminId);
-        
+
         logger.info('admin.Drive connected successfully', { email: result.email, folderId: result.folderId });
         res.redirect(`${frontendUrl}/dashboard/admin/logs?drive_connected=true&email=${encodeURIComponent(result.email || '')}`);
     } catch (error: any) {
-        logger.error('admin.Drive callback error:', { 
+        logger.error('admin.Drive callback error:', {
             error: error?.message || 'Unknown error',
             stack: error?.stack,
             code: error?.code
@@ -623,7 +638,7 @@ export const logsDriveCallback = async (req: Request, res: Response) => {
 export const triggerLogBackup = async (req: Request, res: Response) => {
     try {
         const result = await uploadLogsToDrive();
-        
+
         if (result.success) {
             // Audit log
             await AuditLog.create({
@@ -659,7 +674,7 @@ export const getLogBackupStatus = async (req: Request, res: Response) => {
 export const disconnectLogsDrive = async (req: Request, res: Response) => {
     try {
         await disconnectDrive();
-        
+
         // Audit log
         await AuditLog.create({
             // @ts-ignore
@@ -868,7 +883,20 @@ export const getSystemSettings = async (req: Request, res: Response) => {
 // Update system settings
 export const updateSystemSettings = async (req: Request, res: Response) => {
     try {
-        const { systemEmail, emailSettings, emailTemplates, platformName, supportEmail, maintenanceMode, registrationEnabled, securitySettings } = req.body;
+        const {
+            systemEmail,
+            emailSettings,
+            emailTemplates,
+            emailSenderConfig,
+            useCustomDomain,
+            customDomainEmail,
+            customDomainName,
+            platformName,
+            supportEmail,
+            maintenanceMode,
+            registrationEnabled,
+            securitySettings
+        } = req.body;
 
         const settings = await (SystemSettings as any).getSettings();
 
@@ -882,6 +910,9 @@ export const updateSystemSettings = async (req: Request, res: Response) => {
         if (emailTemplates !== undefined) {
             settings.emailTemplates = { ...settings.emailTemplates, ...emailTemplates };
         }
+        if (emailSenderConfig !== undefined) {
+            settings.emailSenderConfig = { ...settings.emailSenderConfig, ...emailSenderConfig };
+        }
         if (securitySettings !== undefined) {
             settings.securitySettings = { ...settings.securitySettings, ...securitySettings };
         }
@@ -889,6 +920,9 @@ export const updateSystemSettings = async (req: Request, res: Response) => {
         if (supportEmail !== undefined) settings.supportEmail = supportEmail;
         if (maintenanceMode !== undefined) settings.maintenanceMode = maintenanceMode;
         if (registrationEnabled !== undefined) settings.registrationEnabled = registrationEnabled;
+        if (useCustomDomain !== undefined) settings.useCustomDomain = useCustomDomain;
+        if (customDomainEmail !== undefined) settings.customDomainEmail = customDomainEmail;
+        if (customDomainName !== undefined) settings.customDomainName = customDomainName;
 
         await settings.save();
 
@@ -1069,23 +1103,23 @@ export const getEmailStats = async (req: Request, res: Response) => {
     try {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         const thisWeek = new Date();
         thisWeek.setDate(thisWeek.getDate() - 7);
-        
+
         const thisMonth = new Date();
         thisMonth.setDate(1);
         thisMonth.setHours(0, 0, 0, 0);
 
         // Total emails
         const totalEmails = await EmailLog.countDocuments();
-        
+
         // Today's emails
         const todayEmails = await EmailLog.countDocuments({ createdAt: { $gte: today } });
-        
+
         // This week's emails
         const weekEmails = await EmailLog.countDocuments({ createdAt: { $gte: thisWeek } });
-        
+
         // This month's emails
         const monthEmails = await EmailLog.countDocuments({ createdAt: { $gte: thisMonth } });
 
@@ -1179,15 +1213,85 @@ export const getEmailStats = async (req: Request, res: Response) => {
     }
 };
 
+// Get all email logs with pagination and filtering
+export const getAllEmailLogs = async (req: Request, res: Response) => {
+    try {
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 50;
+        const skip = (page - 1) * limit;
+
+        // Build query
+        const query: any = {};
+
+        // Filter by status
+        if (req.query.status && req.query.status !== 'all') {
+            query.status = req.query.status;
+        }
+
+        // Filter by provider
+        if (req.query.provider && req.query.provider !== 'all') {
+            query.provider = req.query.provider;
+        }
+
+        // Filter by type
+        if (req.query.type && req.query.type !== 'all') {
+            query.type = req.query.type;
+        }
+
+        // Search by email or subject
+        if (req.query.search) {
+            const searchRegex = new RegExp(req.query.search as string, 'i');
+            query.$or = [
+                { toEmail: searchRegex },
+                { subject: searchRegex },
+                { fromEmail: searchRegex }
+            ];
+        }
+
+        // Date range filter
+        if (req.query.startDate) {
+            query.createdAt = { ...query.createdAt, $gte: new Date(req.query.startDate as string) };
+        }
+        if (req.query.endDate) {
+            const endDate = new Date(req.query.endDate as string);
+            endDate.setHours(23, 59, 59, 999);
+            query.createdAt = { ...query.createdAt, $lte: endDate };
+        }
+
+        const [emails, total] = await Promise.all([
+            EmailLog.find(query)
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .populate('userId', 'email name')
+                .lean(),
+            EmailLog.countDocuments(query)
+        ]);
+
+        res.json({
+            emails,
+            pagination: {
+                page,
+                limit,
+                total,
+                pages: Math.ceil(total / limit)
+            }
+        });
+    } catch (error) {
+        logger.error('admin.Get all email logs error:', { error: (error as Error)?.message || 'Unknown error' });
+        res.status(500).json({ message: 'Failed to fetch email logs' });
+    }
+};
+
 // Get ZeptoMail account credits and usage
 export const getZeptoMailCredits = async (req: Request, res: Response) => {
     try {
         const zeptoToken = process.env.ZEPTOMAIL_TOKEN;
-        
+
         if (!zeptoToken) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 configured: false,
-                message: 'ZeptoMail is not configured' 
+                message: 'ZeptoMail is not configured'
             });
         }
 
@@ -1204,7 +1308,7 @@ export const getZeptoMailCredits = async (req: Request, res: Response) => {
         if (!response.ok) {
             const errorText = await response.text();
             logger.error('admin.zeptomail_api_error', { status: response.status, error: errorText });
-            return res.status(response.status).json({ 
+            return res.status(response.status).json({
                 configured: true,
                 message: 'Failed to fetch ZeptoMail credits',
                 error: errorText
@@ -1238,10 +1342,10 @@ export const getZeptoMailCredits = async (req: Request, res: Response) => {
         });
     } catch (error: any) {
         logger.error('admin.Get ZeptoMail credits error:', { error: (error as Error)?.message || 'Unknown error' });
-        res.status(500).json({ 
+        res.status(500).json({
             configured: !!process.env.ZEPTOMAIL_TOKEN,
             message: 'Failed to fetch ZeptoMail information',
-            error: error.message 
+            error: error.message
         });
     }
 };
@@ -1259,8 +1363,8 @@ export const sendZeptoMailTestEmail = async (req: Request, res: Response) => {
 
         const zeptoToken = process.env.ZEPTOMAIL_TOKEN;
         if (!zeptoToken) {
-            return res.status(400).json({ 
-                message: 'ZeptoMail is not configured. Add ZEPTOMAIL_TOKEN to your .env file.' 
+            return res.status(400).json({
+                message: 'ZeptoMail is not configured. Add ZEPTOMAIL_TOKEN to your .env file.'
             });
         }
 
@@ -1346,7 +1450,7 @@ export const sendZeptoMailTestEmail = async (req: Request, res: Response) => {
             sentAt: new Date()
         });
 
-        res.json({ 
+        res.json({
             success: true,
             message: `Test email sent successfully to ${recipientEmail}`,
             provider: 'zeptomail',
@@ -1355,7 +1459,7 @@ export const sendZeptoMailTestEmail = async (req: Request, res: Response) => {
 
     } catch (error: any) {
         logger.error('admin.ZeptoMail test email error:', { error: (error as Error)?.message || 'Unknown error' });
-        
+
         // Log failed email
         try {
             await EmailLog.create({
@@ -1372,10 +1476,139 @@ export const sendZeptoMailTestEmail = async (req: Request, res: Response) => {
             logger.error('admin.email_log_failed', { error: logError.message });
         }
 
-        res.status(500).json({ 
+        res.status(500).json({
             success: false,
             message: 'Failed to send test email',
-            error: error.message 
+            error: error.message
+        });
+    }
+};
+
+// Test specific system email type
+export const testSystemEmailType = async (req: Request, res: Response) => {
+    try {
+        const { emailType, recipientEmail } = req.body;
+
+        if (!recipientEmail) {
+            return res.status(400).json({ message: 'Recipient email is required' });
+        }
+
+        if (!emailType) {
+            return res.status(400).json({ message: 'Email type is required' });
+        }
+
+        const validTypes = ['welcomeEmail', 'passwordReset', 'hostUpgradeConfirmation', 'suspensionNotice', 'loginAlert'];
+        if (!validTypes.includes(emailType)) {
+            return res.status(400).json({ message: `Invalid email type. Must be one of: ${validTypes.join(', ')}` });
+        }
+
+        const zeptoToken = process.env.ZEPTOMAIL_TOKEN;
+        if (!zeptoToken) {
+            return res.status(400).json({
+                message: 'ZeptoMail is not configured. Add ZEPTOMAIL_TOKEN to your .env file.'
+            });
+        }
+
+        // Get system settings
+        const { SystemSettings } = await import('../models/SystemSettings');
+        const settings = await (SystemSettings as any).getSettings();
+        const platformName = settings.platformName || 'MakeTicket';
+
+        // Get sender configuration
+        const senderConfig = settings.emailSenderConfig || {};
+        const senderType = senderConfig[emailType] || 'noreply';
+
+        // Sender addresses mapping
+        const senderEmails: Record<string, string> = {
+            noreply: `noreply@maketicket.app`,
+            hello: `hello@maketicket.app`,
+            support: `support@maketicket.app`,
+            info: `info@maketicket.app`,
+            security: `security@maketicket.app`
+        };
+
+        // Priority: 1. Custom domain, 2. Configured sender based on type, 3. ZeptoMail env fallback
+        let fromEmail: string;
+        if (settings.useCustomDomain && settings.customDomainEmail) {
+            fromEmail = settings.customDomainEmail;
+        } else {
+            // Use the configured sender email based on email type
+            // Fallback to ZEPTOMAIL_FROM_EMAIL only if specific sender not configured
+            const configuredSenderEmail = senderEmails[senderType];
+            fromEmail = configuredSenderEmail || process.env.ZEPTOMAIL_FROM_EMAIL || 'hello@maketicket.app';
+        }
+
+        const fromName = settings.useCustomDomain && settings.customDomainName
+            ? settings.customDomainName
+            : (process.env.ZEPTOMAIL_FROM_NAME || platformName);
+
+        // Get email template
+        const customTemplate = settings.emailTemplates?.[emailType];
+
+        // Type to subject mapping
+        const subjects: Record<string, string> = {
+            welcomeEmail: `Welcome to ${platformName}!`,
+            passwordReset: `Reset Your Password - ${platformName}`,
+            hostUpgradeConfirmation: `Congratulations! You're now a Host on ${platformName}`,
+            suspensionNotice: `Account Suspended - ${platformName}`,
+            loginAlert: `New login detected - ${platformName}`
+        };
+
+        // Default templates
+        const defaultTemplates: Record<string, string> = {
+            welcomeEmail: `<!DOCTYPE html><html><body style="font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 20px;"><div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden;"><div style="background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); color: white; padding: 40px; text-align: center;"><h1>Welcome to ${platformName}!</h1></div><div style="padding: 30px;"><p>Hi <strong>Test User</strong>,</p><p>Thank you for joining ${platformName}! This is a test email.</p><p style="text-align: center;"><a href="#" style="display: inline-block; background: #4F46E5; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none;">Get Started</a></p></div></div></body></html>`,
+            passwordReset: `<!DOCTYPE html><html><body style="font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 20px;"><div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden;"><div style="background: #EF4444; color: white; padding: 30px; text-align: center;"><h1>🔐 Password Reset Request</h1></div><div style="padding: 30px;"><p>Hi <strong>Test User</strong>,</p><p>We received a request to reset your password. This is a test email.</p><p style="text-align: center;"><a href="#" style="display: inline-block; background: #4F46E5; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none;">Reset Password</a></p><div style="background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 8px; padding: 15px; margin: 20px 0; color: #92400E;">⚠️ This link will expire in 30 minutes.</div></div></div></body></html>`,
+            hostUpgradeConfirmation: `<!DOCTYPE html><html><body style="font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 20px;"><div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden;"><div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: white; padding: 40px; text-align: center;"><h1>🎉 Congratulations, Host!</h1></div><div style="padding: 30px;"><p>Hi <strong>Test User</strong>,</p><p>Your account has been upgraded to Host status! This is a test email.</p><p style="text-align: center;"><a href="#" style="display: inline-block; background: #10B981; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none;">Go to Dashboard</a></p></div></div></body></html>`,
+            suspensionNotice: `<!DOCTYPE html><html><body style="font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 20px;"><div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden;"><div style="background: #DC2626; color: white; padding: 30px; text-align: center;"><h1>⚠️ Account Suspended</h1></div><div style="padding: 30px;"><p>Hi <strong>Test User</strong>,</p><p>Your account has been suspended. This is a test email.</p><div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px; padding: 15px;"><strong>Reason:</strong> Test suspension reason</div></div></div></body></html>`,
+            loginAlert: `<!DOCTYPE html><html><body style="font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 20px;"><div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden;"><div style="background: #3B82F6; color: white; padding: 30px; text-align: center;"><h1>🔔 New Login Detected</h1></div><div style="padding: 30px;"><p>Hi <strong>Test User</strong>,</p><p>A new login was detected. This is a test email.</p><div style="background: #EFF6FF; border-radius: 8px; padding: 20px;"><p><strong>Time:</strong> ${new Date().toLocaleString()}</p><p><strong>IP:</strong> 192.168.1.1 (Test)</p><p><strong>Device:</strong> Test Browser</p></div></div></div></body></html>`
+        };
+
+        const emailHtml = customTemplate || defaultTemplates[emailType] || defaultTemplates.welcomeEmail;
+
+        const zeptoUrl = process.env.ZEPTOMAIL_URL || 'https://api.zeptomail.in/v1.1/email';
+        const client = new SendMailClient({ url: zeptoUrl, token: zeptoToken });
+
+        await client.sendMail({
+            from: {
+                address: fromEmail,
+                name: fromName
+            },
+            to: [{
+                email_address: {
+                    address: recipientEmail,
+                    name: recipientEmail.split('@')[0]
+                }
+            }],
+            subject: `[TEST] ${subjects[emailType] || 'System Email Test'}`,
+            htmlbody: emailHtml
+        });
+
+        // Log the test email
+        await EmailLog.create({
+            userId: null,
+            type: `test_${emailType}`,
+            fromEmail: fromEmail,
+            toEmail: recipientEmail,
+            subject: `[TEST] ${subjects[emailType]}`,
+            status: 'sent',
+            provider: 'zeptomail',
+            sentAt: new Date()
+        });
+
+        res.json({
+            success: true,
+            message: `Test ${emailType} email sent to ${recipientEmail}`,
+            emailType,
+            from: `${fromName} <${fromEmail}>`
+        });
+
+    } catch (error: any) {
+        logger.error('admin.Test system email type error:', { error: (error as Error)?.message || 'Unknown error' });
+
+        res.status(500).json({
+            success: false,
+            message: 'Failed to send test email',
+            error: error.message
         });
     }
 };
@@ -1388,12 +1621,12 @@ export const sendZeptoMailTestEmail = async (req: Request, res: Response) => {
 export const getRevenueStats = async (req: Request, res: Response) => {
     try {
         const { startDate, endDate } = req.query;
-        
+
         // Build date filter
         const dateFilter: any = {};
         if (startDate) dateFilter.$gte = new Date(startDate as string);
         if (endDate) dateFilter.$lte = new Date(endDate as string);
-        
+
         const matchStage: any = { status: 'paid' };
         if (Object.keys(dateFilter).length > 0) {
             matchStage.paidAt = dateFilter;
@@ -1423,7 +1656,7 @@ export const getRevenueStats = async (req: Request, res: Response) => {
         // Monthly Revenue (last 12 months)
         const twelveMonthsAgo = new Date();
         twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
-        
+
         const monthlyRevenue = await Payment.aggregate([
             { $match: { status: 'paid', paidAt: { $gte: twelveMonthsAgo } } },
             {
@@ -1669,11 +1902,11 @@ export const getCancelledSubscriptions = async (req: Request, res: Response) => 
                     const now = new Date();
                     const periodEnd = new Date(sub.currentPeriodEnd);
                     const periodStart = new Date(sub.currentPeriodStart || lastPayment.paidAt || now);
-                    
+
                     if (periodEnd > now) {
                         const totalDays = Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24));
                         daysRemaining = Math.ceil((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                        
+
                         // Prorated refund
                         if (totalDays > 0 && daysRemaining > 0) {
                             refundAmount = (lastPayment.amount / 100) * (daysRemaining / totalDays);
@@ -1851,9 +2084,9 @@ export const getPlanConfigs = async (req: Request, res: Response) => {
 export const getPlanConfigById = async (req: Request, res: Response) => {
     try {
         const { planId } = req.params;
-        
+
         let config: any = await PlanConfig.findOne({ planId }).lean();
-        
+
         // If not in DB, return default
         if (!config) {
             config = DEFAULT_PLAN_CONFIGS[planId as keyof typeof DEFAULT_PLAN_CONFIGS];
@@ -1884,7 +2117,7 @@ export const updatePlanConfig = async (req: Request, res: Response) => {
 
         // Find or create the config
         let config = await PlanConfig.findOne({ planId });
-        
+
         if (!config) {
             // Create from defaults
             const defaults = DEFAULT_PLAN_CONFIGS[planId as keyof typeof DEFAULT_PLAN_CONFIGS];
@@ -1917,15 +2150,15 @@ export const updatePlanConfig = async (req: Request, res: Response) => {
         clearPlanConfigCache();
 
         // Log the change
-        logger.info('admin.plan_config_updated', { 
-            planId, 
+        logger.info('admin.plan_config_updated', {
+            planId,
             updatedBy: (req as any).userId,
             changes: Object.keys(updates)
         });
 
-        res.json({ 
+        res.json({
             message: 'Plan configuration updated successfully',
-            config 
+            config
         });
     } catch (error: any) {
         logger.error('admin.update_plan_config_failed', { error: error.message });
@@ -1946,7 +2179,7 @@ export const resetPlanConfig = async (req: Request, res: Response) => {
         }
 
         const defaults = DEFAULT_PLAN_CONFIGS[planId as keyof typeof DEFAULT_PLAN_CONFIGS];
-        
+
         await PlanConfig.findOneAndUpdate(
             { planId },
             { ...defaults },
@@ -1956,14 +2189,14 @@ export const resetPlanConfig = async (req: Request, res: Response) => {
         // Clear cache
         clearPlanConfigCache();
 
-        logger.info('admin.plan_config_reset', { 
-            planId, 
-            resetBy: (req as any).userId 
+        logger.info('admin.plan_config_reset', {
+            planId,
+            resetBy: (req as any).userId
         });
 
-        res.json({ 
+        res.json({
             message: 'Plan configuration reset to defaults',
-            config: defaults 
+            config: defaults
         });
     } catch (error: any) {
         logger.error('admin.reset_plan_config_failed', { error: error.message });
@@ -2043,7 +2276,7 @@ export const getUserPlanDetails = async (req: Request, res: Response) => {
         const { userId } = req.params;
 
         const summary = await getUserPlanSummary(userId);
-        
+
         // Also get the subscription record
         const subscription = await Subscription.findOne({ userId }).lean();
 
@@ -2071,7 +2304,7 @@ export const setUserPlan = async (req: Request, res: Response) => {
         }
 
         // Get plan config for limits
-        const planConfig = await PlanConfig.findOne({ planId: plan }).lean() 
+        const planConfig = await PlanConfig.findOne({ planId: plan }).lean()
             || DEFAULT_PLAN_CONFIGS[plan as keyof typeof DEFAULT_PLAN_CONFIGS];
 
         // Update or create subscription
@@ -2346,15 +2579,15 @@ export const toggleSystemTemplateStatus = async (req: Request, res: Response) =>
         template.isActive = !template.isActive;
         await template.save();
 
-        logger.info('admin.system_template_toggled', { 
-            templateId, 
-            name: template.name, 
-            isActive: template.isActive 
+        logger.info('admin.system_template_toggled', {
+            templateId,
+            name: template.name,
+            isActive: template.isActive
         });
 
-        res.json({ 
+        res.json({
             message: `Template ${template.isActive ? 'activated' : 'deactivated'}`,
-            template 
+            template
         });
     } catch (error: any) {
         logger.error('admin.toggle_system_template_failed', { error: error.message });
@@ -2871,9 +3104,9 @@ export const seedDefaultTemplates = async (req: Request, res: Response) => {
         let skipped = 0;
 
         for (const templateData of defaultTemplates) {
-            const existing = await EmailTemplate.findOne({ 
-                isSystem: true, 
-                name: templateData.name 
+            const existing = await EmailTemplate.findOne({
+                isSystem: true,
+                name: templateData.name
             });
 
             if (!existing) {

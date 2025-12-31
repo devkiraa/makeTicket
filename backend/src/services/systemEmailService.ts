@@ -17,6 +17,7 @@ const systemTemplates = {
         body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 20px; margin: 0; }
         .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .header { background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%); color: white; padding: 40px 30px; text-align: center; }
+        .header img { height: 50px; margin-bottom: 15px; }
         .header h1 { margin: 0; font-size: 28px; }
         .content { padding: 30px; color: #333; }
         .btn { display: inline-block; background: #4F46E5; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 20px 0; }
@@ -26,6 +27,7 @@ const systemTemplates = {
 <body>
     <div class="container">
         <div class="header">
+            <img src="https://maketicket.app/logo.png" alt="${data.platformName}" />
             <h1>Welcome to ${data.platformName}!</h1>
         </div>
         <div class="content">
@@ -60,6 +62,7 @@ const systemTemplates = {
         body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 20px; margin: 0; }
         .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .header { background: #EF4444; color: white; padding: 30px; text-align: center; }
+        .header img { height: 50px; margin-bottom: 15px; }
         .content { padding: 30px; color: #333; }
         .btn { display: inline-block; background: #4F46E5; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 20px 0; }
         .warning { background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 8px; padding: 15px; margin: 20px 0; color: #92400E; font-size: 14px; }
@@ -69,6 +72,7 @@ const systemTemplates = {
 <body>
     <div class="container">
         <div class="header">
+            <img src="https://maketicket.app/logo.png" alt="${data.platformName}" />
             <h1>🔐 Password Reset Request</h1>
         </div>
         <div class="content">
@@ -100,6 +104,7 @@ const systemTemplates = {
         body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 20px; margin: 0; }
         .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .header { background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: white; padding: 40px 30px; text-align: center; }
+        .header img { height: 50px; margin-bottom: 15px; }
         .content { padding: 30px; color: #333; }
         .btn { display: inline-block; background: #10B981; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; margin: 20px 0; }
         .feature-box { background: #F0FDF4; border-radius: 8px; padding: 20px; margin: 20px 0; }
@@ -109,6 +114,7 @@ const systemTemplates = {
 <body>
     <div class="container">
         <div class="header">
+            <img src="https://maketicket.app/logo.png" alt="${data.platformName}" />
             <h1>🎉 Congratulations, Host!</h1>
         </div>
         <div class="content">
@@ -146,6 +152,7 @@ const systemTemplates = {
         body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 20px; margin: 0; }
         .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .header { background: #DC2626; color: white; padding: 30px; text-align: center; }
+        .header img { height: 50px; margin-bottom: 15px; }
         .content { padding: 30px; color: #333; }
         .reason-box { background: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px; padding: 15px; margin: 20px 0; }
         .footer { padding: 20px 30px; background: #f8fafc; text-align: center; color: #64748b; font-size: 12px; }
@@ -154,6 +161,7 @@ const systemTemplates = {
 <body>
     <div class="container">
         <div class="header">
+            <img src="https://maketicket.app/logo.png" alt="${data.platformName}" />
             <h1>⚠️ Account Suspended</h1>
         </div>
         <div class="content">
@@ -182,6 +190,7 @@ const systemTemplates = {
         body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 20px; margin: 0; }
         .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .header { background: #3B82F6; color: white; padding: 30px; text-align: center; }
+        .header img { height: 50px; margin-bottom: 15px; }
         .content { padding: 30px; color: #333; }
         .info-box { background: #EFF6FF; border-radius: 8px; padding: 20px; margin: 20px 0; }
         .footer { padding: 20px 30px; background: #f8fafc; text-align: center; color: #64748b; font-size: 12px; }
@@ -190,6 +199,7 @@ const systemTemplates = {
 <body>
     <div class="container">
         <div class="header">
+            <img src="https://maketicket.app/logo.png" alt="${data.platformName}" />
             <h1>🔔 New Login Detected</h1>
         </div>
         <div class="content">
@@ -268,8 +278,36 @@ export const sendSystemEmail = async (
             emailContent = systemTemplates[type](templateData);
         }
 
-        const fromName = settings.systemEmail.fromName || platformName;
-        const fromEmail = settings.systemEmail.fromEmail || emailAccount.email;
+        // Get sender configuration based on email type
+        const senderConfig = settings.emailSenderConfig || {};
+        const senderTypeMapping: Record<string, string> = {
+            welcome: 'welcomeEmail',
+            passwordReset: 'passwordReset',
+            hostUpgrade: 'hostUpgradeConfirmation',
+            suspension: 'suspensionNotice',
+            loginAlert: 'loginAlert'
+        };
+        const senderKey = senderTypeMapping[type] || 'welcomeEmail';
+        const senderType = senderConfig[senderKey] || 'hello';
+
+        // Sender addresses mapping
+        const senderEmails: Record<string, string> = {
+            noreply: 'noreply@maketicket.app',
+            hello: 'hello@maketicket.app',
+            support: 'support@maketicket.app',
+            info: 'info@maketicket.app',
+            security: 'security@maketicket.app'
+        };
+
+        // Use configured sender, fallback to env var or hello@
+        const fromEmail = settings.useCustomDomain && settings.customDomainEmail
+            ? settings.customDomainEmail
+            : (senderEmails[senderType] || process.env.ZEPTOMAIL_FROM_EMAIL || emailAccount.email);
+
+        const fromName = settings.useCustomDomain && settings.customDomainName
+            ? settings.customDomainName
+            : (settings.systemEmail.fromName || process.env.ZEPTOMAIL_FROM_NAME || platformName);
+
         let emailSent = false;
         let usedProvider: 'zeptomail' | 'gmail' | 'system' = 'system';
         let zeptoRequestId: string | undefined;
@@ -282,8 +320,8 @@ export const sendSystemEmail = async (
 
                 await client.sendMail({
                     from: {
-                        address: process.env.ZEPTOMAIL_FROM_EMAIL || fromEmail,
-                        name: process.env.ZEPTOMAIL_FROM_NAME || fromName
+                        address: fromEmail,
+                        name: fromName
                     },
                     to: [{
                         email_address: {

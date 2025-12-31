@@ -41,9 +41,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const stopImpersonating = () => {
         const adminToken = localStorage.getItem('admin_token');
         if (adminToken) {
+            // Restore admin session
             localStorage.setItem('auth_token', adminToken);
             localStorage.removeItem('admin_token');
             setIsImpersonating(false);
+
+            // Force a hard reload to clear any user-specific state/cache
+            // and redirect back to the users management page
             window.location.href = '/dashboard/admin/users';
         }
     };
@@ -195,6 +199,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             >
                                 <Mail className="mr-3 h-5 w-5" />
                                 System Email
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/email-logs' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                                onClick={() => router.push('/dashboard/admin/email-logs')}
+                            >
+                                <Mail className="mr-3 h-5 w-5" />
+                                Email Logs
                             </Button>
                             <Button
                                 variant="ghost"

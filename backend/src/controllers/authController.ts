@@ -586,3 +586,142 @@ export const resetPassword = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Something went wrong. Please try again.' });
     }
 };
+
+// ==================== TWO-FACTOR AUTHENTICATION ====================
+import speakeasy from 'speakeasy';
+import QRCode from 'qrcode';
+
+/**
+ * Step 1: Generate a temporary secret and return QR code
+ */
+export const setup2FA = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const userId = req.user.id;
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        // Generate a temporary secret
+        const secret = speakeasy.generateSecret({
+            name: `MakeTicket (${user.email})`
+        });
+
+        // Generate QR Code
+        const dataUrl = await QRCode.toDataURL(secret.otpauth_url!);
+
+        // Return secret and QR code to frontend
+        // Note: We DO NOT save the secret to the User model yet.
+        // We only save it after they verify the first code to prevent lockout.
+        // However, statelessness is tricky. We can return an encrypted version or simpler:
+        // Save it to a temp field or just save it and mark 'isTwoFactorEnabled' as false.
+
+        user.twoFactorSecret = secret.base32;
+        await user.save();
+
+        res.json({
+            secret: secret.base32,
+            qrCode: dataUrl
+        });
+    } catch (error: any) {
+        console.error('2FA setup error:', error);
+        res.status(500).json({ message: 'Failed to setup 2FA' });
+    }
+};
+
+/**
+ * Step 2: Verify the token and enable 2FA
+ */
+export const verify2FA = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const userId = req.user.id;
+        const { token } = req.body; // 6-digit code
+
+        const user = await User.findById(userId);
+        if (!user || !user.twoFactorSecret) {
+            return res.status(400).json({ message: '2FA setup not initiated' });
+        }
+
+        const verified = speakeasy.totp.verify({
+            secret: user.twoFactorSecret,
+            encoding: 'base32',
+            token,
+            window: 1 // Allow 30s drift
+        });
+
+        if (verified) {
+            user.isTwoFactorEnabled = true;
+            await user.save();
+            res.json({ message: '2FA enabled successfully', isTwoFactorEnabled: true });
+        } else {
+            res.status(400).json({ message: 'Invalid code' });
+        }
+    } catch (error: any) {
+        console.error('2FA verify error:', error);
+        res.status(500).json({ message: 'Failed to verify 2FA' });
+    }
+};
+
+/**
+ * Step 3: Validate 2FA token (used for gates/login)
+ */
+export const validate2FA = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const userId = req.user.id;
+        const { token } = req.body;
+
+        const user = await User.findById(userId);
+        if (!user || !user.isTwoFactorEnabled || !user.twoFactorSecret) {
+            // If they don't have it enabled, this endpoint shouldn't really be called or should return generic success?
+            // For security, if they don't have it, validation fails if we expect it.
+            return res.status(400).json({ message: '2FA is not enabled for this account' });
+        }
+
+        const verified = speakeasy.totp.verify({
+            secret: user.twoFactorSecret,
+            encoding: 'base32',
+            token,
+            window: 1
+        });
+
+        if (verified) {
+            res.json({ success: true, message: 'Code verified' });
+        } else {
+            res.status(400).json({ message: 'Invalid code' });
+        }
+    } catch (error: any) {
+        console.error('2FA validation error:', error);
+        res.status(500).json({ message: 'Failed to validate 2FA' });
+    }
+};
+
+/**
+ * Disable 2FA
+ */
+export const disable2FA = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const userId = req.user.id;
+        const { password } = req.body; // Require password to disable
+
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        // Check password if user has one (skip for pure Google auth users?)
+        // Better to require it if set
+        if (user.password) {
+            const isMatch = await bcrypt.compare(password, user.password);
+            if (!isMatch) return res.status(400).json({ message: 'Incorrect password' });
+        }
+
+        user.isTwoFactorEnabled = false;
+        user.twoFactorSecret = undefined;
+        await user.save();
+
+        res.json({ message: '2FA disabled successfully' });
+    } catch (error: any) {
+        console.error('2FA disable error:', error);
+        res.status(500).json({ message: 'Failed to disable 2FA' });
+    }
+};

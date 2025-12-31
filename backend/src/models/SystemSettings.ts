@@ -32,6 +32,20 @@ const SystemSettingsSchema = new mongoose.Schema({
         suspensionNotice: { type: Boolean, default: true }
     },
 
+    // Sender Configuration - which sender address for each email type
+    emailSenderConfig: {
+        welcomeEmail: { type: String, enum: ['noreply', 'hello', 'support', 'info', 'security'], default: 'hello' },
+        passwordReset: { type: String, enum: ['noreply', 'hello', 'support', 'info', 'security'], default: 'noreply' },
+        hostUpgradeConfirmation: { type: String, enum: ['noreply', 'hello', 'support', 'info', 'security'], default: 'hello' },
+        suspensionNotice: { type: String, enum: ['noreply', 'hello', 'support', 'info', 'security'], default: 'support' },
+        loginAlert: { type: String, enum: ['noreply', 'hello', 'support', 'info', 'security'], default: 'security' }
+    },
+
+    // Custom Domain Configuration
+    useCustomDomain: { type: Boolean, default: false },
+    customDomainEmail: { type: String }, // e.g., noreply@yourdomain.com
+    customDomainName: { type: String }, // e.g., Your Company Name
+
     // Email Templates for system emails (optional custom templates)
     emailTemplates: {
         welcomeEmail: { type: String }, // Custom HTML template

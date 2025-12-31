@@ -37,7 +37,12 @@ const UserSchema = new mongoose.Schema({
     },
     // Password Reset
     resetToken: { type: String },
-    resetTokenExpiry: { type: Date }
+    resetTokenExpiry: { type: Date },
+
+    // Two-Factor Authentication
+    twoFactorSecret: { type: String }, // Stored temporarily during setup, then finalized
+    isTwoFactorEnabled: { type: Boolean, default: false },
+    twoFactorRecoveryCodes: [{ type: String }]
 }, { timestamps: true });
 
 export const User = mongoose.model('User', UserSchema);
