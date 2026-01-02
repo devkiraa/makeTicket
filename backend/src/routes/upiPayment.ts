@@ -6,6 +6,7 @@ import {
     getPendingPayments,
     verifyPaymentManual,
     verifyPaymentAuto,
+    verifyBulkPayments,
     upload
 } from '../controllers/paymentController';
 
@@ -22,5 +23,8 @@ router.post('/tickets/:ticketId/verify-manual', verifyToken, verifyAdminOrHost, 
 
 // Auto-verification via Cloudflare Worker (admin/host)
 router.post('/tickets/:ticketId/verify-auto', verifyToken, verifyAdminOrHost, verifyPaymentAuto);
+
+// Bulk Verification
+router.post('/bulk-verify', verifyToken, verifyAdminOrHost, verifyBulkPayments);
 
 export default router;

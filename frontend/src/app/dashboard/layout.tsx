@@ -196,6 +196,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             </Button>
                             <Button
                                 variant="ghost"
+                                className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/support' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                                onClick={() => router.push('/dashboard/admin/support')}
+                            >
+                                <MessageSquare className="mr-3 h-5 w-5" />
+                                Support Console
+                            </Button>
+                            <Button
+                                variant="ghost"
                                 className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/email' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
                                 onClick={() => router.push('/dashboard/admin/email')}
                             >
@@ -490,6 +498,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     </Button>
                                     <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/sessions' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { router.push('/dashboard/admin/sessions'); setMobileMenuOpen(false); }}>
                                         <Monitor className="mr-3 h-5 w-5" /> Sessions
+                                    </Button>
+                                    <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/support' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { router.push('/dashboard/admin/support'); setMobileMenuOpen(false); }}>
+                                        <MessageSquare className="mr-3 h-5 w-5" /> Support Console
                                     </Button>
                                     <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/email' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { router.push('/dashboard/admin/email'); setMobileMenuOpen(false); }}>
                                         <Mail className="mr-3 h-5 w-5" /> System Email

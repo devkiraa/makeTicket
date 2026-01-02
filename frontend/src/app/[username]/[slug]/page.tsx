@@ -1452,13 +1452,12 @@ export default function PublicEventPage() {
                                                 </div>
                                             </div>
 
-                                            <div className="bg-white rounded-3xl shadow-2xl shadow-gray-100/50 overflow-hidden flex flex-col">
+                                            <div className="overflow-hidden flex flex-col">
                                                 {/* Payment Info */}
-                                                <div className="bg-gray-50/50 p-8 flex flex-col items-center border-b border-gray-100 relative">
-                                                    <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500" />
+                                                <div className="p-8 flex flex-col items-center relative">
 
                                                     <div className="my-auto w-full max-w-[280px] space-y-6">
-                                                        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 aspect-square flex items-center justify-center relative group">
+                                                        <div className="bg-white p-4 rounded-2xl aspect-square flex items-center justify-center relative group">
                                                             <UpiQrCode
                                                                 upiId={event.paymentConfig.upiId}
                                                                 payeeName={event.paymentConfig.upiName}
@@ -1475,7 +1474,7 @@ export default function PublicEventPage() {
                                                             </p>
                                                         </div>
 
-                                                        <div className="bg-gray-50 rounded-xl p-3 flex items-center justify-between">
+                                                        <div className="bg-slate-50 rounded-xl p-3 flex items-center justify-between">
                                                             <div className="flex flex-col">
                                                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">UPI ID</span>
                                                                 <code className="text-sm font-bold text-gray-700 select-all">{event.paymentConfig.upiId}</code>
@@ -1502,7 +1501,7 @@ export default function PublicEventPage() {
                                                 </div>
 
                                                 {/* Upload */}
-                                                <div className="p-8 bg-white">
+                                                <div className="p-8 pt-6 border-t border-slate-100">
                                                     <div className="mb-6">
                                                         <h4 className="flex items-center gap-2 font-semibold text-gray-900 mb-2">
                                                             Upload Payment Proof
@@ -1548,9 +1547,9 @@ export default function PublicEventPage() {
                                         {/* Desktop View */}
                                         <div className="hidden lg:block animate-in fade-in slide-in-from-right-4 duration-300">
                                             <div className="max-w-2xl mx-auto">
-                                                <div className="bg-white rounded-[2rem] shadow-2xl shadow-indigo-100/50 overflow-hidden">
+                                                <div className="overflow-hidden">
                                                     {/* Top Section: QR and Amount */}
-                                                    <div className="bg-gradient-to-br from-gray-50 to-white p-10">
+                                                    <div className="p-10">
                                                         <div className="flex items-center justify-between gap-10">
                                                             <div className="space-y-5 flex-1">
                                                                 <div>
@@ -1613,7 +1612,7 @@ export default function PublicEventPage() {
                                                     </div>
 
                                                     {/* Bottom Section: Upload */}
-                                                    <div className="p-10 space-y-8 bg-white">
+                                                    <div className="p-10 pt-8 space-y-8 border-t border-slate-100">
                                                         <div className="flex items-center justify-between">
                                                             <div>
                                                                 <h3 className="text-xl font-bold text-gray-900">Upload Payment Proof</h3>
@@ -1625,7 +1624,7 @@ export default function PublicEventPage() {
                                                             </div>
                                                         </div>
 
-                                                        <div className="bg-gray-50/50 rounded-2xl p-2">
+                                                        <div className="rounded-2xl">
                                                             {ticket ? (
                                                                 <PaymentProofUpload
                                                                     ticketId={ticket._id}

@@ -7,7 +7,9 @@ import {
     getAllHostSupportTickets,
     addMessage,
     updateTicketStatus,
-    getSupportTicketDetails
+    getSupportTicketDetails,
+    adminGetAllSupportTickets,
+    adminUpdateTicketStatus
 } from '../controllers/supportController';
 
 const router = express.Router();
@@ -23,4 +25,9 @@ router.get('/host/tickets', verifyToken, getAllHostSupportTickets); // All ticke
 router.get('/host/events/:eventId/tickets', verifyToken, getEventSupportTickets); // Tickets for specific event
 router.patch('/host/tickets/:ticketId/status', verifyToken, updateTicketStatus);
 
+// Admin routes
+router.get('/admin/tickets', verifyToken, adminGetAllSupportTickets);
+router.patch('/admin/tickets/:ticketId', verifyToken, adminUpdateTicketStatus);
+
 export default router;
+

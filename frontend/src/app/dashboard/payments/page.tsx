@@ -1,26 +1,37 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import {
-    CheckCircle,
-    XCircle,
+    Search,
     Loader2,
-    ChevronLeft,
-    ChevronRight,
-    Image as ImageIcon,
+    ChevronDown,
+    Eye,
+    RefreshCw,
+    CheckCircle2,
+    XCircle,
+    Clock,
+    CreditCard,
+    FileText,
     Sparkles,
-    Mail,
-    Maximize2,
     AlertTriangle,
-    Tag,
-    User as UserIcon,
-    Ticket as TicketIcon
+    Copy,
+    Image as ImageIcon,
+    Send,
+    Upload
 } from 'lucide-react';
+import {
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetHeader,
+    SheetTitle,
+} from "@/components/ui/sheet";
 import {
     Dialog,
     DialogContent,
@@ -29,12 +40,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import {
-    Tabs,
-    TabsContent,
-    TabsList,
-    TabsTrigger,
-} from "@/components/ui/tabs";
 
 interface PaymentProof {
     screenshotUrl: string;
@@ -72,38 +77,47 @@ export default function PaymentVerificationPage() {
     const { toast } = useToast();
     const [payments, setPayments] = useState<PendingPayment[]>([]);
     const [loading, setLoading] = useState(true);
-    const [actionLoading, setActionLoading] = useState(false);
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [visibleCount, setVisibleCount] = useState(20);
 
-    // Modal States
+    // Bulk Verify State
+    const [bulkMode, setBulkMode] = useState(false);
+    const [statementText, setStatementText] = useState('');
+    const [bulkLoading, setBulkLoading] = useState(false);
+    const [bulkResults, setBulkResults] = useState<any>(null);
+    const [pdfLoading, setPdfLoading] = useState(false);
+    const pdfInputRef = useRef<HTMLInputElement>(null);
+
+    // Detail Sheet State
     const [selectedPayment, setSelectedPayment] = useState<PendingPayment | null>(null);
+    const [isSheetOpen, setIsSheetOpen] = useState(false);
+
+    // Modals
     const [verifyModalOpen, setVerifyModalOpen] = useState(false);
     const [rejectModalOpen, setRejectModalOpen] = useState(false);
-    const [autoVerifyModalOpen, setAutoVerifyModalOpen] = useState(false);
     const [imageModalOpen, setImageModalOpen] = useState(false);
     const [rejectionReason, setRejectionReason] = useState('');
-    const [statementText, setStatementText] = useState('');
-    const [statementFile, setStatementFile] = useState<File | null>(null);
 
     const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
     const baseUrl = apiUrl.endsWith('/api') ? apiUrl.slice(0, -4) : apiUrl;
 
-    const fetchPayments = async (p: number) => {
+    const fetchPayments = async () => {
         const token = localStorage.getItem('auth_token');
         if (!token) return;
 
         setLoading(true);
         try {
             const res = await fetch(
-                `${apiUrl}/payment-verification/pending-payments?page=${p}&limit=12`,
+                `${apiUrl}/payment-verification/pending-payments?page=1&limit=100`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             if (res.ok) {
                 const data = await res.json();
                 setPayments(data.payments);
                 setTotalPages(data.pages);
-                setPage(data.page);
             } else {
                 toast({ title: 'Error', description: 'Failed to load payments', variant: 'destructive' });
             }
@@ -115,13 +129,44 @@ export default function PaymentVerificationPage() {
     };
 
     useEffect(() => {
-        fetchPayments(1);
+        fetchPayments();
     }, []);
+
+    // Filtered payments
+    const filteredPayments = payments.filter(payment => {
+        const name = payment.userId?.name || payment.guestName || '';
+        const email = payment.userId?.email || payment.guestEmail || '';
+        const utr = payment.paymentProof?.utr || '';
+        const eventTitle = payment.eventId?.title || '';
+
+        return (
+            name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            utr.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            eventTitle.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    });
+
+    const visiblePayments = filteredPayments.slice(0, visibleCount);
+    const hasMore = visibleCount < filteredPayments.length;
+
+    useEffect(() => {
+        setVisibleCount(20);
+    }, [searchTerm]);
+
+    const handleLoadMore = () => {
+        setVisibleCount(prev => prev + 20);
+    };
+
+    // Stats
+    const totalPending = payments.length;
+    const duplicateCount = payments.filter(p => p.isDuplicateUtr).length;
+    const totalAmount = payments.reduce((sum, p) => sum + (p.pricePaid || 0), 0);
 
     const handleVerify = async () => {
         if (!selectedPayment) return;
         const token = localStorage.getItem('auth_token');
-        setActionLoading(true);
+        setActionLoading(selectedPayment._id);
 
         try {
             const res = await fetch(
@@ -139,21 +184,22 @@ export default function PaymentVerificationPage() {
             if (res.ok) {
                 toast({ title: 'Success', description: 'Payment verified successfully' });
                 setVerifyModalOpen(false);
-                fetchPayments(page);
+                setIsSheetOpen(false);
+                fetchPayments();
             } else {
                 toast({ title: 'Error', description: 'Failed to verify payment', variant: 'destructive' });
             }
         } catch (error) {
             toast({ title: 'Error', description: 'Verification failed', variant: 'destructive' });
         } finally {
-            setActionLoading(false);
+            setActionLoading(null);
         }
     };
 
     const handleReject = async () => {
         if (!selectedPayment) return;
         const token = localStorage.getItem('auth_token');
-        setActionLoading(true);
+        setActionLoading(selectedPayment._id);
 
         try {
             const res = await fetch(
@@ -174,364 +220,677 @@ export default function PaymentVerificationPage() {
             if (res.ok) {
                 toast({ title: 'Success', description: 'Payment rejected' });
                 setRejectModalOpen(false);
+                setIsSheetOpen(false);
                 setRejectionReason('');
-                fetchPayments(page);
+                fetchPayments();
             } else {
                 toast({ title: 'Error', description: 'Failed to reject payment', variant: 'destructive' });
             }
         } catch (error) {
             toast({ title: 'Error', description: 'Rejection failed', variant: 'destructive' });
         } finally {
-            setActionLoading(false);
+            setActionLoading(null);
         }
     };
 
-    const handleAutoVerify = async () => {
-        if (!selectedPayment) return;
-        const token = localStorage.getItem('auth_token');
-        setActionLoading(true);
+    const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
 
+        if (file.type !== 'application/pdf') {
+            toast({ title: 'Invalid File', description: 'Please upload a PDF file', variant: 'destructive' });
+            return;
+        }
+
+        setPdfLoading(true);
         try {
-            const res = await fetch(
-                `${apiUrl}/payment-verification/tickets/${selectedPayment._id}/verify-auto`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        statementText,
-                        date: new Date(selectedPayment.paymentProof.uploadedAt).toISOString().split('T')[0]
-                    })
-                }
-            );
+            // Dynamically import pdf.js
+            const pdfjsLib = await import('pdfjs-dist');
+            pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
-            const result = await res.json();
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+            let fullText = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items
+                    .map((item: any) => item.str)
+                    .join(' ');
+                fullText += pageText + '\n';
+            }
+
+            setStatementText(fullText);
+            toast({ title: 'PDF Loaded', description: `Extracted text from ${pdf.numPages} page(s)` });
+        } catch (error) {
+            console.error('PDF extraction error:', error);
+            toast({ title: 'Error', description: 'Failed to extract text from PDF', variant: 'destructive' });
+        } finally {
+            setPdfLoading(false);
+            // Reset file input
+            if (pdfInputRef.current) {
+                pdfInputRef.current.value = '';
+            }
+        }
+    };
+
+    const handleBulkVerify = async () => {
+        const token = localStorage.getItem('auth_token');
+        if (!token || !statementText.trim()) return;
+
+        setBulkLoading(true);
+        try {
+            const res = await fetch(`${apiUrl}/payment-verification/bulk-verify`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ statementText })
+            });
+
+            const data = await res.json();
 
             if (res.ok) {
-                if (result.result.status === 'VERIFIED') {
-                    toast({ title: 'Auto-Verified', description: 'Payment automatically verified!' });
-                } else if (result.result.status === 'NOT_FOUND') {
-                    toast({ title: 'Not Found', description: 'UTR not found in statement', variant: 'destructive' });
-                } else {
-                    toast({ title: 'Manual Review', description: 'Needs manual verification', variant: 'default' });
-                }
-                setAutoVerifyModalOpen(false);
-                setStatementText('');
-                fetchPayments(page);
+                setBulkResults(data);
+                toast({ title: 'Batch Complete', description: data.message });
+                fetchPayments();
             } else {
-                toast({ title: 'Error', description: result.message || 'Auto-verification failed', variant: 'destructive' });
+                toast({ title: 'Error', description: data.message || 'Bulk verification failed', variant: 'destructive' });
             }
         } catch (error) {
-            toast({ title: 'Error', description: 'Auto-verification failed', variant: 'destructive' });
+            toast({ title: 'Error', description: 'Network error during bulk verification', variant: 'destructive' });
         } finally {
-            setActionLoading(false);
+            setBulkLoading(false);
         }
     };
 
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file && file.type === 'application/pdf') {
-            setStatementFile(file);
-            toast({ title: 'Info', description: 'PDF text extraction would happen here. For now, paste text manually.' });
-        }
+    const handleViewDetails = (payment: PendingPayment) => {
+        setSelectedPayment(payment);
+        setIsSheetOpen(true);
     };
+
+    const handleCopyUtr = (utr: string) => {
+        navigator.clipboard.writeText(utr);
+        toast({ title: 'Copied', description: 'UTR copied to clipboard' });
+    };
+
+    if (loading) return (
+        <div className="space-y-8 animate-pulse">
+            <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                    <div className="h-7 w-48 bg-slate-200 rounded" />
+                    <div className="h-4 w-64 bg-slate-100 rounded" />
+                </div>
+                <div className="h-10 w-28 bg-slate-200 rounded" />
+            </div>
+            <div className="grid grid-cols-4 gap-4">
+                {[1, 2, 3, 4].map(i => (
+                    <div key={i} className="bg-white rounded-xl border border-slate-200 p-4">
+                        <div className="h-8 w-16 bg-slate-200 rounded mb-2" />
+                        <div className="h-4 w-20 bg-slate-100 rounded" />
+                    </div>
+                ))}
+            </div>
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                {[1, 2, 3, 4, 5].map(i => (
+                    <div key={i} className="px-4 py-4 flex gap-8 border-t border-slate-100">
+                        <div className="h-10 w-10 bg-slate-100 rounded" />
+                        <div className="h-4 w-32 bg-slate-200 rounded" />
+                        <div className="h-4 w-48 bg-slate-100 rounded" />
+                        <div className="h-5 w-20 bg-slate-100 rounded-full ml-auto" />
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
 
     return (
-        <div className="min-h-screen bg-[#F8FAFC]">
-            <div className="max-w-[1400px] mx-auto p-4 md:p-6">
-                {/* Compact Header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                    <div>
-                        <h1 className="text-2xl font-black text-gray-900 tracking-tight">
-                            Payment Verification
-                        </h1>
-                        <p className="text-gray-500 text-sm font-medium">
-                            Efficiently process {payments.length} pending registrations.
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <Button
-                            variant="outline"
-                            className="bg-white border-gray-200 rounded-none h-10 px-4 font-bold text-xs uppercase tracking-wider"
-                            onClick={() => fetchPayments(1)}
-                        >
-                            Refresh
-                        </Button>
-                        <div className="h-10 px-4 bg-gray-900 text-white flex items-center font-black text-sm">
-                            {payments.length} PENDING
-                        </div>
-                    </div>
+        <div className="space-y-6">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-900">Payment Verification</h1>
+                    <p className="text-slate-500">Review and approve pending payment proofs.</p>
                 </div>
-
-                {loading && payments.length === 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-                            <div key={i} className="h-64 bg-white animate-pulse border border-gray-100" />
-                        ))}
-                    </div>
-                ) : payments.length === 0 ? (
-                    <div className="py-20 bg-white border border-gray-100 flex flex-col items-center justify-center text-center">
-                        <CheckCircle className="w-12 h-12 text-[#00CC68] mb-4 opacity-20" />
-                        <h3 className="text-lg font-bold text-gray-900">All Clear</h3>
-                        <p className="text-gray-400 text-sm">No payments waiting for review.</p>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {payments.map((payment) => (
-                            <Card key={payment._id} className="group flex flex-col bg-white border border-gray-200 rounded-none overflow-hidden transition-all hover:border-gray-900 hover:shadow-lg">
-                                {/* Compact Screenshot */}
-                                <div className="relative aspect-[4/3] bg-gray-50 overflow-hidden cursor-zoom-in"
-                                    onClick={() => {
-                                        setSelectedPayment(payment);
-                                        setImageModalOpen(true);
-                                    }}>
-                                    {payment.paymentProof.screenshotUrl ? (
-                                        <img
-                                            src={`${baseUrl}${payment.paymentProof.screenshotUrl}`}
-                                            alt="Payment"
-                                            className="w-full h-full object-cover grayscale-[0.5] group-hover:grayscale-0 transition-all duration-500"
-                                            onError={(e) => {
-                                                const target = e.target as HTMLImageElement;
-                                                target.src = 'https://placehold.co/400x300/f3f4f6/9ca3af?text=Image+Error';
-                                            }}
-                                        />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-gray-50">
-                                            <ImageIcon className="w-8 h-8 text-gray-300" strokeWidth={1} />
-                                        </div>
-                                    )}
-
-                                    {/* Warnings / Labels */}
-                                    <div className="absolute top-2 left-2 flex flex-col gap-1">
-                                        {payment.isDuplicateUtr && (
-                                            <Badge className="bg-red-500 text-white border-none rounded-none font-black text-[9px] px-1.5 py-0.5">
-                                                DUPLICATE UTR
-                                            </Badge>
-                                        )}
-                                        <Badge className="bg-black/80 backdrop-blur text-white border-none rounded-none font-black text-[9px] px-1.5 py-0.5 flex items-center gap-1">
-                                            <Tag className="w-2.5 h-2.5" />
-                                            {payment.eventId.title}
-                                        </Badge>
-                                    </div>
-
-                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <Maximize2 className="w-5 h-5 text-white" />
-                                    </div>
-                                </div>
-
-                                <CardContent className="p-3 flex-1 flex flex-col">
-                                    {/* Attendee Info */}
-                                    <div className="mb-3">
-                                        <h3 className="text-sm font-black text-gray-900 leading-tight flex items-center gap-1.5 truncate">
-                                            <UserIcon className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                            {payment.userId?.name || payment.guestName}
-                                        </h3>
-                                        <p className="text-[11px] text-gray-500 font-medium truncate ml-5">
-                                            {payment.userId?.email || payment.guestEmail}
-                                        </p>
-                                    </div>
-
-                                    {/* Key Data Grid */}
-                                    <div className="grid grid-cols-2 gap-2 mb-3 bg-gray-50 p-2 border border-gray-100">
-                                        <div>
-                                            <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider block">Amount</span>
-                                            <span className="text-sm font-black text-gray-900">₹{payment.pricePaid}</span>
-                                        </div>
-                                        <div>
-                                            <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider block">UTR / ID</span>
-                                            <span className="text-[11px] font-black text-gray-900 font-mono truncate block">
-                                                {payment.paymentProof.utr || 'EMPTY'}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    {/* Compact Actions */}
-                                    <div className="mt-auto space-y-1.5">
-                                        <div className="flex gap-1.5">
-                                            <Button
-                                                className="flex-1 bg-[#00CC68] hover:bg-emerald-600 text-white rounded-none font-bold uppercase text-[10px] h-9"
-                                                onClick={() => {
-                                                    setSelectedPayment(payment);
-                                                    setVerifyModalOpen(true);
-                                                }}
-                                            >
-                                                Authorize
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                className="flex-1 border-gray-200 hover:bg-gray-50 text-gray-600 rounded-none font-bold uppercase text-[10px] h-9"
-                                                onClick={() => {
-                                                    setSelectedPayment(payment);
-                                                    setRejectModalOpen(true);
-                                                }}
-                                            >
-                                                Reject
-                                            </Button>
-                                        </div>
-                                        <Button
-                                            variant="secondary"
-                                            className="w-full bg-gray-900 hover:bg-black text-white rounded-none font-bold uppercase text-[9px] h-8 flex items-center justify-center gap-1.5"
-                                            onClick={() => {
-                                                setSelectedPayment(payment);
-                                                setAutoVerifyModalOpen(true);
-                                            }}
-                                        >
-                                            <Sparkles className="w-3 h-3" />
-                                            Smart Verify
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
-                )}
-
-                {/* Compact Pagination */}
-                {totalPages > 1 && (
-                    <div className="mt-12 flex items-center justify-center gap-4">
-                        <Button
-                            variant="outline"
-                            className="w-10 h-10 rounded-none border-gray-200"
-                            onClick={() => fetchPayments(page - 1)}
-                            disabled={page <= 1 || loading}
-                        >
-                            <ChevronLeft className="w-4 h-4" />
-                        </Button>
-                        <span className="text-xs font-black text-gray-900 uppercase tracking-widest">
-                            Page {page} / {totalPages}
-                        </span>
-                        <Button
-                            variant="outline"
-                            className="w-10 h-10 rounded-none border-gray-200"
-                            onClick={() => fetchPayments(page + 1)}
-                            disabled={page >= totalPages || loading}
-                        >
-                            <ChevronRight className="w-4 h-4" />
-                        </Button>
-                    </div>
-                )}
+                <div className="flex gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-slate-200 bg-white"
+                        onClick={fetchPayments}
+                        disabled={loading}
+                    >
+                        <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                        Refresh
+                    </Button>
+                    <Button
+                        variant={bulkMode ? 'default' : 'outline'}
+                        size="sm"
+                        className={bulkMode ? 'bg-indigo-600 hover:bg-indigo-700' : 'border-slate-200 bg-white'}
+                        onClick={() => setBulkMode(!bulkMode)}
+                    >
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        {bulkMode ? 'Hide Auto-Verify' : 'Auto-Verify'}
+                    </Button>
+                </div>
             </div>
 
-            {/* Modals */}
-
-            <Dialog open={imageModalOpen} onOpenChange={setImageModalOpen}>
-                <DialogContent className="max-w-[80vw] h-[80vh] p-0 border-none rounded-none bg-black overflow-hidden">
-                    {selectedPayment && (
-                        <div className="relative w-full h-full flex flex-col items-center justify-center">
-                            <img
-                                src={`${baseUrl}${selectedPayment.paymentProof.screenshotUrl}`}
-                                alt="Proof"
-                                className="max-w-full max-h-full object-contain p-4"
-                            />
-                            <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end bg-black/60 backdrop-blur-md p-4 border-l-4 border-[#00CC68]">
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-black text-[#00CC68] uppercase tracking-widest">{selectedPayment.eventId.title}</p>
-                                    <h3 className="text-xl font-black text-white">{selectedPayment.userId?.name || selectedPayment.guestName}</h3>
-                                    <p className="text-xs text-white/60 font-mono">UTR: {selectedPayment.paymentProof.utr}</p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-2xl font-black text-white tracking-tighter">₹{selectedPayment.pricePaid}</p>
-                                </div>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Card className="border-slate-200 shadow-sm">
+                    <CardContent className="pt-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                                <Clock className="w-5 h-5 text-amber-600" />
+                            </div>
+                            <div>
+                                <p className="text-2xl font-bold text-slate-900">{totalPending}</p>
+                                <p className="text-xs text-slate-500">Pending</p>
                             </div>
                         </div>
-                    )}
-                </DialogContent>
-            </Dialog>
+                    </CardContent>
+                </Card>
+                <Card className="border-slate-200 shadow-sm">
+                    <CardContent className="pt-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
+                                <CreditCard className="w-5 h-5 text-indigo-600" />
+                            </div>
+                            <div>
+                                <p className="text-2xl font-bold text-slate-900">₹{totalAmount.toLocaleString()}</p>
+                                <p className="text-xs text-slate-500">Total Value</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="border-slate-200 shadow-sm">
+                    <CardContent className="pt-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
+                                <AlertTriangle className="w-5 h-5 text-red-600" />
+                            </div>
+                            <div>
+                                <p className="text-2xl font-bold text-slate-900">{duplicateCount}</p>
+                                <p className="text-xs text-slate-500">Duplicate UTRs</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="border-slate-200 shadow-sm">
+                    <CardContent className="pt-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                            </div>
+                            <div>
+                                <p className="text-2xl font-bold text-slate-900">{filteredPayments.length}</p>
+                                <p className="text-xs text-slate-500">Showing</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
 
-            <Dialog open={verifyModalOpen} onOpenChange={setVerifyModalOpen}>
-                <DialogContent className="rounded-none border-2 border-gray-900 max-w-sm">
-                    <DialogHeader>
-                        <DialogTitle className="text-xl font-black">Authorize Payment?</DialogTitle>
-                    </DialogHeader>
+            {/* Bulk Auto-Verify Panel */}
+            {bulkMode && (
+                <Card className="border-indigo-200 bg-indigo-50/50 shadow-sm">
+                    <CardHeader className="pb-3">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                            <Sparkles className="w-5 h-5 text-indigo-600" />
+                            Bulk Auto-Verify with Bank Statement
+                        </CardTitle>
+                        <CardDescription>
+                            Upload a PDF or paste your bank statement text to automatically match and verify payments.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {/* PDF Upload */}
+                        <div className="flex items-center gap-3">
+                            <input
+                                ref={pdfInputRef}
+                                type="file"
+                                accept=".pdf"
+                                onChange={handlePdfUpload}
+                                className="hidden"
+                                id="pdf-upload"
+                            />
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-slate-200 bg-white"
+                                onClick={() => pdfInputRef.current?.click()}
+                                disabled={pdfLoading}
+                            >
+                                {pdfLoading ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Extracting...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Upload className="w-4 h-4 mr-2" />
+                                        Upload PDF
+                                    </>
+                                )}
+                            </Button>
+                            <span className="text-xs text-slate-500">or paste text below</span>
+                        </div>
+
+                        <Textarea
+                            placeholder="Paste transaction rows from your bank statement here...&#10;Include Date, UTR/Description, and Amount columns."
+                            value={statementText}
+                            onChange={(e) => setStatementText(e.target.value)}
+                            rows={6}
+                            className="font-mono text-xs bg-white border-slate-200"
+                        />
+                        <div className="flex items-center justify-between">
+                            <p className="text-xs text-slate-500">
+                                The system will match UTR numbers and amounts to verify payments automatically.
+                            </p>
+                            <Button
+                                onClick={handleBulkVerify}
+                                disabled={bulkLoading || !statementText.trim()}
+                                className="bg-indigo-600 hover:bg-indigo-700"
+                            >
+                                {bulkLoading ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Processing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Send className="w-4 h-4 mr-2" />
+                                        Run Auto-Verify
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                        {bulkResults && (
+                            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-3">
+                                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                                <div>
+                                    <p className="font-medium text-emerald-900">{bulkResults.message}</p>
+                                    <p className="text-xs text-emerald-700">
+                                        {bulkResults.results?.filter((r: any) => r.status === 'VERIFIED').length || 0} payments verified
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Search Bar */}
+            <div className="relative">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <Input
+                    placeholder="Search by name, email, UTR, or event..."
+                    className="pl-9 bg-white border-slate-200"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+
+            {/* Payments Table */}
+            <Card className="border-slate-200 shadow-sm">
+                <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <CardTitle className="text-lg">Pending Payments</CardTitle>
+                            <CardDescription>
+                                {loading ? 'Loading...' : (
+                                    `Showing ${visiblePayments.length} of ${filteredPayments.length} payments` +
+                                    (filteredPayments.length !== payments.length ? ` (${payments.length} total)` : '')
+                                )}
+                            </CardDescription>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                    {payments.length === 0 ? (
+                        <div className="text-center py-20 text-slate-400 mx-6 mb-6 border-2 border-dashed border-slate-100 rounded-lg">
+                            <CheckCircle2 className="w-12 h-12 mx-auto mb-4 text-emerald-300" />
+                            <p className="font-medium mb-1">All caught up!</p>
+                            <p className="text-sm">No pending payments to verify.</p>
+                        </div>
+                    ) : filteredPayments.length === 0 ? (
+                        <div className="text-center py-16 text-slate-400">
+                            <Search className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+                            <p className="font-medium">No matching payments</p>
+                            <p className="text-sm">Try adjusting your search</p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-y border-slate-100">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left font-medium">Proof</th>
+                                        <th className="px-6 py-3 text-left font-medium">Attendee</th>
+                                        <th className="px-6 py-3 text-left font-medium">Event</th>
+                                        <th className="px-6 py-3 text-left font-medium">Amount / UTR</th>
+                                        <th className="px-6 py-3 text-left font-medium">Uploaded</th>
+                                        <th className="px-6 py-3 text-right font-medium">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {visiblePayments.map((payment) => (
+                                        <tr key={payment._id} className="bg-white hover:bg-slate-50 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <div
+                                                    className="w-12 h-12 bg-slate-100 rounded-lg border border-slate-200 cursor-pointer overflow-hidden hover:ring-2 hover:ring-indigo-500 transition-all"
+                                                    onClick={() => { setSelectedPayment(payment); setImageModalOpen(true); }}
+                                                >
+                                                    {payment.paymentProof.screenshotUrl ? (
+                                                        <img
+                                                            src={`${baseUrl}${payment.paymentProof.screenshotUrl}`}
+                                                            alt="Proof"
+                                                            className="w-full h-full object-cover"
+                                                            onError={(e) => {
+                                                                const target = e.target as HTMLImageElement;
+                                                                target.style.display = 'none';
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center">
+                                                            <ImageIcon className="w-4 h-4 text-slate-300" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div>
+                                                    <p className="font-medium text-slate-900">{payment.userId?.name || payment.guestName}</p>
+                                                    <p className="text-slate-500 text-xs">{payment.userId?.email || payment.guestEmail}</p>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <Badge variant="outline" className="bg-white border-slate-200 text-slate-700 font-medium">
+                                                    {payment.eventId.title}
+                                                </Badge>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="space-y-1">
+                                                    <p className="font-bold text-slate-900">₹{payment.pricePaid}</p>
+                                                    <div className="flex items-center gap-1">
+                                                        <code className={`text-xs px-1.5 py-0.5 rounded font-mono ${payment.isDuplicateUtr
+                                                            ? 'bg-red-100 text-red-700'
+                                                            : 'bg-slate-100 text-slate-600'
+                                                            }`}>
+                                                            {payment.paymentProof.utr || 'No UTR'}
+                                                        </code>
+                                                        {payment.paymentProof.utr && (
+                                                            <button
+                                                                onClick={() => handleCopyUtr(payment.paymentProof.utr)}
+                                                                className="text-slate-400 hover:text-slate-600"
+                                                            >
+                                                                <Copy className="w-3 h-3" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                    {payment.isDuplicateUtr && (
+                                                        <span className="text-xs text-red-600 font-medium flex items-center gap-1">
+                                                            <AlertTriangle className="w-3 h-3" />
+                                                            Duplicate
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-slate-500 text-xs">
+                                                {payment.paymentProof.uploadedAt
+                                                    ? new Date(payment.paymentProof.uploadedAt).toLocaleDateString('en-IN', {
+                                                        day: 'numeric',
+                                                        month: 'short',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit'
+                                                    })
+                                                    : '-'
+                                                }
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-8 w-8 p-0 text-slate-400 hover:text-indigo-600"
+                                                        onClick={() => handleViewDetails(payment)}
+                                                        title="View Details"
+                                                    >
+                                                        <Eye className="w-4 h-4" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-8 w-8 p-0 text-slate-400 hover:text-emerald-600"
+                                                        onClick={() => { setSelectedPayment(payment); setVerifyModalOpen(true); }}
+                                                        title="Approve"
+                                                    >
+                                                        <CheckCircle2 className="w-4 h-4" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-8 w-8 p-0 text-slate-400 hover:text-red-600"
+                                                        onClick={() => { setSelectedPayment(payment); setRejectModalOpen(true); }}
+                                                        title="Reject"
+                                                    >
+                                                        <XCircle className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+
+                            {/* Load More Button */}
+                            {hasMore && (
+                                <div className="p-4 text-center border-t border-slate-100">
+                                    <Button
+                                        variant="outline"
+                                        onClick={handleLoadMore}
+                                        className="border-slate-200"
+                                    >
+                                        <ChevronDown className="w-4 h-4 mr-2" />
+                                        Load More ({filteredPayments.length - visibleCount} remaining)
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* Payment Details Sheet */}
+            <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+                <SheetContent className="overflow-y-auto">
+                    <SheetHeader>
+                        <SheetTitle>Payment Details</SheetTitle>
+                        <SheetDescription>
+                            Review payment proof and attendee information
+                        </SheetDescription>
+                    </SheetHeader>
+
                     {selectedPayment && (
-                        <div className="space-y-3 mt-4">
+                        <div className="mt-6 space-y-6">
+                            {/* Status Badge */}
+                            <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+                                    <Clock className="w-6 h-6 text-amber-600" />
+                                </div>
+                                <div>
+                                    <p className="font-semibold text-lg text-slate-900">{selectedPayment.userId?.name || selectedPayment.guestName}</p>
+                                    <p className="text-sm text-amber-600 font-medium">Pending Verification</p>
+                                </div>
+                            </div>
+
+                            {/* Duplicate Warning */}
                             {selectedPayment.isDuplicateUtr && (
-                                <div className="bg-red-50 border-l-4 border-red-500 p-3 flex gap-3">
-                                    <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
+                                <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+                                    <AlertTriangle className="w-5 h-5 text-red-600" />
                                     <div>
-                                        <p className="text-xs font-black text-red-900 uppercase">Warning: Duplicate UTR</p>
-                                        <p className="text-[10px] text-red-700">This UTR is already being used in another registration.</p>
+                                        <p className="font-medium text-red-900 text-sm">Duplicate UTR Detected</p>
+                                        <p className="text-xs text-red-700">This UTR is also used in another registration.</p>
                                     </div>
                                 </div>
                             )}
-                            <div className="bg-gray-50 p-4 border border-gray-100 text-sm">
-                                <div className="flex justify-between mb-2">
-                                    <span className="text-gray-400 font-bold text-[10px] uppercase">Attendee</span>
-                                    <span className="font-black truncate">{selectedPayment.userId?.name || selectedPayment.guestName}</span>
+
+                            {/* Screenshot */}
+                            {selectedPayment.paymentProof.screenshotUrl && (
+                                <div
+                                    className="cursor-pointer rounded-lg overflow-hidden border border-slate-200"
+                                    onClick={() => setImageModalOpen(true)}
+                                >
+                                    <img
+                                        src={`${baseUrl}${selectedPayment.paymentProof.screenshotUrl}`}
+                                        alt="Payment Screenshot"
+                                        className="w-full object-contain max-h-64"
+                                    />
                                 </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-400 font-bold text-[10px] uppercase">UTR Number</span>
-                                    <span className="font-mono font-black">{selectedPayment.paymentProof.utr}</span>
+                            )}
+
+                            {/* Info Cards */}
+                            <div className="grid gap-3">
+                                <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
+                                    <p className="text-xs uppercase text-slate-500 font-medium mb-1">Email</p>
+                                    <p className="text-slate-900 break-all">{selectedPayment.userId?.email || selectedPayment.guestEmail}</p>
                                 </div>
+                                <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
+                                    <p className="text-xs uppercase text-slate-500 font-medium mb-1">Event</p>
+                                    <p className="text-slate-900">{selectedPayment.eventId.title}</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
+                                        <p className="text-xs uppercase text-slate-500 font-medium mb-1">Amount</p>
+                                        <p className="text-slate-900 font-bold text-lg">₹{selectedPayment.pricePaid}</p>
+                                    </div>
+                                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
+                                        <p className="text-xs uppercase text-slate-500 font-medium mb-1">UTR / Txn ID</p>
+                                        <div className="flex items-center gap-2">
+                                            <code className="text-sm font-mono text-slate-900">{selectedPayment.paymentProof.utr || '-'}</code>
+                                            {selectedPayment.paymentProof.utr && (
+                                                <button
+                                                    onClick={() => handleCopyUtr(selectedPayment.paymentProof.utr)}
+                                                    className="text-slate-400 hover:text-slate-600"
+                                                >
+                                                    <Copy className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                                {selectedPayment.paymentProof.uploadedAt && (
+                                    <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
+                                        <p className="text-xs uppercase text-slate-500 font-medium mb-1">Uploaded At</p>
+                                        <p className="text-slate-900">
+                                            {new Date(selectedPayment.paymentProof.uploadedAt).toLocaleString()}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Actions */}
+                            <div className="pt-4 border-t border-slate-200 space-y-2">
+                                <Button
+                                    className="w-full bg-emerald-600 hover:bg-emerald-700"
+                                    onClick={() => setVerifyModalOpen(true)}
+                                    disabled={actionLoading === selectedPayment._id}
+                                >
+                                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                                    Approve Payment
+                                </Button>
+                                <Button
+                                    className="w-full"
+                                    variant="outline"
+                                    onClick={() => setRejectModalOpen(true)}
+                                    disabled={actionLoading === selectedPayment._id}
+                                >
+                                    <XCircle className="w-4 h-4 mr-2" />
+                                    Reject Payment
+                                </Button>
                             </div>
                         </div>
                     )}
-                    <DialogFooter className="mt-6 flex gap-2 sm:flex-row">
-                        <Button variant="outline" className="rounded-none font-bold text-xs flex-1" onClick={() => setVerifyModalOpen(false)}>Cancel</Button>
+                </SheetContent>
+            </Sheet>
+
+            {/* Image Preview Modal */}
+            <Dialog open={imageModalOpen} onOpenChange={setImageModalOpen}>
+                <DialogContent className="max-w-3xl p-0 overflow-hidden">
+                    <DialogTitle className="sr-only">Payment Screenshot</DialogTitle>
+                    {selectedPayment && selectedPayment.paymentProof.screenshotUrl && (
+                        <img
+                            src={`${baseUrl}${selectedPayment.paymentProof.screenshotUrl}`}
+                            alt="Payment Screenshot"
+                            className="w-full max-h-[80vh] object-contain"
+                        />
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Verify Modal */}
+            <Dialog open={verifyModalOpen} onOpenChange={setVerifyModalOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Approve Payment?</DialogTitle>
+                        <DialogDescription>
+                            This will issue the ticket to the attendee and send a confirmation email.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {selectedPayment?.isDuplicateUtr && (
+                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+                            <AlertTriangle className="w-5 h-5 text-red-600" />
+                            <p className="text-sm text-red-900">Warning: This UTR appears to be a duplicate.</p>
+                        </div>
+                    )}
+                    {selectedPayment && (
+                        <div className="py-4 space-y-2">
+                            <p className="text-sm"><span className="text-slate-500">Attendee:</span> <span className="font-medium">{selectedPayment.userId?.name || selectedPayment.guestName}</span></p>
+                            <p className="text-sm"><span className="text-slate-500">Amount:</span> <span className="font-bold">₹{selectedPayment.pricePaid}</span></p>
+                            <p className="text-sm"><span className="text-slate-500">UTR:</span> <code className="bg-slate-100 px-2 py-0.5 rounded text-xs">{selectedPayment.paymentProof.utr || '-'}</code></p>
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setVerifyModalOpen(false)}>Cancel</Button>
                         <Button
-                            className="bg-[#00CC68] hover:bg-[#00b358] text-white rounded-none font-bold text-xs flex-1"
+                            className="bg-emerald-600 hover:bg-emerald-700"
                             onClick={handleVerify}
-                            disabled={actionLoading}
+                            disabled={actionLoading !== null}
                         >
-                            Confirm
+                            {actionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                            Approve
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
+            {/* Reject Modal */}
             <Dialog open={rejectModalOpen} onOpenChange={setRejectModalOpen}>
-                <DialogContent className="rounded-none border-2 border-red-500 max-w-sm">
+                <DialogContent>
                     <DialogHeader>
-                        <DialogTitle className="text-xl font-black text-red-600">Reject Proof?</DialogTitle>
+                        <DialogTitle>Reject Payment?</DialogTitle>
+                        <DialogDescription>
+                            The attendee will need to submit a new payment proof.
+                        </DialogDescription>
                     </DialogHeader>
-                    <div className="mt-4">
+                    <div className="py-4">
                         <Textarea
-                            placeholder="Rejection reason..."
-                            className="rounded-none border-gray-200 focus:border-red-500 text-sm"
+                            placeholder="Reason for rejection (optional but recommended)..."
                             value={rejectionReason}
                             onChange={(e) => setRejectionReason(e.target.value)}
+                            rows={3}
                         />
                     </div>
-                    <DialogFooter className="mt-6 flex gap-2 sm:flex-row">
-                        <Button variant="outline" className="rounded-none font-bold text-xs flex-1" onClick={() => setRejectModalOpen(false)}>Cancel</Button>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setRejectModalOpen(false)}>Cancel</Button>
                         <Button
                             variant="destructive"
-                            className="rounded-none font-bold text-xs flex-1"
                             onClick={handleReject}
-                            disabled={actionLoading || !rejectionReason.trim()}
+                            disabled={actionLoading !== null}
                         >
+                            {actionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                             Reject
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            <Dialog open={autoVerifyModalOpen} onOpenChange={setAutoVerifyModalOpen}>
-                <DialogContent className="max-w-lg rounded-none border-2 border-gray-900">
-                    <DialogHeader>
-                        <DialogTitle className="text-xl font-black flex items-center gap-2">
-                            <Sparkles className="w-5 h-5 text-[#00CC68]" />
-                            Smart Verify
-                        </DialogTitle>
-                    </DialogHeader>
-                    <div className="mt-4">
-                        <Textarea
-                            placeholder="Paste statement lines here..."
-                            value={statementText}
-                            onChange={(e) => setStatementText(e.target.value)}
-                            rows={8}
-                            className="font-mono text-[10px] rounded-none border-gray-200"
-                        />
-                    </div>
-                    <DialogFooter className="mt-6">
-                        <Button
-                            className="bg-black hover:bg-gray-800 text-white rounded-none font-bold uppercase text-[10px] h-10 w-full"
-                            onClick={handleAutoVerify}
-                            disabled={actionLoading || !statementText.trim()}
-                        >
-                            Run Match
                         </Button>
                     </DialogFooter>
                 </DialogContent>

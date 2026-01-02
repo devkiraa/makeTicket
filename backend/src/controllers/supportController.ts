@@ -287,3 +287,127 @@ export const getSupportTicketDetails = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Failed to fetch ticket details' });
     }
 };
+
+// ADMIN: Get all support tickets across all events
+export const adminGetAllSupportTickets = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const userRole = req.user?.role;
+
+        if (userRole !== 'admin') {
+            return res.status(403).json({ message: 'Admin access required' });
+        }
+
+        const { status, category, priority, search, page = 1, limit = 50 } = req.query;
+
+        const query: any = {};
+        if (status && status !== 'all') query.status = status;
+        if (category && category !== 'all') query.category = category;
+        if (priority && priority !== 'all') query.priority = priority;
+
+        // Search in subject or description
+        if (search) {
+            query.$or = [
+                { subject: { $regex: search, $options: 'i' } },
+                { description: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        const skip = (Number(page) - 1) * Number(limit);
+
+        const [tickets, total] = await Promise.all([
+            SupportTicket.find(query)
+                .populate('eventId', 'title slug')
+                .populate('userId', 'name email')
+                .populate('ticketId', 'qrHash pricePaid guestName guestEmail')
+                .sort({ priority: -1, createdAt: -1 })
+                .skip(skip)
+                .limit(Number(limit))
+                .lean(),
+            SupportTicket.countDocuments(query)
+        ]);
+
+        // Get stats
+        const stats = await SupportTicket.aggregate([
+            {
+                $group: {
+                    _id: '$status',
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        const statusCounts = {
+            open: 0,
+            in_progress: 0,
+            resolved: 0,
+            closed: 0
+        };
+        stats.forEach((s: any) => {
+            statusCounts[s._id as keyof typeof statusCounts] = s.count;
+        });
+
+        res.json({
+            tickets,
+            total,
+            page: Number(page),
+            pages: Math.ceil(total / Number(limit)),
+            stats: statusCounts
+        });
+    } catch (error: any) {
+        logger.error('support.admin_get_all_failed', { error: error.message }, error);
+        res.status(500).json({ message: 'Failed to fetch support tickets' });
+    }
+};
+
+// ADMIN: Update any support ticket status
+export const adminUpdateTicketStatus = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const userId = req.user.id;
+        // @ts-ignore
+        const userRole = req.user?.role;
+        const { ticketId } = req.params;
+        const { status, resolution, priority } = req.body;
+
+        if (userRole !== 'admin') {
+            return res.status(403).json({ message: 'Admin access required' });
+        }
+
+        const supportTicket = await SupportTicket.findById(ticketId);
+        if (!supportTicket) {
+            return res.status(404).json({ message: 'Support ticket not found' });
+        }
+
+        if (status) {
+            supportTicket.status = status;
+            if (status === 'resolved' || status === 'closed') {
+                supportTicket.resolvedBy = userId as any;
+                supportTicket.resolvedAt = new Date();
+                if (resolution) supportTicket.resolution = resolution;
+            }
+        }
+
+        if (priority) {
+            supportTicket.priority = priority;
+        }
+
+        supportTicket.updatedAt = new Date();
+        await supportTicket.save();
+
+        logger.info('support.admin_status_updated', {
+            supportTicketId: ticketId,
+            status,
+            priority,
+            updatedBy: userId
+        });
+
+        res.json({
+            message: 'Ticket updated successfully',
+            ticket: supportTicket
+        });
+    } catch (error: any) {
+        logger.error('support.admin_update_failed', { error: error.message }, error);
+        res.status(500).json({ message: 'Failed to update ticket' });
+    }
+};
