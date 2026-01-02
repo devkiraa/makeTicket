@@ -656,6 +656,8 @@ export default function PublicEventPage() {
                                 <PaymentProofUpload
                                     ticketId={ticket._id}
                                     expectedAmount={event.price}
+                                    expectedPayeeName={event.paymentConfig?.upiName}
+                                    expectedUpiId={event.paymentConfig?.upiId}
                                 />
                             </div>
                         </div>
@@ -1518,6 +1520,8 @@ export default function PublicEventPage() {
                                                                 <PaymentProofUpload
                                                                     ticketId={ticket._id}
                                                                     expectedAmount={event.price}
+                                                                    expectedPayeeName={event.paymentConfig?.upiName}
+                                                                    expectedUpiId={event.paymentConfig?.upiId}
                                                                 />
                                                             </div>
                                                         ) : (
@@ -1629,6 +1633,8 @@ export default function PublicEventPage() {
                                                                 <PaymentProofUpload
                                                                     ticketId={ticket._id}
                                                                     expectedAmount={event.price}
+                                                                    expectedPayeeName={event.paymentConfig?.upiName}
+                                                                    expectedUpiId={event.paymentConfig?.upiId}
                                                                 />
                                                             ) : (
                                                                 <div className="p-8 text-center">
