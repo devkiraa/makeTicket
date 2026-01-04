@@ -17,6 +17,23 @@ export const registerTicket = async (req: Request, res: Response) => {
         const event = await Event.findById(eventId);
         if (!event) return res.status(404).json({ message: 'Event not found' });
 
+        // Check if registration has closed (time-based)
+        if (event.registrationCloseTime && new Date() > new Date(event.registrationCloseTime)) {
+            return res.status(400).json({
+                message: 'Registration has closed for this event.',
+                registrationClosed: true,
+                closeTime: event.registrationCloseTime
+            });
+        }
+
+        // Check if registration is paused
+        if (event.registrationPaused) {
+            return res.status(400).json({
+                message: 'Registration is temporarily paused for this event.',
+                registrationPaused: true
+            });
+        }
+
         // Check plan limit for attendees
         const planCheck = await checkCanAddAttendee(event.hostId.toString(), eventId);
         if (!planCheck.allowed) {

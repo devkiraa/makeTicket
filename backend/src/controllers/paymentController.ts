@@ -160,7 +160,7 @@ export const getPendingPayments = async (req: Request, res: Response) => {
 export const verifyPaymentManual = async (req: Request, res: Response) => {
     try {
         const { ticketId } = req.params;
-        const { status, rejectionReason } = req.body; // status: 'verified' or 'rejected'
+        const { status, rejectionReason, forceApprove } = req.body; // status: 'verified' or 'rejected', forceApprove: boolean
 
         if (!['verified', 'rejected'].includes(status)) {
             return res.status(400).json({ message: 'Invalid verification status' });
@@ -177,19 +177,20 @@ export const verifyPaymentManual = async (req: Request, res: Response) => {
 
         const event = ticket.eventId as any;
 
-        // Validation checks for approval
-        if (status === 'verified') {
+        // Validation checks for approval (skip if forceApprove is true)
+        if (status === 'verified' && !forceApprove) {
             // Check 1: Amount validation - payment proof amount should match ticket price
             const proofAmount: number = Number(ticket.paymentProof.amount) || 0;
             const ticketPrice: number = Number(ticket.pricePaid) || Number(event?.price) || 0;
 
             // Allow a small tolerance (₹1) for rounding differences
-            if (Math.abs(proofAmount - ticketPrice) > 1) {
+            if (proofAmount > 0 && ticketPrice > 0 && Math.abs(proofAmount - ticketPrice) > 1) {
                 return res.status(400).json({
-                    message: `Amount mismatch: Payment proof shows ₹${proofAmount}, but ticket price is ₹${ticketPrice}. Please verify manually.`,
+                    message: `Amount mismatch: Payment proof shows ₹${proofAmount}, but ticket price is ₹${ticketPrice}. Use 'Force Approve' to override.`,
                     amountMismatch: true,
                     proofAmount,
-                    expectedAmount: ticketPrice
+                    expectedAmount: ticketPrice,
+                    canForceApprove: true
                 });
             }
 

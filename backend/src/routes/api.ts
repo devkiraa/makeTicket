@@ -1,5 +1,5 @@
 import express from 'express';
-import { createEvent, getEvent, getMyEvents, updateEvent, checkEventSlug, deleteEvent } from '../controllers/eventController';
+import { createEvent, getEvent, getMyEvents, updateEvent, checkEventSlug, deleteEvent, toggleRegistrationPause } from '../controllers/eventController';
 import { registerTicket, validateTicket, getEventAttendees, checkRegistration, approveTicket, rejectTicket, getPendingTickets } from '../controllers/ticketController';
 import { verifyToken } from '../middleware/auth';
 import {
@@ -14,6 +14,7 @@ import {
 import { googleAuthRedirect, googleAuthCallback, getProfile, getSessions, revokeSession, updateProfile, checkUsernameAvailability } from '../controllers/authController';
 import { getPublicUserProfile } from '../controllers/userController';
 import { getDashboardStats, getAllAttendees, getMyRegistrations, upgradeToHost } from '../controllers/dashboardController';
+import { registerInterest } from '../controllers/interestController';
 import {
     addCoordinator,
     acceptInvite,
@@ -49,6 +50,7 @@ apiRouter.get('/events/check-slug', verifyToken, checkEventSlug); // Check slug 
 apiRouter.patch('/events/update/:id', verifyToken, updateEvent); // Explicit update route
 apiRouter.put('/events/update/:id', verifyToken, updateEvent); // Also support PUT
 apiRouter.delete('/events/:id', verifyToken, deleteEvent); // Delete event
+apiRouter.post('/events/:id/toggle-pause', verifyToken, toggleRegistrationPause); // Pause/resume registration
 
 
 // Tickets & Coordinators (MUST be before :username/:slug to avoid conflicts)
@@ -61,6 +63,7 @@ apiRouter.post('/tickets/:ticketId/approve', verifyToken, approveTicket); // App
 apiRouter.post('/tickets/:ticketId/reject', verifyToken, rejectTicket); // Reject a pending ticket
 
 // Public Event Page (LAST - catch-all pattern)
+apiRouter.post('/events/:eventId/interest', registerInterest); // Notify me
 apiRouter.get('/events/:username/:slug', getEvent);
 
 apiRouter.post('/validate', verifyToken, validateTicket);

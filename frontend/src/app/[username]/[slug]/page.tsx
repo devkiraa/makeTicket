@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Calendar, MapPin, Loader2, CheckCircle2, AlertCircle, ArrowRight, Ticket, ChevronLeft, Mail, Users, Copy, Check } from 'lucide-react';
+import { Calendar, MapPin, Loader2, CheckCircle2, AlertCircle, ArrowRight, Ticket, ChevronLeft, Mail, Users, Copy, Check, XCircle, Clock, Bell } from 'lucide-react';
 import Link from 'next/link';
 import { UpiQrCode } from '@/components/UpiQrCode';
 import { PaymentProofUpload } from '@/components/PaymentProofUpload';
@@ -40,6 +40,11 @@ export default function PublicEventPage() {
     const [currentSectionPage, setCurrentSectionPage] = useState(0);
     const [copied, setCopied] = useState(false);
     const [isFinalizing, setIsFinalizing] = useState(false);
+
+    // Notify Me State
+    const [notifying, setNotifying] = useState(false);
+    const [notifySuccess, setNotifySuccess] = useState(false);
+    const [notifyEmail, setNotifyEmail] = useState('');
 
     const handleCopyUpi = () => {
         if (!event?.paymentConfig?.upiId) return;
@@ -82,6 +87,59 @@ export default function PublicEventPage() {
         const tn = encodeURIComponent(`Payment for ${event.title}`);
         return `upi://pay?pa=${pa}&pn=${pn}&am=${am}&cu=INR&tn=${tn}`;
     }, [event?.paymentConfig, event?.price, event?.title]);
+
+    // Check if registration is closed
+    const isRegistrationClosed = useMemo(() => {
+        if (!event) return false;
+        // Check if event status is closed
+        if (event.status === 'closed') return true;
+        // Check if registration close time has passed
+        if (event.registrationCloseTime && new Date() > new Date(event.registrationCloseTime)) return true;
+        // Check if registration is paused
+        if (event.registrationPaused) return true;
+        return false;
+    }, [event?.status, event?.registrationCloseTime, event?.registrationPaused]);
+
+    // Check if specifically paused (for showing different message)
+    const isRegistrationPaused = useMemo(() => {
+        return event?.registrationPaused === true;
+    }, [event?.registrationPaused]);
+
+    // Format event timing for display
+    const eventTiming = useMemo(() => {
+        if (!event) return null;
+        const startTime = event.eventStartTime || event.date;
+        const endTime = event.eventEndTime;
+        const regCloseTime = event.registrationCloseTime;
+
+        return {
+            start: startTime ? new Date(startTime) : null,
+            end: endTime ? new Date(endTime) : null,
+            regClose: regCloseTime ? new Date(regCloseTime) : null
+        };
+    }, [event?.eventStartTime, event?.eventEndTime, event?.registrationCloseTime, event?.date]);
+
+    const handleNotify = async (emailToUse: string, source: string = 'email') => {
+        if (!emailToUse || !event?._id) return;
+        setNotifying(true);
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/events/${event._id}/interest`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': isLoggedIn ? `Bearer ${localStorage.getItem('auth_token')}` : ''
+                },
+                body: JSON.stringify({ email: emailToUse, source })
+            });
+            if (res.ok) {
+                setNotifySuccess(true);
+            }
+        } catch (e) {
+            console.error('Notify error', e);
+        } finally {
+            setNotifying(false);
+        }
+    };
 
     const handleNextSection = () => {
         const currentFields = formSections[currentSectionPage];
@@ -448,39 +506,7 @@ export default function PublicEventPage() {
         </div>
     );
 
-    // Event is closed
-    if (event.status === 'closed') return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
-            <div className="max-w-md w-full">
-                <div className="bg-white rounded-3xl overflow-hidden shadow-2xl text-center">
-                    <div className="bg-gradient-to-r from-red-500 to-rose-500 px-8 py-10">
-                        <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full mx-auto flex items-center justify-center mb-4">
-                            <AlertCircle className="w-10 h-10 text-white" />
-                        </div>
-                        <h2 className="text-2xl font-bold text-white">Registration Closed</h2>
-                    </div>
-                    <div className="px-8 py-8 space-y-4">
-                        <h3 className="text-xl font-bold text-slate-900">{event.title}</h3>
-                        <p className="text-slate-500">
-                            {event.maxRegistrations > 0
-                                ? 'This event has reached its maximum registration limit.'
-                                : 'Registration for this event has been closed by the host.'}
-                        </p>
-                        <div className="pt-4 space-y-3">
-                            <Link href="/" className="block">
-                                <Button className="w-full h-12 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl">
-                                    Browse Other Events
-                                </Button>
-                            </Link>
-                        </div>
-                    </div>
-                </div>
-                <p className="text-center text-slate-500 text-sm mt-6">
-                    Powered by <span className="font-semibold text-white">MakeTicket</span>
-                </p>
-            </div>
-        </div>
-    );
+
 
     // Event is draft (not published yet)
     if (event.status === 'draft') return (
@@ -985,20 +1011,61 @@ export default function PublicEventPage() {
                             {event.title}
                         </h1>
 
+                        {/* Registration Closed Badge */}
+                        {isRegistrationClosed && (
+                            <div className="mb-6 inline-flex items-center gap-2 bg-red-500/20 text-red-400 px-4 py-2 rounded-full border border-red-500/30">
+                                <XCircle className="w-4 h-4" />
+                                <span className="font-medium text-sm">Registration Closed</span>
+                            </div>
+                        )}
+
                         <div className="space-y-4 text-gray-300 mb-8 max-w-md">
+                            {/* Event Start Time */}
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
                                     <Calendar className="w-5 h-5 text-[#00CC68]" />
                                 </div>
                                 <div>
-                                    <div className="text-sm text-gray-400 font-medium">Date & Time</div>
+                                    <div className="text-sm text-gray-400 font-medium">Event Starts</div>
                                     <div className="text-white font-medium">
-                                        {new Date(event.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                                        <span className="mx-2">•</span>
-                                        {new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        {eventTiming?.start
+                                            ? <>
+                                                {eventTiming.start.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                                <span className="mx-2">•</span>
+                                                {eventTiming.start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </>
+                                            : 'TBA'
+                                        }
                                     </div>
+                                    {/* Event End Time (if set) */}
+                                    {eventTiming?.end && (
+                                        <div className="text-gray-400 text-sm mt-1">
+                                            Ends: {eventTiming.end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            {eventTiming.start && eventTiming.end.toDateString() !== eventTiming.start.toDateString() && (
+                                                <span> on {eventTiming.end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
+
+                            {/* Registration Close Time (if set) */}
+                            {eventTiming?.regClose && (
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
+                                        <Clock className="w-5 h-5 text-amber-500" />
+                                    </div>
+                                    <div>
+                                        <div className="text-sm text-gray-400 font-medium">Registration Closes</div>
+                                        <div className={`font-medium ${isRegistrationClosed ? 'text-red-400' : 'text-amber-400'}`}>
+                                            {eventTiming.regClose.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                            <span className="mx-2">•</span>
+                                            {eventTiming.regClose.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            {isRegistrationClosed && <span className="ml-2 text-xs">(Closed)</span>}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
@@ -1026,192 +1093,287 @@ export default function PublicEventPage() {
 
                     {step === 1 ? (
                         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <h2 className="text-3xl font-bold text-[#303030]">{event.price > 0 ? 'Secure your ticket' : 'Secure your spot'}</h2>
-                                    <p className="text-gray-500 text-lg">
-                                        {event.price > 0 ? 'Please login to purchase.' : 'Enter your email to begin.'}
+                            {/* Registration Closed/Paused Banner */}
+                            {isRegistrationClosed && (
+                                <div className={`${isRegistrationPaused ? 'bg-orange-50 border-orange-200' : 'bg-red-50 border-red-200'} border rounded-xl p-5 text-center`}>
+                                    <div className="flex items-center justify-center gap-2 mb-2">
+                                        <XCircle className={`w-5 h-5 ${isRegistrationPaused ? 'text-orange-500' : 'text-red-500'}`} />
+                                        <h3 className={`text-lg font-bold ${isRegistrationPaused ? 'text-orange-800' : 'text-red-800'}`}>
+                                            {isRegistrationPaused ? 'Registration Paused' : 'Registration Closed'}
+                                        </h3>
+                                    </div>
+                                    <p className={`text-sm ${isRegistrationPaused ? 'text-orange-600' : 'text-red-600'}`}>
+                                        {isRegistrationPaused
+                                            ? 'Registration is temporarily paused. Please check back later.'
+                                            : event.status === 'closed'
+                                                ? 'Registration for this event has been closed by the host.'
+                                                : event.registrationCloseTime
+                                                    ? `Registration closed on ${new Date(event.registrationCloseTime).toLocaleDateString(undefined, { month: 'long', day: 'numeric' })}`
+                                                    : 'Registration for this event has ended.'
+                                        }
                                     </p>
                                 </div>
+                            )}
 
-                                {/* Spots remaining indicator */}
-                                {event.maxRegistrations > 0 && (
-                                    <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                                        <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
-                                            <Users className="w-4 h-4 text-amber-600" />
+                            {isRegistrationPaused ? (
+                                <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm mt-6">
+                                    {notifySuccess ? (
+                                        <div className="text-center py-6">
+                                            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                                <CheckCircle2 className="w-6 h-6 text-green-600" />
+                                            </div>
+                                            <h3 className="text-lg font-bold text-slate-900">You're on the list!</h3>
+                                            <p className="text-slate-500 text-sm mt-1">We'll email you as soon as registration opens.</p>
                                         </div>
-                                        <div className="flex-1">
-                                            <p className="text-sm font-semibold text-amber-900">
-                                                Limited spots available
-                                            </p>
-                                            <p className="text-xs text-amber-700">
-                                                Only {event.maxRegistrations} registrations allowed
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {event.price > 0 && (
-                                    <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm text-indigo-700 font-medium">Ticket Price</p>
-                                            <p className="text-2xl font-bold text-indigo-900">₹{event.price}</p>
-                                        </div>
-                                        <div className="bg-white px-3 py-1 rounded-full text-xs font-semibold text-indigo-600 shadow-sm border border-indigo-100">INR</div>
-                                    </div>
-                                )}
-
-                                {/* If Paid and Not Logged In, force Google Login */}
-                                {event.price > 0 && !isLoggedIn ? (
-                                    <div className="space-y-4">
-                                        <a href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/google?returnUrl=${encodeURIComponent(pathname)}`}>
-                                            <Button variant="outline" className="w-full h-14 bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300 text-gray-700 font-medium transition-all text-lg">
-                                                <svg className="mr-3 h-6 w-6" viewBox="0 0 24 24">
-                                                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                                                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                                                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-                                                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                                                </svg>
-                                                Login with Google
-                                            </Button>
-                                        </a>
-                                        <p className="text-center text-sm text-gray-500">Authentication is required for paid events.</p>
-                                    </div>
-                                ) : isLoggedIn && userEmail ? (
-                                    // User is logged in - show their account info professionally
-                                    <div className="space-y-6">
-                                        <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-                                            <div className="flex items-center gap-4">
-                                                {userProfile?.avatar ? (
-                                                    <img
-                                                        src={userProfile.avatar}
-                                                        alt={userProfile.name || 'Profile'}
-                                                        className="w-14 h-14 rounded-full object-cover border-2 border-[#00CC68]"
-                                                    />
-                                                ) : (
-                                                    <div className="w-14 h-14 bg-gradient-to-br from-[#00CC68] to-[#00a857] rounded-full flex items-center justify-center text-white font-bold text-xl shadow-md">
-                                                        {(userProfile?.name || userEmail).charAt(0).toUpperCase()}
-                                                    </div>
-                                                )}
-                                                <div className="flex-1 min-w-0">
-                                                    {userProfile?.name && (
-                                                        <p className="font-bold text-lg text-gray-900 truncate">{userProfile.name}</p>
-                                                    )}
-                                                    <p className="text-sm text-gray-500 truncate">{userEmail}</p>
+                                    ) : (
+                                        <div className="space-y-6">
+                                            <div className="text-center">
+                                                <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                                    <Bell className="w-6 h-6 text-amber-600" />
                                                 </div>
-                                                <div className="flex items-center gap-1 bg-[#00CC68]/10 px-3 py-1.5 rounded-full">
-                                                    <svg className="w-4 h-4 text-[#00CC68]" fill="currentColor" viewBox="0 0 20 20">
-                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                                    </svg>
-                                                    <span className="text-xs font-semibold text-[#00CC68]">Verified</span>
-                                                </div>
+                                                <h3 className="text-lg font-bold text-slate-900">Get notified when registration opens</h3>
+                                                <p className="text-slate-500 text-sm mt-1">Enter your email to get notified when registration is back on.</p>
                                             </div>
 
-                                            <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
-                                                <span className="text-xs text-gray-400">Signed in with Google</span>
-                                                <button
-                                                    className="text-xs text-gray-500 hover:text-red-500 transition-colors font-medium"
-                                                    onClick={() => {
-                                                        localStorage.removeItem('auth_token');
-                                                        setIsLoggedIn(false);
-                                                        setUserEmail('');
-                                                        setUserProfile(null);
-                                                    }}
+                                            {isLoggedIn && userEmail ? (
+                                                <Button
+                                                    onClick={() => handleNotify(userEmail, 'google')}
+                                                    disabled={notifying}
+                                                    className="w-full h-12 bg-slate-900 text-white rounded-xl font-semibold hover:bg-slate-800"
                                                 >
-                                                    Switch account
-                                                </button>
+                                                    {notifying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Bell className="w-4 h-4 mr-2" />}
+                                                    Notify me as {userEmail}
+                                                </Button>
+                                            ) : (
+                                                <div className="space-y-4">
+                                                    <div className="flex gap-2">
+                                                        <Input
+                                                            placeholder="Enter your email"
+                                                            value={notifyEmail}
+                                                            onChange={e => setNotifyEmail(e.target.value)}
+                                                            className="h-12"
+                                                        />
+                                                        <Button
+                                                            onClick={() => handleNotify(notifyEmail, 'email')}
+                                                            disabled={notifying || !notifyEmail || !notifyEmail.includes('@')}
+                                                            className="h-12 bg-slate-900 text-white px-6"
+                                                        >
+                                                            {notifying ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Notify Me'}
+                                                        </Button>
+                                                    </div>
+                                                    <div className="relative">
+                                                        <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-100"></span></div>
+                                                        <div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-2 text-slate-400">Or</span></div>
+                                                    </div>
+                                                    <a href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/google?returnUrl=${encodeURIComponent(pathname)}`}>
+                                                        <Button variant="outline" className="w-full h-12 border-slate-200">
+                                                            <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
+                                                                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                                                                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                                                                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+                                                                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+                                                            </svg>
+                                                            Notify me via Google
+                                                        </Button>
+                                                    </a>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <h2 className="text-3xl font-bold text-[#303030]">{event.price > 0 ? 'Secure your ticket' : 'Secure your spot'}</h2>
+                                        <p className="text-gray-500 text-lg">
+                                            {isRegistrationClosed
+                                                ? (isRegistrationPaused
+                                                    ? 'Registration is temporarily paused by the host.'
+                                                    : 'You can view event details but registration is closed.')
+                                                : (event.price > 0 ? 'Please login to purchase.' : 'Enter your email to begin.')
+                                            }
+                                        </p>
+                                    </div>
+
+                                    {/* Spots remaining indicator */}
+                                    {event.maxRegistrations > 0 && (
+                                        <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                            <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
+                                                <Users className="w-4 h-4 text-amber-600" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-sm font-semibold text-amber-900">
+                                                    Limited spots available
+                                                </p>
+                                                <p className="text-xs text-amber-700">
+                                                    Only {event.maxRegistrations} registrations allowed
+                                                </p>
                                             </div>
                                         </div>
+                                    )}
 
-                                        {error && (
-                                            <div className="p-3 bg-red-50 text-red-600 text-sm rounded-md flex items-center">
-                                                <AlertCircle className="w-4 h-4 mr-2" /> {error}
+                                    {event.price > 0 && (
+                                        <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 flex items-center justify-between">
+                                            <div>
+                                                <p className="text-sm text-indigo-700 font-medium">Ticket Price</p>
+                                                <p className="text-2xl font-bold text-indigo-900">₹{event.price}</p>
                                             </div>
-                                        )}
+                                            <div className="bg-white px-3 py-1 rounded-full text-xs font-semibold text-indigo-600 shadow-sm border border-indigo-100">INR</div>
+                                        </div>
+                                    )}
 
-                                        <Button
-                                            onClick={async () => {
-                                                setError('');
-                                                const isAlreadyRegistered = await checkRegistrationStatus(userEmail);
-                                                if (!isAlreadyRegistered) {
-                                                    if (event.formSchema) {
-                                                        const emailField = event.formSchema.find((f: any) => f.type === 'email' || f.label.toLowerCase().includes('email'));
-                                                        if (emailField) {
-                                                            handleInputChange(emailField.label, userEmail);
-                                                        }
-                                                    }
-                                                    setStep(2);
-                                                }
-                                            }}
-                                            disabled={checkingEmail}
-                                            className="w-full h-14 bg-[#00CC68] hover:bg-[#00b359] text-white text-lg font-bold shadow-lg shadow-[#00CC68]/20 transition-all hover:scale-[1.01]"
-                                        >
-                                            {checkingEmail ? (
-                                                <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Checking...</>
-                                            ) : (
-                                                <>Continue to Register <ArrowRight className="w-5 h-5 ml-2" /></>
-                                            )}
-                                        </Button>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <form onSubmit={handleEmailSubmit} className="space-y-6">
-                                            <div className="space-y-2">
-                                                <Label htmlFor="email" className="text-gray-700 font-medium">Email Address</Label>
-                                                <Input
-                                                    id="email"
-                                                    type="email"
-                                                    placeholder="name@example.com"
-                                                    value={userEmail}
-                                                    onChange={(e) => setUserEmail(e.target.value)}
-                                                    className="h-14 px-4 text-lg bg-white border-gray-200 shadow-sm focus:ring-2 focus:ring-[#00CC68] focus:border-transparent transition-all"
-                                                    autoFocus
-                                                    required
-                                                />
+                                    {/* If Paid and Not Logged In, force Google Login */}
+                                    {!isRegistrationClosed && (event.price > 0 && !isLoggedIn ? (
+                                        <div className="space-y-4">
+                                            <a href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/google?returnUrl=${encodeURIComponent(pathname)}`}>
+                                                <Button variant="outline" className="w-full h-14 bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300 text-gray-700 font-medium transition-all text-lg">
+                                                    <svg className="mr-3 h-6 w-6" viewBox="0 0 24 24">
+                                                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                                                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                                                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+                                                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+                                                    </svg>
+                                                    Login with Google
+                                                </Button>
+                                            </a>
+                                            <p className="text-center text-sm text-gray-500">Authentication is required for paid events.</p>
+                                        </div>
+                                    ) : isLoggedIn && userEmail ? (
+                                        // User is logged in - show their account info professionally
+                                        <div className="space-y-6">
+                                            <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+                                                <div className="flex items-center gap-4">
+                                                    {userProfile?.avatar ? (
+                                                        <img
+                                                            src={userProfile.avatar}
+                                                            alt={userProfile.name || 'Profile'}
+                                                            className="w-14 h-14 rounded-full object-cover border-2 border-[#00CC68]"
+                                                        />
+                                                    ) : (
+                                                        <div className="w-14 h-14 bg-gradient-to-br from-[#00CC68] to-[#00a857] rounded-full flex items-center justify-center text-white font-bold text-xl shadow-md">
+                                                            {(userProfile?.name || userEmail).charAt(0).toUpperCase()}
+                                                        </div>
+                                                    )}
+                                                    <div className="flex-1 min-w-0">
+                                                        {userProfile?.name && (
+                                                            <p className="font-bold text-lg text-gray-900 truncate">{userProfile.name}</p>
+                                                        )}
+                                                        <p className="text-sm text-gray-500 truncate">{userEmail}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 bg-[#00CC68]/10 px-3 py-1.5 rounded-full">
+                                                        <svg className="w-4 h-4 text-[#00CC68]" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                        </svg>
+                                                        <span className="text-xs font-semibold text-[#00CC68]">Verified</span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+                                                    <span className="text-xs text-gray-400">Signed in with Google</span>
+                                                    <button
+                                                        className="text-xs text-gray-500 hover:text-red-500 transition-colors font-medium"
+                                                        onClick={() => {
+                                                            localStorage.removeItem('auth_token');
+                                                            setIsLoggedIn(false);
+                                                            setUserEmail('');
+                                                            setUserProfile(null);
+                                                        }}
+                                                    >
+                                                        Switch account
+                                                    </button>
+                                                </div>
                                             </div>
+
                                             {error && (
                                                 <div className="p-3 bg-red-50 text-red-600 text-sm rounded-md flex items-center">
                                                     <AlertCircle className="w-4 h-4 mr-2" /> {error}
                                                 </div>
                                             )}
+
                                             <Button
-                                                type="submit"
+                                                onClick={async () => {
+                                                    setError('');
+                                                    const isAlreadyRegistered = await checkRegistrationStatus(userEmail);
+                                                    if (!isAlreadyRegistered) {
+                                                        if (event.formSchema) {
+                                                            const emailField = event.formSchema.find((f: any) => f.type === 'email' || f.label.toLowerCase().includes('email'));
+                                                            if (emailField) {
+                                                                handleInputChange(emailField.label, userEmail);
+                                                            }
+                                                        }
+                                                        setStep(2);
+                                                    }
+                                                }}
                                                 disabled={checkingEmail}
                                                 className="w-full h-14 bg-[#00CC68] hover:bg-[#00b359] text-white text-lg font-bold shadow-lg shadow-[#00CC68]/20 transition-all hover:scale-[1.01]"
                                             >
                                                 {checkingEmail ? (
                                                     <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Checking...</>
                                                 ) : (
-                                                    <>Continue <ArrowRight className="w-5 h-5 ml-2" /></>
+                                                    <>Continue to Register <ArrowRight className="w-5 h-5 ml-2" /></>
                                                 )}
                                             </Button>
-                                        </form>
-
-                                        <div className="relative pt-8">
-                                            <div className="absolute inset-0 flex items-center top-8">
-                                                <span className="w-full border-t border-gray-200" />
-                                            </div>
-                                            <div className="relative flex justify-center text-xs uppercase">
-                                                <span className="bg-[#FAFAFA] px-4 text-gray-400 font-medium tracking-wider">Or continue with</span>
-                                            </div>
                                         </div>
-
-                                        <div className="grid grid-cols-1 gap-4">
-                                            <a href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/google?returnUrl=${encodeURIComponent(pathname)}`}>
-                                                <Button variant="outline" className="w-full h-12 bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300 text-gray-700 font-medium transition-all">
-                                                    <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
-                                                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                                                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                                                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-                                                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                                                    </svg>
-                                                    Continue with Google
+                                    ) : (
+                                        <>
+                                            <form onSubmit={handleEmailSubmit} className="space-y-6">
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="email" className="text-gray-700 font-medium">Email Address</Label>
+                                                    <Input
+                                                        id="email"
+                                                        type="email"
+                                                        placeholder="name@example.com"
+                                                        value={userEmail}
+                                                        onChange={(e) => setUserEmail(e.target.value)}
+                                                        className="h-14 px-4 text-lg bg-white border-gray-200 shadow-sm focus:ring-2 focus:ring-[#00CC68] focus:border-transparent transition-all"
+                                                        autoFocus
+                                                        required
+                                                    />
+                                                </div>
+                                                {error && (
+                                                    <div className="p-3 bg-red-50 text-red-600 text-sm rounded-md flex items-center">
+                                                        <AlertCircle className="w-4 h-4 mr-2" /> {error}
+                                                    </div>
+                                                )}
+                                                <Button
+                                                    type="submit"
+                                                    disabled={checkingEmail}
+                                                    className="w-full h-14 bg-[#00CC68] hover:bg-[#00b359] text-white text-lg font-bold shadow-lg shadow-[#00CC68]/20 transition-all hover:scale-[1.01]"
+                                                >
+                                                    {checkingEmail ? (
+                                                        <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Checking...</>
+                                                    ) : (
+                                                        <>Continue <ArrowRight className="w-5 h-5 ml-2" /></>
+                                                    )}
                                                 </Button>
-                                            </a>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
+                                            </form>
+
+                                            <div className="relative pt-8">
+                                                <div className="absolute inset-0 flex items-center top-8">
+                                                    <span className="w-full border-t border-gray-200" />
+                                                </div>
+                                                <div className="relative flex justify-center text-xs uppercase">
+                                                    <span className="bg-[#FAFAFA] px-4 text-gray-400 font-medium tracking-wider">Or continue with</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 gap-4">
+                                                <a href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/google?returnUrl=${encodeURIComponent(pathname)}`}>
+                                                    <Button variant="outline" className="w-full h-12 bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300 text-gray-700 font-medium transition-all">
+                                                        <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
+                                                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                                                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                                                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+                                                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+                                                        </svg>
+                                                        Continue with Google
+                                                    </Button>
+                                                </a>
+                                            </div>
+                                        </>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <div key={currentSectionPage} className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-500" id="registration-form-container">
@@ -1743,11 +1905,13 @@ export default function PublicEventPage() {
                         </div>
                     )}
 
-                    <div className="mt-12 text-center text-gray-400 text-sm">
-                        <p>Powered by <span className="font-semibold text-gray-600">MakeTicket</span></p>
-                    </div>
+                    {!isRegistrationPaused && (
+                        <div className="mt-12 text-center text-gray-400 text-sm">
+                            <p>Powered by <span className="font-semibold text-gray-600">MakeTicket</span></p>
+                        </div>
+                    )}
                 </div>
-            </div >
-        </div >
+            </div>
+        </div>
     );
 }

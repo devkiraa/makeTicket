@@ -51,6 +51,10 @@ function CreateEventContent() {
         sendConfirmationEmail: true, // Send confirmation emails
         ticketTemplateId: '', // Selected ticket template
         attachTicket: true, // Attach ticket to email
+        // Event Timing
+        eventStartTime: '', // When the event starts (datetime-local)
+        eventEndTime: '', // When the event ends (datetime-local)
+        registrationCloseTime: '', // When registration closes (datetime-local)
         // UPI Payment Configuration
         upiId: '',
         upiName: '',
@@ -244,6 +248,9 @@ function CreateEventContent() {
                             sendConfirmationEmail: draft.sendConfirmationEmail !== false,
                             ticketTemplateId: draft.ticketTemplateId || '',
                             attachTicket: draft.attachTicket !== false,
+                            eventStartTime: draft.eventStartTime ? new Date(draft.eventStartTime).toISOString().slice(0, 16) : '',
+                            eventEndTime: draft.eventEndTime ? new Date(draft.eventEndTime).toISOString().slice(0, 16) : '',
+                            registrationCloseTime: draft.registrationCloseTime ? new Date(draft.registrationCloseTime).toISOString().slice(0, 16) : '',
                             upiId: draft.paymentConfig?.upiId || '',
                             upiName: draft.paymentConfig?.upiName || '',
                             verificationNote: draft.paymentConfig?.verificationNote || '',
@@ -287,7 +294,10 @@ function CreateEventContent() {
                 slug: formData.slug,
                 location: formData.location,
                 price: Number(formData.price) || 0,
-                date: formData.date ? formData.date : null,
+                date: formData.eventStartTime || formData.date || null, // Use eventStartTime as date for backward compatibility
+                eventStartTime: formData.eventStartTime || null,
+                eventEndTime: formData.eventEndTime || null,
+                registrationCloseTime: formData.registrationCloseTime || null,
                 maxRegistrations: Number(formData.maxRegistrations) || 0,
                 allowMultipleRegistrations: formData.allowMultipleRegistrations,
                 emailTemplateId: formData.emailTemplateId || null,
@@ -432,7 +442,10 @@ function CreateEventContent() {
                 slug: formData.slug,
                 location: formData.location,
                 price: Number(formData.price) || 0,
-                date: formData.date ? formData.date : null,
+                date: formData.eventStartTime || formData.date || null,
+                eventStartTime: formData.eventStartTime || null,
+                eventEndTime: formData.eventEndTime || null,
+                registrationCloseTime: formData.registrationCloseTime || null,
                 maxRegistrations: Number(formData.maxRegistrations) || 0,
                 allowMultipleRegistrations: formData.allowMultipleRegistrations,
                 emailTemplateId: formData.emailTemplateId || null,
@@ -623,16 +636,43 @@ function CreateEventContent() {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="grid gap-2">
-                                    <Label htmlFor="date" className="text-slate-700 font-medium">Date & Time *</Label>
+                                    <Label htmlFor="eventStartTime" className="text-slate-700 font-medium">Event Start Time *</Label>
                                     <Input
-                                        id="date"
-                                        name="date"
+                                        id="eventStartTime"
+                                        name="eventStartTime"
                                         type="datetime-local"
-                                        value={formData.date}
+                                        value={formData.eventStartTime}
                                         onChange={handleInputChange}
                                         className="bg-white h-11"
-                                        required
                                     />
+                                    <p className="text-xs text-slate-400">When does your event begin?</p>
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="eventEndTime" className="text-slate-700 font-medium">Event End Time</Label>
+                                    <Input
+                                        id="eventEndTime"
+                                        name="eventEndTime"
+                                        type="datetime-local"
+                                        value={formData.eventEndTime}
+                                        onChange={handleInputChange}
+                                        className="bg-white h-11"
+                                    />
+                                    <p className="text-xs text-slate-400">When does your event end?</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="registrationCloseTime" className="text-slate-700 font-medium">Registration Closes</Label>
+                                    <Input
+                                        id="registrationCloseTime"
+                                        name="registrationCloseTime"
+                                        type="datetime-local"
+                                        value={formData.registrationCloseTime}
+                                        onChange={handleInputChange}
+                                        className="bg-white h-11"
+                                    />
+                                    <p className="text-xs text-slate-400">After this time, no new registrations</p>
                                 </div>
                                 <div className="grid gap-2">
                                     <Label htmlFor="location" className="text-slate-700 font-medium">Location</Label>
@@ -646,6 +686,9 @@ function CreateEventContent() {
                                     />
                                 </div>
                             </div>
+
+                            {/* Hidden date field for backward compatibility - will be set from eventStartTime */}
+                            <input type="hidden" name="date" value={formData.eventStartTime || formData.date} />
                         </div>
                     </div>
 

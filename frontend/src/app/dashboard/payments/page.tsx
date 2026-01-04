@@ -100,6 +100,7 @@ export default function PaymentVerificationPage() {
     const [rejectModalOpen, setRejectModalOpen] = useState(false);
     const [imageModalOpen, setImageModalOpen] = useState(false);
     const [rejectionReason, setRejectionReason] = useState('');
+    const [amountMismatchError, setAmountMismatchError] = useState<string | null>(null);
 
     const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
     const baseUrl = apiUrl.endsWith('/api') ? apiUrl.slice(0, -4) : apiUrl;
@@ -163,7 +164,7 @@ export default function PaymentVerificationPage() {
     const duplicateCount = payments.filter(p => p.isDuplicateUtr).length;
     const totalAmount = payments.reduce((sum, p) => sum + (p.pricePaid || 0), 0);
 
-    const handleVerify = async () => {
+    const handleVerify = async (forceApprove = false) => {
         if (!selectedPayment) return;
         const token = localStorage.getItem('auth_token');
         setActionLoading(selectedPayment._id);
@@ -177,17 +178,28 @@ export default function PaymentVerificationPage() {
                         'Content-Type': 'application/json',
                         Authorization: `Bearer ${token}`
                     },
-                    body: JSON.stringify({ status: 'verified' })
+                    body: JSON.stringify({ status: 'verified', forceApprove })
                 }
             );
+
+            const data = await res.json();
 
             if (res.ok) {
                 toast({ title: 'Success', description: 'Payment verified successfully' });
                 setVerifyModalOpen(false);
                 setIsSheetOpen(false);
+                setAmountMismatchError(null);
                 fetchPayments();
+            } else if (data.canForceApprove) {
+                // Show amount mismatch error with force approve option
+                setAmountMismatchError(data.message);
+                toast({
+                    title: 'Amount Mismatch',
+                    description: data.message,
+                    variant: 'destructive'
+                });
             } else {
-                toast({ title: 'Error', description: 'Failed to verify payment', variant: 'destructive' });
+                toast({ title: 'Error', description: data.message || 'Failed to verify payment', variant: 'destructive' });
             }
         } catch (error) {
             toast({ title: 'Error', description: 'Verification failed', variant: 'destructive' });
@@ -830,7 +842,7 @@ export default function PaymentVerificationPage() {
             </Dialog>
 
             {/* Verify Modal */}
-            <Dialog open={verifyModalOpen} onOpenChange={setVerifyModalOpen}>
+            <Dialog open={verifyModalOpen} onOpenChange={(open: boolean) => { setVerifyModalOpen(open); if (!open) setAmountMismatchError(null); }}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Approve Payment?</DialogTitle>
@@ -844,23 +856,46 @@ export default function PaymentVerificationPage() {
                             <p className="text-sm text-red-900">Warning: This UTR appears to be a duplicate.</p>
                         </div>
                     )}
+                    {amountMismatchError && (
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                            <div className="flex items-start gap-3">
+                                <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                <div className="space-y-1">
+                                    <p className="text-sm font-medium text-amber-900">{amountMismatchError}</p>
+                                    <p className="text-xs text-amber-700">You can force approve if you've verified the payment manually.</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     {selectedPayment && (
                         <div className="py-4 space-y-2">
                             <p className="text-sm"><span className="text-slate-500">Attendee:</span> <span className="font-medium">{selectedPayment.userId?.name || selectedPayment.guestName}</span></p>
-                            <p className="text-sm"><span className="text-slate-500">Amount:</span> <span className="font-bold">₹{selectedPayment.pricePaid}</span></p>
+                            <p className="text-sm"><span className="text-slate-500">Expected Amount:</span> <span className="font-bold">₹{selectedPayment.pricePaid}</span></p>
+                            <p className="text-sm"><span className="text-slate-500">Proof Amount:</span> <span className="font-bold">₹{selectedPayment.paymentProof.amount || '-'}</span></p>
                             <p className="text-sm"><span className="text-slate-500">UTR:</span> <code className="bg-slate-100 px-2 py-0.5 rounded text-xs">{selectedPayment.paymentProof.utr || '-'}</code></p>
                         </div>
                     )}
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setVerifyModalOpen(false)}>Cancel</Button>
-                        <Button
-                            className="bg-emerald-600 hover:bg-emerald-700"
-                            onClick={handleVerify}
-                            disabled={actionLoading !== null}
-                        >
-                            {actionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                            Approve
-                        </Button>
+                    <DialogFooter className="flex-col sm:flex-row gap-2">
+                        <Button variant="outline" onClick={() => { setVerifyModalOpen(false); setAmountMismatchError(null); }}>Cancel</Button>
+                        {amountMismatchError ? (
+                            <Button
+                                className="bg-amber-600 hover:bg-amber-700"
+                                onClick={() => handleVerify(true)}
+                                disabled={actionLoading !== null}
+                            >
+                                {actionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                                Force Approve
+                            </Button>
+                        ) : (
+                            <Button
+                                className="bg-emerald-600 hover:bg-emerald-700"
+                                onClick={() => handleVerify(false)}
+                                disabled={actionLoading !== null}
+                            >
+                                {actionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                                Approve
+                            </Button>
+                        )}
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

@@ -235,3 +235,32 @@ export const deleteEvent = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Failed to delete event', error: error.message || error });
     }
 };
+
+// Toggle Registration Pause (Protected)
+export const toggleRegistrationPause = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const userId = req.user.id;
+        const { id } = req.params;
+
+        // Check ownership
+        const event = await Event.findOne({ _id: id, hostId: userId });
+        if (!event) {
+            return res.status(404).json({ message: 'Event not found or unauthorized' });
+        }
+
+        // Toggle the paused state
+        const newPausedState = !event.registrationPaused;
+        event.registrationPaused = newPausedState;
+        await event.save();
+
+        res.status(200).json({
+            message: newPausedState ? 'Registration paused' : 'Registration resumed',
+            registrationPaused: newPausedState,
+            event
+        });
+    } catch (error: any) {
+        console.error('Toggle Registration Pause Error:', error);
+        res.status(500).json({ message: 'Failed to toggle registration pause', error: error.message || error });
+    }
+};

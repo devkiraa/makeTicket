@@ -5,7 +5,16 @@ const EventSchema = new mongoose.Schema({
     hostId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     title: { type: String, required: true },
     slug: { type: String, required: true },
-    date: { type: Date }, // Optional now
+    date: { type: Date }, // Event date (optional, for display)
+
+    // Event Timing
+    eventStartTime: { type: Date }, // When the event starts (date + time)
+    eventEndTime: { type: Date }, // When the event ends (date + time)
+
+    // Registration Control
+    registrationCloseTime: { type: Date }, // When registration closes (blocks new registrations after this)
+    registrationPaused: { type: Boolean, default: false }, // Temporarily pause registrations
+
     location: { type: String },
     description: { type: String },
     price: { type: Number, default: 0 },

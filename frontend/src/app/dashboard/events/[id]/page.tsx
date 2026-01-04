@@ -22,7 +22,9 @@ import {
     RefreshCw,
     Unlink,
     Link as LinkIcon,
-    Pencil
+    Pencil,
+    Pause,
+    Play
 } from 'lucide-react';
 import {
     Sheet,
@@ -64,6 +66,7 @@ interface EventData {
     location: string;
     price: number;
     status: string;
+    registrationPaused?: boolean;
     formHeaderImage?: string;
     formSchema: Array<{
         id: string;
@@ -95,6 +98,11 @@ export default function EventDetailPage() {
     const [spreadsheetUrl, setSpreadsheetUrl] = useState<string | null>(null);
     const [creatingSheet, setCreatingSheet] = useState(false);
     const [checkingSheetsAccess, setCheckingSheetsAccess] = useState(true);
+    const [togglingPause, setTogglingPause] = useState(false);
+
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 20;
 
     useEffect(() => {
         const fetchData = async () => {
@@ -228,6 +236,16 @@ export default function EventDetailPage() {
         a.email.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    // Reset pagination when search changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm]);
+
+    // Calculate pagination
+    const totalPages = Math.ceil(filteredAttendees.length / ITEMS_PER_PAGE);
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const paginatedAttendees = filteredAttendees.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
     // Get all unique form field labels for table headers
     const formLabels = event?.formSchema?.map(f => f.label) || [];
 
@@ -280,6 +298,36 @@ export default function EventDetailPage() {
             alert('Event link copied!');
         }
     };
+
+    const toggleRegistrationPause = async () => {
+        if (!event) return;
+        const token = localStorage.getItem('auth_token');
+        if (!token) return;
+
+        setTogglingPause(true);
+        try {
+            const res = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/events/${event._id}/toggle-pause`,
+                {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${token}` }
+                }
+            );
+            if (res.ok) {
+                const data = await res.json();
+                setEvent(prev => prev ? { ...prev, registrationPaused: data.registrationPaused } : prev);
+            } else {
+                const error = await res.json();
+                alert(error.message || 'Failed to toggle registration pause');
+            }
+        } catch (error) {
+            console.error('Failed to toggle registration pause', error);
+            alert('Failed to toggle registration pause');
+        } finally {
+            setTogglingPause(false);
+        }
+    };
+
 
     if (loading) {
         return (
@@ -362,6 +410,10 @@ export default function EventDetailPage() {
         );
     }
 
+    // Helper to show range safely
+    const rangeStart = startIndex + 1;
+    const rangeEnd = Math.min(startIndex + ITEMS_PER_PAGE, filteredAttendees.length);
+
     return (
         <div className="space-y-8 overflow-x-hidden">
             {/* Header */}
@@ -398,6 +450,11 @@ export default function EventDetailPage() {
                                     'bg-slate-100 text-slate-500'}`}>
                             {event.status}
                         </span>
+                        {event.registrationPaused && (
+                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-orange-50 text-orange-700">
+                                paused
+                            </span>
+                        )}
                     </div>
                 </div>
 
@@ -406,6 +463,24 @@ export default function EventDetailPage() {
                         <Copy className="w-4 h-4 mr-2" />
                         Copy Link
                     </Button>
+                    {event.status === 'active' && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={toggleRegistrationPause}
+                            disabled={togglingPause}
+                            className={`border-slate-200 ${event.registrationPaused ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : ''}`}
+                        >
+                            {togglingPause ? (
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            ) : event.registrationPaused ? (
+                                <Play className="w-4 h-4 mr-2" />
+                            ) : (
+                                <Pause className="w-4 h-4 mr-2" />
+                            )}
+                            {event.registrationPaused ? 'Resume' : 'Pause'}
+                        </Button>
+                    )}
                     <Button
                         variant="outline"
                         size="sm"
@@ -616,57 +691,90 @@ export default function EventDetailPage() {
                             <p className="text-sm mt-1">Share your event link to get started!</p>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto" style={{ maxWidth: 'calc(100vw - 300px)' }}>
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="bg-slate-50 text-left">
-                                        <th className="px-4 py-3 font-semibold text-slate-700">#</th>
-                                        <th className="px-4 py-3 font-semibold text-slate-700">Name</th>
-                                        <th className="px-4 py-3 font-semibold text-slate-700">Email</th>
-                                        <th className="px-4 py-3 font-semibold text-slate-700">Status</th>
-                                        {formLabels.map(label => (
-                                            <th key={label} className="px-4 py-3 font-semibold text-slate-700 whitespace-nowrap">
-                                                {label}
-                                            </th>
-                                        ))}
-                                        <th className="px-4 py-3 font-semibold text-slate-700">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredAttendees.map((attendee, index) => (
-                                        <tr key={attendee.id} className="border-b border-slate-100 hover:bg-slate-50">
-                                            <td className="px-4 py-3 text-slate-500">{index + 1}</td>
-                                            <td className="px-4 py-3 font-medium text-slate-900">{attendee.name}</td>
-                                            <td className="px-4 py-3 text-slate-600">{attendee.email}</td>
-                                            <td className="px-4 py-3">
-                                                <span className={`px-2 py-0.5 rounded text-xs font-medium
-                                                    ${attendee.checkedIn ? 'bg-green-50 text-green-700' : 'bg-indigo-50 text-indigo-700'}`}>
-                                                    {attendee.checkedIn ? 'Checked In' : 'Registered'}
-                                                </span>
-                                            </td>
+                        <>
+                            <div className="overflow-x-auto" style={{ maxWidth: 'calc(100vw - 300px)' }}>
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="bg-slate-50 text-left">
+                                            <th className="px-4 py-3 font-semibold text-slate-700">#</th>
+                                            <th className="px-4 py-3 font-semibold text-slate-700">Name</th>
+                                            <th className="px-4 py-3 font-semibold text-slate-700">Email</th>
+                                            <th className="px-4 py-3 font-semibold text-slate-700">Status</th>
                                             {formLabels.map(label => (
-                                                <td key={label} className="px-4 py-3 text-slate-600 max-w-[200px] truncate">
-                                                    {renderFormValue(attendee.formData[label])}
-                                                </td>
+                                                <th key={label} className="px-4 py-3 font-semibold text-slate-700 whitespace-nowrap">
+                                                    {label}
+                                                </th>
                                             ))}
-                                            <td className="px-4 py-3">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-8 w-8 p-0 text-slate-400 hover:text-indigo-600"
-                                                    onClick={() => {
-                                                        setSelectedAttendee(attendee);
-                                                        setIsSheetOpen(true);
-                                                    }}
-                                                >
-                                                    <Eye className="w-4 h-4" />
-                                                </Button>
-                                            </td>
+                                            <th className="px-4 py-3 font-semibold text-slate-700">Actions</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody>
+                                        {paginatedAttendees.map((attendee, index) => (
+                                            <tr key={attendee.id} className="border-b border-slate-100 hover:bg-slate-50">
+                                                <td className="px-4 py-3 text-slate-500">{startIndex + index + 1}</td>
+                                                <td className="px-4 py-3 font-medium text-slate-900">{attendee.name}</td>
+                                                <td className="px-4 py-3 text-slate-600">{attendee.email}</td>
+                                                <td className="px-4 py-3">
+                                                    <span className={`px-2 py-0.5 rounded text-xs font-medium
+                                                    ${attendee.checkedIn ? 'bg-green-50 text-green-700' : 'bg-indigo-50 text-indigo-700'}`}>
+                                                        {attendee.checkedIn ? 'Checked In' : 'Registered'}
+                                                    </span>
+                                                </td>
+                                                {formLabels.map(label => (
+                                                    <td key={label} className="px-4 py-3 text-slate-600 max-w-[200px] truncate">
+                                                        {renderFormValue(attendee.formData[label])}
+                                                    </td>
+                                                ))}
+                                                <td className="px-4 py-3">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-8 w-8 p-0 text-slate-400 hover:text-indigo-600"
+                                                        onClick={() => {
+                                                            setSelectedAttendee(attendee);
+                                                            setIsSheetOpen(true);
+                                                        }}
+                                                    >
+                                                        <Eye className="w-4 h-4" />
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {/* Pagination Controls */}
+                            {filteredAttendees.length > ITEMS_PER_PAGE && (
+                                <div className="flex items-center justify-between px-4 py-4 border-t border-slate-100 bg-slate-50/50">
+                                    <div className="text-sm text-slate-500">
+                                        Showing <span className="font-medium">{rangeStart}</span> to <span className="font-medium">{rangeEnd}</span> of <span className="font-medium">{filteredAttendees.length}</span> results
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                            disabled={currentPage === 1}
+                                            className="h-8 w-24 border-slate-200"
+                                        >
+                                            Previous
+                                        </Button>
+                                        <div className="text-sm font-medium text-slate-600 px-2">
+                                            Page {currentPage} of {totalPages}
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                            disabled={currentPage === totalPages}
+                                            className="h-8 w-24 border-slate-200"
+                                        >
+                                            Next
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </>
                     )}
                 </CardContent>
             </Card>
@@ -726,6 +834,6 @@ export default function EventDetailPage() {
                     )}
                 </SheetContent>
             </Sheet>
-        </div>
+        </div >
     );
 }
