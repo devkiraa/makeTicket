@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { LandingNavbar } from "@/components/LandingNavbar"
 import { Button } from "@/components/ui/button"
 import {
   Calendar,
@@ -205,33 +206,8 @@ export default function LandingPage() {
 
       <div className="flex flex-col min-h-screen bg-white text-slate-900 antialiased">
 
-        {/* Navbar */}
-        <header className="px-4 lg:px-6 h-16 flex items-center border-b border-slate-100/50 backdrop-blur-xl sticky top-0 z-50 bg-white/80" role="banner">
-          <Link className="flex items-center justify-center gap-2.5" href="/" aria-label="MakeTicket - Home">
-            <img src="/logo.png" alt="MakeTicket - Free Event Ticketing Platform" className="h-10 w-10 rounded-xl shadow-lg shadow-indigo-200" width={40} height={40} />
-            <span className="font-bold text-xl tracking-tight text-slate-900">MakeTicket</span>
-          </Link>
-          <nav className="ml-auto flex items-center gap-1" role="navigation" aria-label="Main navigation">
-            <Link className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors rounded-lg hover:bg-slate-50 hidden md:block" href="#features">
-              Features
-            </Link>
-            <Link className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors rounded-lg hover:bg-slate-50 hidden md:block" href="#testimonials">
-              Reviews
-            </Link>
-            <Link className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors rounded-lg hover:bg-slate-50 hidden md:block" href="#pricing">
-              Pricing
-            </Link>
-            <div className="w-px h-6 bg-slate-200 mx-2 hidden md:block" aria-hidden="true" />
-            <Link href="/login" className="text-sm font-medium text-slate-600 hover:text-slate-900 px-4 py-2 hidden md:block">
-              Sign In
-            </Link>
-            <Link href="/login">
-              <Button className="h-10 px-5 bg-slate-900 hover:bg-slate-800 text-white rounded-full transition-all hover:scale-105 font-semibold shadow-lg shadow-slate-200">
-                Get Started Free
-              </Button>
-            </Link>
-          </nav>
-        </header>
+        {/* Navbar - Client Component for Auth State */}
+        <LandingNavbar />
 
         <main className="flex-1" role="main">
 

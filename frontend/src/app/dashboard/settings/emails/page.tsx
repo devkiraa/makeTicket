@@ -139,7 +139,7 @@ function EmailSettingsContent() {
         try {
             const token = localStorage.getItem('auth_token');
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/email/accounts/${id}/activate`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (res.ok) {

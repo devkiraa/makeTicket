@@ -34,6 +34,7 @@ import {
     SheetTitle,
 } from "@/components/ui/sheet";
 import { CoordinatorManager } from '@/components/CoordinatorManager';
+import { EventAnnouncement } from '@/components/EventAnnouncement';
 
 // Helper to render form values safely (handles file upload objects)
 const renderFormValue = (value: any): string => {
@@ -104,6 +105,10 @@ export default function EventDetailPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 20;
 
+    // Refetch trigger for child components
+    const [refetchTrigger, setRefetchTrigger] = useState(0);
+    const triggerRefetch = () => setRefetchTrigger(prev => prev + 1);
+
     useEffect(() => {
         const fetchData = async () => {
             const token = localStorage.getItem('auth_token');
@@ -167,7 +172,7 @@ export default function EventDetailPage() {
         };
 
         if (eventId) fetchData();
-    }, [eventId]);
+    }, [eventId, refetchTrigger]);
 
     // Google Sheets functions
     const connectGoogleSheets = async () => {
@@ -498,6 +503,12 @@ export default function EventDetailPage() {
                             </Button>
                         </a>
                     )}
+                    {/* Send Announcement Button */}
+                    <EventAnnouncement
+                        eventId={event._id}
+                        eventTitle={event.title}
+                        onSuccess={triggerRefetch}
+                    />
                 </div>
             </div>
 

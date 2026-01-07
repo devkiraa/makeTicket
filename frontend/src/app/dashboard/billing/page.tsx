@@ -1,13 +1,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { 
-    CreditCard, 
-    Crown, 
-    Check, 
-    X, 
-    Zap, 
-    Building2, 
+import {
+    CreditCard,
+    Crown,
+    Check,
+    X,
+    Zap,
+    Building2,
     Calendar,
     Download,
     ChevronRight,
@@ -202,15 +202,15 @@ export default function BillingPage() {
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
-    
-    const { 
-        loading, 
-        error, 
-        setError, 
-        getSubscription, 
+
+    const {
+        loading,
+        error,
+        setError,
+        getSubscription,
         openUpgradeCheckout,
         cancelSubscription,
-        renewSubscription 
+        renewSubscription
     } = useRazorpay();
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -281,14 +281,18 @@ export default function BillingPage() {
             const res = await fetch(`${API_URL}/payment/invoice/${paymentId}?view=true`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            
+
             if (res.ok) {
                 const blob = await res.blob();
                 const url = window.URL.createObjectURL(blob);
                 window.open(url, '_blank');
             } else {
-                const errorData = await res.json();
-                console.error('Failed to view receipt:', errorData);
+                // Check if response is JSON before parsing
+                const contentType = res.headers.get('content-type');
+                if (contentType?.includes('application/json')) {
+                    const errorData = await res.json();
+                    console.error('Failed to view receipt:', errorData);
+                }
                 setError('Failed to view receipt. Please try again.');
             }
         } catch (err) {
@@ -305,7 +309,7 @@ export default function BillingPage() {
             const res = await fetch(`${API_URL}/payment/invoice/${paymentId}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-            
+
             if (res.ok) {
                 const blob = await res.blob();
                 const url = window.URL.createObjectURL(blob);
@@ -320,8 +324,12 @@ export default function BillingPage() {
                 document.body.removeChild(a);
                 window.URL.revokeObjectURL(url);
             } else {
-                const errorData = await res.json();
-                console.error('Failed to download receipt:', errorData);
+                // Check if response is JSON before parsing
+                const contentType = res.headers.get('content-type');
+                if (contentType?.includes('application/json')) {
+                    const errorData = await res.json();
+                    console.error('Failed to download receipt:', errorData);
+                }
                 setError('Failed to download receipt. Please try again.');
             }
         } catch (err) {
@@ -456,7 +464,7 @@ export default function BillingPage() {
                         <Shield className="h-5 w-5 text-indigo-600" />
                         Current Subscription
                     </h2>
-                    
+
                     {loadingSubscription ? (
                         <div className="flex items-center justify-center py-8">
                             <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
@@ -475,12 +483,12 @@ export default function BillingPage() {
                                         </span>
                                     </div>
                                 </div>
-                                
+
                                 {subscription.currentPeriodEnd && subscription.plan !== 'free' && (
                                     <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                                         <Calendar className="h-4 w-4" />
                                         <span>
-                                            {subscription.status === 'active' 
+                                            {subscription.status === 'active'
                                                 ? `Renews on ${formatDate(subscription.currentPeriodEnd)}`
                                                 : `Expires on ${formatDate(subscription.currentPeriodEnd)}`
                                             }
@@ -488,7 +496,7 @@ export default function BillingPage() {
                                     </div>
                                 )}
                             </div>
-                            
+
                             <div className="space-y-2">
                                 <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Plan Limits</h4>
                                 <div className="grid grid-cols-2 gap-2 text-sm">
@@ -514,7 +522,7 @@ export default function BillingPage() {
                     ) : (
                         <p className="text-gray-600 dark:text-gray-400">Unable to load subscription details.</p>
                     )}
-                    
+
                     {/* Cancel Subscription Button */}
                     {subscription?.plan !== 'free' && subscription?.status === 'active' && (
                         <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
@@ -526,7 +534,7 @@ export default function BillingPage() {
                             </button>
                         </div>
                     )}
-                    
+
                     {/* Renew Subscription Button - Show when cancelled but not expired */}
                     {subscription?.plan !== 'free' && subscription?.status === 'cancelled' && (
                         <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
@@ -559,7 +567,7 @@ export default function BillingPage() {
                         <BarChart3 className="h-5 w-5 text-indigo-600" />
                         Plan Usage
                     </h2>
-                    
+
                     {loadingUsage ? (
                         <div className="flex items-center justify-center py-8">
                             <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
@@ -580,16 +588,15 @@ export default function BillingPage() {
                                         </span>
                                     </div>
                                     <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                                        <div 
-                                            className={`h-2.5 rounded-full transition-all ${
-                                                planUsage.limits.maxEventsPerMonth === -1 ? 'bg-green-500' :
-                                                (planUsage.usage.eventsThisMonth / planUsage.limits.maxEventsPerMonth) > 0.9 ? 'bg-red-500' :
-                                                (planUsage.usage.eventsThisMonth / planUsage.limits.maxEventsPerMonth) > 0.7 ? 'bg-yellow-500' : 'bg-indigo-600'
-                                            }`}
-                                            style={{ 
-                                                width: planUsage.limits.maxEventsPerMonth === -1 
-                                                    ? '100%' 
-                                                    : `${Math.min((planUsage.usage.eventsThisMonth / planUsage.limits.maxEventsPerMonth) * 100, 100)}%` 
+                                        <div
+                                            className={`h-2.5 rounded-full transition-all ${planUsage.limits.maxEventsPerMonth === -1 ? 'bg-green-500' :
+                                                    (planUsage.usage.eventsThisMonth / planUsage.limits.maxEventsPerMonth) > 0.9 ? 'bg-red-500' :
+                                                        (planUsage.usage.eventsThisMonth / planUsage.limits.maxEventsPerMonth) > 0.7 ? 'bg-yellow-500' : 'bg-indigo-600'
+                                                }`}
+                                            style={{
+                                                width: planUsage.limits.maxEventsPerMonth === -1
+                                                    ? '100%'
+                                                    : `${Math.min((planUsage.usage.eventsThisMonth / planUsage.limits.maxEventsPerMonth) * 100, 100)}%`
                                             }}
                                         />
                                     </div>
@@ -607,16 +614,15 @@ export default function BillingPage() {
                                         </span>
                                     </div>
                                     <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                                        <div 
-                                            className={`h-2.5 rounded-full transition-all ${
-                                                planUsage.limits.maxTotalAttendeesPerMonth === -1 ? 'bg-green-500' :
-                                                (planUsage.usage.attendeesTotal / planUsage.limits.maxTotalAttendeesPerMonth) > 0.9 ? 'bg-red-500' :
-                                                (planUsage.usage.attendeesTotal / planUsage.limits.maxTotalAttendeesPerMonth) > 0.7 ? 'bg-yellow-500' : 'bg-indigo-600'
-                                            }`}
-                                            style={{ 
-                                                width: planUsage.limits.maxTotalAttendeesPerMonth === -1 
-                                                    ? '100%' 
-                                                    : `${Math.min((planUsage.usage.attendeesTotal / planUsage.limits.maxTotalAttendeesPerMonth) * 100, 100)}%` 
+                                        <div
+                                            className={`h-2.5 rounded-full transition-all ${planUsage.limits.maxTotalAttendeesPerMonth === -1 ? 'bg-green-500' :
+                                                    (planUsage.usage.attendeesTotal / planUsage.limits.maxTotalAttendeesPerMonth) > 0.9 ? 'bg-red-500' :
+                                                        (planUsage.usage.attendeesTotal / planUsage.limits.maxTotalAttendeesPerMonth) > 0.7 ? 'bg-yellow-500' : 'bg-indigo-600'
+                                                }`}
+                                            style={{
+                                                width: planUsage.limits.maxTotalAttendeesPerMonth === -1
+                                                    ? '100%'
+                                                    : `${Math.min((planUsage.usage.attendeesTotal / planUsage.limits.maxTotalAttendeesPerMonth) * 100, 100)}%`
                                             }}
                                         />
                                     </div>
@@ -634,16 +640,15 @@ export default function BillingPage() {
                                         </span>
                                     </div>
                                     <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                                        <div 
-                                            className={`h-2.5 rounded-full transition-all ${
-                                                planUsage.limits.maxEmailTemplates === -1 ? 'bg-green-500' :
-                                                (planUsage.usage.emailTemplates / planUsage.limits.maxEmailTemplates) > 0.9 ? 'bg-red-500' :
-                                                (planUsage.usage.emailTemplates / planUsage.limits.maxEmailTemplates) > 0.7 ? 'bg-yellow-500' : 'bg-indigo-600'
-                                            }`}
-                                            style={{ 
-                                                width: planUsage.limits.maxEmailTemplates === -1 
-                                                    ? '100%' 
-                                                    : `${Math.min((planUsage.usage.emailTemplates / planUsage.limits.maxEmailTemplates) * 100, 100)}%` 
+                                        <div
+                                            className={`h-2.5 rounded-full transition-all ${planUsage.limits.maxEmailTemplates === -1 ? 'bg-green-500' :
+                                                    (planUsage.usage.emailTemplates / planUsage.limits.maxEmailTemplates) > 0.9 ? 'bg-red-500' :
+                                                        (planUsage.usage.emailTemplates / planUsage.limits.maxEmailTemplates) > 0.7 ? 'bg-yellow-500' : 'bg-indigo-600'
+                                                }`}
+                                            style={{
+                                                width: planUsage.limits.maxEmailTemplates === -1
+                                                    ? '100%'
+                                                    : `${Math.min((planUsage.usage.emailTemplates / planUsage.limits.maxEmailTemplates) * 100, 100)}%`
                                             }}
                                         />
                                     </div>
@@ -661,16 +666,15 @@ export default function BillingPage() {
                                         </span>
                                     </div>
                                     <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                                        <div 
-                                            className={`h-2.5 rounded-full transition-all ${
-                                                planUsage.limits.maxTicketTemplates === -1 ? 'bg-green-500' :
-                                                (planUsage.usage.ticketTemplates / planUsage.limits.maxTicketTemplates) > 0.9 ? 'bg-red-500' :
-                                                (planUsage.usage.ticketTemplates / planUsage.limits.maxTicketTemplates) > 0.7 ? 'bg-yellow-500' : 'bg-indigo-600'
-                                            }`}
-                                            style={{ 
-                                                width: planUsage.limits.maxTicketTemplates === -1 
-                                                    ? '100%' 
-                                                    : `${Math.min((planUsage.usage.ticketTemplates / planUsage.limits.maxTicketTemplates) * 100, 100)}%` 
+                                        <div
+                                            className={`h-2.5 rounded-full transition-all ${planUsage.limits.maxTicketTemplates === -1 ? 'bg-green-500' :
+                                                    (planUsage.usage.ticketTemplates / planUsage.limits.maxTicketTemplates) > 0.9 ? 'bg-red-500' :
+                                                        (planUsage.usage.ticketTemplates / planUsage.limits.maxTicketTemplates) > 0.7 ? 'bg-yellow-500' : 'bg-indigo-600'
+                                                }`}
+                                            style={{
+                                                width: planUsage.limits.maxTicketTemplates === -1
+                                                    ? '100%'
+                                                    : `${Math.min((planUsage.usage.ticketTemplates / planUsage.limits.maxTicketTemplates) * 100, 100)}%`
                                             }}
                                         />
                                     </div>
@@ -688,16 +692,15 @@ export default function BillingPage() {
                                         </span>
                                     </div>
                                     <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
-                                        <div 
-                                            className={`h-2.5 rounded-full transition-all ${
-                                                planUsage.limits.maxCoordinatorsPerEvent === -1 ? 'bg-green-500' :
-                                                (planUsage.usage.teamMembers / planUsage.limits.maxCoordinatorsPerEvent) > 0.9 ? 'bg-red-500' :
-                                                (planUsage.usage.teamMembers / planUsage.limits.maxCoordinatorsPerEvent) > 0.7 ? 'bg-yellow-500' : 'bg-indigo-600'
-                                            }`}
-                                            style={{ 
-                                                width: planUsage.limits.maxCoordinatorsPerEvent === -1 
-                                                    ? '100%' 
-                                                    : `${Math.min((planUsage.usage.teamMembers / planUsage.limits.maxCoordinatorsPerEvent) * 100, 100)}%` 
+                                        <div
+                                            className={`h-2.5 rounded-full transition-all ${planUsage.limits.maxCoordinatorsPerEvent === -1 ? 'bg-green-500' :
+                                                    (planUsage.usage.teamMembers / planUsage.limits.maxCoordinatorsPerEvent) > 0.9 ? 'bg-red-500' :
+                                                        (planUsage.usage.teamMembers / planUsage.limits.maxCoordinatorsPerEvent) > 0.7 ? 'bg-yellow-500' : 'bg-indigo-600'
+                                                }`}
+                                            style={{
+                                                width: planUsage.limits.maxCoordinatorsPerEvent === -1
+                                                    ? '100%'
+                                                    : `${Math.min((planUsage.usage.teamMembers / planUsage.limits.maxCoordinatorsPerEvent) * 100, 100)}%`
                                             }}
                                         />
                                     </div>
@@ -772,7 +775,7 @@ export default function BillingPage() {
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
                         Available Plans
                     </h2>
-                    
+
                     <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {PLANS.map((plan) => {
                             const isCurrentPlan = subscription?.plan === plan.id;
@@ -780,17 +783,16 @@ export default function BillingPage() {
                             const currentPlanIndex = planOrder.indexOf(subscription?.plan || 'free');
                             const thisPlanIndex = planOrder.indexOf(plan.id);
                             const canUpgrade = !isCurrentPlan && thisPlanIndex > currentPlanIndex;
-                            
+
                             return (
                                 <div
                                     key={plan.id}
-                                    className={`relative bg-white dark:bg-gray-800 rounded-xl border-2 p-6 ${
-                                        plan.popular 
-                                            ? 'border-indigo-500 shadow-lg' 
+                                    className={`relative bg-white dark:bg-gray-800 rounded-xl border-2 p-6 ${plan.popular
+                                            ? 'border-indigo-500 shadow-lg'
                                             : isCurrentPlan
                                                 ? 'border-green-500'
                                                 : 'border-gray-200 dark:border-gray-700'
-                                    }`}
+                                        }`}
                                 >
                                     {plan.popular && (
                                         <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo-500 text-white text-xs font-semibold px-3 py-1 rounded-full">
@@ -802,14 +804,14 @@ export default function BillingPage() {
                                             Current Plan
                                         </span>
                                     )}
-                                    
+
                                     <div className="flex items-center gap-2 mb-2">
                                         {getPlanIcon(plan.id)}
                                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                                             {plan.name}
                                         </h3>
                                     </div>
-                                    
+
                                     <div className="mb-4">
                                         <span className="text-3xl font-bold text-gray-900 dark:text-white">
                                             {formatPrice(plan.price)}
@@ -818,11 +820,11 @@ export default function BillingPage() {
                                             <span className="text-gray-500 dark:text-gray-400">/month</span>
                                         )}
                                     </div>
-                                    
+
                                     <p className="text-gray-600 dark:text-gray-400 text-sm mb-6">
                                         {plan.description}
                                     </p>
-                                    
+
                                     <ul className="space-y-3 mb-6">
                                         {plan.features.map((feature, idx) => (
                                             <li key={idx} className="flex items-start gap-2">
@@ -831,29 +833,27 @@ export default function BillingPage() {
                                                 ) : (
                                                     <X className="h-5 w-5 text-gray-300 flex-shrink-0" />
                                                 )}
-                                                <span className={`text-sm ${
-                                                    feature.included 
-                                                        ? 'text-gray-700 dark:text-gray-300' 
+                                                <span className={`text-sm ${feature.included
+                                                        ? 'text-gray-700 dark:text-gray-300'
                                                         : 'text-gray-400 dark:text-gray-500'
-                                                }`}>
+                                                    }`}>
                                                     {feature.text}
                                                 </span>
                                             </li>
                                         ))}
                                     </ul>
-                                    
+
                                     <button
                                         onClick={() => handleUpgrade(plan.id)}
                                         disabled={isCurrentPlan || (loading || upgrading)}
-                                        className={`w-full py-2.5 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
-                                            isCurrentPlan
+                                        className={`w-full py-2.5 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${isCurrentPlan
                                                 ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
                                                 : plan.popular
                                                     ? 'bg-indigo-600 text-white hover:bg-indigo-700'
                                                     : plan.id === 'enterprise'
                                                         ? 'bg-purple-600 text-white hover:bg-purple-700'
                                                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                        }`}
+                                            }`}
                                     >
                                         {(loading || upgrading) && canUpgrade ? (
                                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -876,7 +876,7 @@ export default function BillingPage() {
                         <History className="h-5 w-5 text-indigo-600" />
                         Payment History
                     </h2>
-                    
+
                     {loadingHistory ? (
                         <div className="flex items-center justify-center py-8">
                             <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
@@ -906,19 +906,18 @@ export default function BillingPage() {
                                                 {payment.currency === 'INR' ? '₹' : payment.currency} {(payment.amount / 100).toFixed(2)}
                                             </td>
                                             <td className="py-3 px-4">
-                                                <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                                                    payment.status === 'captured' || payment.status === 'completed'
+                                                <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${payment.status === 'captured' || payment.status === 'completed'
                                                         ? 'bg-green-100 text-green-800'
                                                         : payment.status === 'failed'
                                                             ? 'bg-red-100 text-red-800'
                                                             : 'bg-yellow-100 text-yellow-800'
-                                                }`}>
+                                                    }`}>
                                                     {payment.status === 'captured' ? 'Paid' : payment.status}
                                                 </span>
                                             </td>
                                             <td className="py-3 px-4">
                                                 <div className="flex items-center gap-3">
-                                                    <button 
+                                                    <button
                                                         onClick={() => handleViewInvoice(payment._id)}
                                                         className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 inline-flex items-center gap-1 text-sm cursor-pointer"
                                                         title="View Receipt"
@@ -926,7 +925,7 @@ export default function BillingPage() {
                                                         <Eye className="h-4 w-4" />
                                                         View
                                                     </button>
-                                                    <button 
+                                                    <button
                                                         onClick={() => handleDownloadInvoice(payment._id)}
                                                         className="text-indigo-600 hover:text-indigo-700 inline-flex items-center gap-1 text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                                         title="Download Receipt"
@@ -957,7 +956,7 @@ export default function BillingPage() {
                     <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
                         Frequently Asked Questions
                     </h2>
-                    
+
                     <div className="space-y-4">
                         <div>
                             <h3 className="font-medium text-gray-900 dark:text-white">Can I upgrade or downgrade at any time?</h3>
@@ -999,11 +998,11 @@ export default function BillingPage() {
                                 Cancel Subscription
                             </h3>
                         </div>
-                        
+
                         <p className="text-gray-600 dark:text-gray-400 mb-4">
                             Are you sure you want to cancel your <span className="font-medium capitalize">{subscription?.plan}</span> subscription?
                         </p>
-                        
+
                         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mb-4">
                             <p className="text-sm text-amber-800 dark:text-amber-200">
                                 <strong>What happens next:</strong>
@@ -1014,7 +1013,7 @@ export default function BillingPage() {
                                 <li>• You can renew anytime before the period ends</li>
                             </ul>
                         </div>
-                        
+
                         <div className="mb-4">
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 Help us improve - Why are you cancelling? (optional)
@@ -1042,7 +1041,7 @@ export default function BillingPage() {
                                 />
                             )}
                         </div>
-                        
+
                         <div className="flex gap-3 justify-end">
                             <button
                                 onClick={() => {

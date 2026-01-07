@@ -7,7 +7,8 @@ import {
     createUpgradeOrder,
     verifyPayment,
     handleWebhook,
-    cancelSubscription
+    cancelSubscription,
+    downloadInvoice
 } from '../controllers/subscriptionController';
 
 const router = express.Router();
@@ -24,5 +25,8 @@ router.post('/cancel-subscription', verifyToken, cancelSubscription);
 
 // Webhooks (no auth - verified by signature)
 router.post('/webhook', handleWebhook);
+
+// Invoice Download
+router.get('/invoice/:paymentId', verifyToken, downloadInvoice);
 
 export default router;

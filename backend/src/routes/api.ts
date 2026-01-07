@@ -213,3 +213,16 @@ apiRouter.get('/api-keys/usage', verifyToken, getUserApiKeyUsage);
 apiRouter.patch('/api-keys/:keyId', verifyToken, updateUserApiKey);
 apiRouter.post('/api-keys/:keyId/regenerate', verifyToken, regenerateUserApiKey);
 apiRouter.delete('/api-keys/:keyId', verifyToken, deleteUserApiKey);
+
+// Event Announcements (Cancel, Time Change, Custom Updates)
+import {
+    sendEventAnnouncement,
+    cancelEvent,
+    updateEventTime,
+    getAnnouncementPreview
+} from '../controllers/announcementController';
+
+apiRouter.post('/events/:eventId/announce', verifyToken, sendEventAnnouncement);
+apiRouter.post('/events/:eventId/cancel', verifyToken, cancelEvent);
+apiRouter.post('/events/:eventId/update-time', verifyToken, updateEventTime);
+apiRouter.post('/events/:eventId/announce/preview', verifyToken, getAnnouncementPreview);
