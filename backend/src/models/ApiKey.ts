@@ -86,7 +86,6 @@ const ApiKeySchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Indexes
-ApiKeySchema.index({ hashedKey: 1 });
 ApiKeySchema.index({ ownerId: 1 });
 ApiKeySchema.index({ isActive: 1 });
 ApiKeySchema.index({ keyPrefix: 1 });

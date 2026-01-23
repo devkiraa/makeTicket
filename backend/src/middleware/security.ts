@@ -49,9 +49,9 @@ export const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 5,
     skipSuccessfulRequests: true,
-    keyGenerator: (req: Request) => {
+    keyGenerator: (req: Request): string => {
         // Use email if available, otherwise IP
-        return req.body?.email?.toLowerCase() || req.ip || 'unknown';
+        return (req.body?.email?.toLowerCase() || req.ip || 'unknown');
     },
     handler: async (req: Request, res: Response) => {
         logger.warn('ratelimit.auth_exceeded', {
@@ -80,7 +80,9 @@ export const authLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     // Use Redis store if available
-    store: createRateLimitStore('auth')
+    store: createRateLimitStore('auth'),
+    // Explicitly validate IPv6 keys to suppress warning
+    validate: { xForwardedForHeader: false }
 });
 
 /**
@@ -90,11 +92,12 @@ export const authLimiter = rateLimit({
 export const passwordResetLimiter = rateLimit({
     windowMs: 60 * 60 * 1000, // 1 hour
     max: 3,
-    keyGenerator: (req: Request) => req.body?.email?.toLowerCase() || req.ip || 'unknown',
+    keyGenerator: (req: Request): string => (req.body?.email?.toLowerCase() || req.ip || 'unknown'),
     message: { message: 'Too many password reset requests. Please try again later.' },
     standardHeaders: true,
     legacyHeaders: false,
-    store: createRateLimitStore('pwreset')
+    store: createRateLimitStore('pwreset'),
+    validate: { xForwardedForHeader: false }
 });
 
 /**
@@ -104,7 +107,9 @@ export const passwordResetLimiter = rateLimit({
 export const scanLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
     max: 30,
-    keyGenerator: (req: Request) => (req as any).user?.id || req.ip || 'unknown',
+    keyGenerator: (req: Request): string => {
+        return ((req as any).user?.id || req.ip || 'unknown');
+    },
     handler: async (req: Request, res: Response) => {
         logger.warn('ratelimit.scan_exceeded', {
             ip: req.ip,
@@ -126,7 +131,8 @@ export const scanLimiter = rateLimit({
     },
     standardHeaders: true,
     legacyHeaders: false,
-    store: createRateLimitStore('scan')
+    store: createRateLimitStore('scan'),
+    validate: { xForwardedForHeader: false }
 });
 
 /**
@@ -136,11 +142,12 @@ export const scanLimiter = rateLimit({
 export const bulkEmailLimiter = rateLimit({
     windowMs: 60 * 60 * 1000, // 1 hour
     max: 3,
-    keyGenerator: (req: Request) => (req as any).user?.id || req.ip || 'unknown',
+    keyGenerator: (req: Request): string => ((req as any).user?.id || req.ip || 'unknown'),
     message: { message: 'Bulk email limit exceeded. Please try again later.' },
     standardHeaders: true,
     legacyHeaders: false,
-    store: createRateLimitStore('bulkemail')
+    store: createRateLimitStore('bulkemail'),
+    validate: { xForwardedForHeader: false }
 });
 
 /**
@@ -153,7 +160,8 @@ export const inviteAcceptLimiter = rateLimit({
     message: { message: 'Too many invite attempts. Please try again later.' },
     standardHeaders: true,
     legacyHeaders: false,
-    store: createRateLimitStore('invite')
+    store: createRateLimitStore('invite'),
+    validate: { xForwardedForHeader: false }
 });
 
 /**
@@ -166,7 +174,8 @@ export const apiLimiter = rateLimit({
     message: { message: 'Too many requests. Please slow down.' },
     standardHeaders: true,
     legacyHeaders: false,
-    store: createRateLimitStore('api')
+    store: createRateLimitStore('api'),
+    validate: { xForwardedForHeader: false }
 });
 
 // ==================== MONGO SANITIZATION ====================

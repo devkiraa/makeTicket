@@ -20,7 +20,6 @@ import {
     Mail,
     Clock,
     Monitor,
-    Monitor,
     User as UserIcon,
     AlertTriangle,
     Trash2
@@ -679,6 +678,7 @@ export default function UserManagementPage() {
                                                             }}>
                                                                 <Ban className="mr-2 h-4 w-4" /> Suspend User
                                                             </DropdownMenuItem>
+                                                        ) : (
                                                             <DropdownMenuItem className="text-green-600" onClick={() => handleToggleStatus(user)}>
                                                                 <UserCheck className="mr-2 h-4 w-4" /> Activate User
                                                             </DropdownMenuItem>
