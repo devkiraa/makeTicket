@@ -19,7 +19,7 @@
     "@types/multer": "^2.0.0",
     "@types/zxcvbn": "^4.4.5",
     "axios": "^1.13.2",
-    "bcryptjs": "^2.4.3",
+    "bcryptjs": "^3.0.3",
     "bullmq": "^5.0.0",
     "canvas": "^3.2.0",
     "chalk": "^4.1.2",
