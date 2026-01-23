@@ -37,7 +37,7 @@ export const getSubscription = async (req: Request, res: Response) => {
         const userId = (req as any).user.id;
 
         let subscription = await Subscription.findOne({ userId });
-        
+
         // Create default free subscription if none exists
         if (!subscription) {
             subscription = await Subscription.create({
@@ -159,10 +159,10 @@ export const createUpgradeOrder = async (req: Request, res: Response) => {
 export const verifyPayment = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).user.id;
-        const { 
-            razorpay_order_id, 
-            razorpay_payment_id, 
-            razorpay_signature 
+        const {
+            razorpay_order_id,
+            razorpay_payment_id,
+            razorpay_signature
         } = req.body;
 
         if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
@@ -247,30 +247,42 @@ export const verifyPayment = async (req: Request, res: Response) => {
 
 /**
  * Handle Razorpay webhook
+ * SECURITY: Signature verification is MANDATORY to prevent webhook spoofing
  */
 export const handleWebhook = async (req: Request, res: Response) => {
     try {
         const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
         const signature = req.headers['x-razorpay-signature'] as string;
 
-        // Verify webhook signature if secret is configured
-        if (webhookSecret && signature) {
-            const isValid = razorpayService.verifyWebhookSignature(
-                JSON.stringify(req.body),
-                signature,
-                webhookSecret
-            );
-            if (!isValid) {
-                return res.status(400).json({ message: 'Invalid webhook signature' });
-            }
+        // SECURITY: Reject webhooks without signature
+        if (!signature) {
+            console.warn('Webhook rejected: Missing signature', { ip: req.ip });
+            return res.status(401).json({ message: 'Missing webhook signature' });
+        }
+
+        // SECURITY: Verify webhook signature (mandatory)
+        if (!webhookSecret) {
+            console.error('CRITICAL: RAZORPAY_WEBHOOK_SECRET not configured');
+            return res.status(500).json({ message: 'Webhook verification not configured' });
+        }
+
+        const isValid = razorpayService.verifyWebhookSignature(
+            JSON.stringify(req.body),
+            signature,
+            webhookSecret
+        );
+
+        if (!isValid) {
+            console.warn('Webhook rejected: Invalid signature', { ip: req.ip });
+            return res.status(401).json({ message: 'Invalid webhook signature' });
         }
 
         const { event, payload } = req.body;
 
         switch (event) {
             case 'payment.captured':
-                const capturedPayment = await Payment.findOne({ 
-                    razorpayOrderId: payload.payment.entity.order_id 
+                const capturedPayment = await Payment.findOne({
+                    razorpayOrderId: payload.payment.entity.order_id
                 });
                 if (capturedPayment && capturedPayment.status !== 'paid') {
                     capturedPayment.status = 'paid';
@@ -282,8 +294,8 @@ export const handleWebhook = async (req: Request, res: Response) => {
                 break;
 
             case 'payment.failed':
-                const failedPayment = await Payment.findOne({ 
-                    razorpayOrderId: payload.payment.entity.order_id 
+                const failedPayment = await Payment.findOne({
+                    razorpayOrderId: payload.payment.entity.order_id
                 });
                 if (failedPayment) {
                     failedPayment.status = 'failed';
@@ -358,7 +370,7 @@ export const downloadInvoice = async (req: Request, res: Response) => {
         // Get plan details
         const planName = payment.plan ? payment.plan.charAt(0).toUpperCase() + payment.plan.slice(1) : 'Subscription';
         const planConfig = payment.plan ? PLAN_CONFIGS[payment.plan as keyof typeof PLAN_CONFIGS] : null;
-        
+
         // Calculate amounts (stored in paise, convert to rupees)
         // As an individual seller (not GST registered), no tax breakdown required
         const amountInRupees = payment.amount / 100;
@@ -373,7 +385,7 @@ export const downloadInvoice = async (req: Request, res: Response) => {
         const invoiceData: InvoiceData = {
             invoiceNumber,
             invoiceDate: payment.paidAt || payment.createdAt,
-            
+
             company: {
                 name: 'MakeTicket',
                 address: [
@@ -387,19 +399,19 @@ export const downloadInvoice = async (req: Request, res: Response) => {
                 logo: path.join(__dirname, '../../../frontend/public/logo.png'),
                 // No GST - Individual seller not registered under GST
             },
-            
+
             customer: {
                 name: user.name || user.email.split('@')[0],
                 email: user.email,
             },
-            
+
             payment: {
                 method: payment.method || 'Online Payment',
                 transactionId: payment.razorpayPaymentId || payment._id.toString(),
                 status: 'Paid',
                 paidAt: payment.paidAt || payment.createdAt
             },
-            
+
             items: [
                 {
                     description: `${planName} Plan Subscription - Monthly`,
@@ -408,12 +420,12 @@ export const downloadInvoice = async (req: Request, res: Response) => {
                     amount: amountInRupees,
                 }
             ],
-            
+
             subtotal: amountInRupees,
             // No tax - Individual seller not registered under GST
             total: amountInRupees,
             currency: payment.currency || 'INR',
-            
+
             notes: `Payment receipt for ${planName} Plan subscription. Thank you for choosing MakeTicket!`,
             terms: [
                 'This is a payment receipt for digital services.',
@@ -430,10 +442,10 @@ export const downloadInvoice = async (req: Request, res: Response) => {
         // Check if user wants to view in browser or download
         const viewInBrowser = req.query.view === 'true';
         const filename = `MakeTicket_Receipt_${invoiceNumber}.pdf`;
-        
+
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Length', pdfBuffer.length);
-        
+
         if (viewInBrowser) {
             // View in browser (inline)
             res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
@@ -518,7 +530,7 @@ export const renewSubscription = async (req: Request, res: Response) => {
         // Check if subscription hasn't expired yet
         const now = new Date();
         if (subscription.currentPeriodEnd && new Date(subscription.currentPeriodEnd) < now) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 message: 'Subscription has expired. Please create a new subscription.',
                 expired: true
             });

@@ -153,7 +153,7 @@ export default function AdminDashboard() {
 
             {/* Quick Actions */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card 
+                <Card
                     className="shadow-sm border-slate-200 cursor-pointer hover:shadow-md transition-shadow"
                     onClick={() => router.push('/admin/status')}
                 >
@@ -173,7 +173,7 @@ export default function AdminDashboard() {
                     </CardContent>
                 </Card>
 
-                <Card 
+                <Card
                     className="shadow-sm border-slate-200 cursor-pointer hover:shadow-md transition-shadow"
                     onClick={() => router.push('/admin/revenue')}
                 >
@@ -193,7 +193,27 @@ export default function AdminDashboard() {
                     </CardContent>
                 </Card>
 
-                <Card 
+                <Card
+                    className="shadow-sm border-slate-200 cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => router.push('/admin/security')}
+                >
+                    <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-red-100 rounded-xl">
+                                    <ShieldAlert className="h-6 w-6 text-red-600" />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-slate-900">Detection & Security</h3>
+                                    <p className="text-sm text-slate-500">Threat detection & alerts</p>
+                                </div>
+                            </div>
+                            <ChevronRight className="h-5 w-5 text-slate-400" />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card
                     className="shadow-sm border-slate-200 cursor-pointer hover:shadow-md transition-shadow"
                     onClick={() => router.push('/admin/logs')}
                 >
@@ -204,8 +224,8 @@ export default function AdminDashboard() {
                                     <Activity className="h-6 w-6 text-indigo-600" />
                                 </div>
                                 <div>
-                                    <h3 className="font-semibold text-slate-900">System Logs</h3>
-                                    <p className="text-sm text-slate-500">View server logs & activity</p>
+                                    <h3 className="font-semibold text-slate-900">System Monitoring</h3>
+                                    <p className="text-sm text-slate-500">Server logs & metrics</p>
                                 </div>
                             </div>
                             <ChevronRight className="h-5 w-5 text-slate-400" />
@@ -213,7 +233,7 @@ export default function AdminDashboard() {
                     </CardContent>
                 </Card>
 
-                <Card 
+                <Card
                     className="shadow-sm border-slate-200 cursor-pointer hover:shadow-md transition-shadow"
                     onClick={() => router.push('/admin/users')}
                 >

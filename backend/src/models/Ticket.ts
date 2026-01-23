@@ -38,8 +38,32 @@ const TicketSchema = new mongoose.Schema({
         verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Admin/Host who verified
         verificationMethod: { type: String, enum: ['manual', 'auto', 'none'], default: 'none' },
         rejectionReason: { type: String },
-        autoVerifyResponse: { type: mongoose.Schema.Types.Mixed } // Store Cloudflare Worker response
+        autoVerifyResponse: { type: mongoose.Schema.Types.Mixed }, // Store Cloudflare Worker response
+
+        // Fraud Scoring (Phase 5)
+        riskScore: { type: Number },
+        riskLevel: { type: String, enum: ['low', 'medium', 'high', 'critical'] },
+        riskReasons: [{ type: String }]
     }
 }, { timestamps: true });
+
+// Indexes for performance
+TicketSchema.index({ eventId: 1, guestEmail: 1 });
+TicketSchema.index({ 'paymentProof.verificationStatus': 1 });
+
+// SECURITY: Unique partial index on verified UTRs to prevent payment reuse fraud
+// Only enforces uniqueness when UTR exists and is verified
+TicketSchema.index(
+    { 'paymentProof.utr': 1 },
+    {
+        unique: true,
+        partialFilterExpression: {
+            'paymentProof.utr': { $exists: true, $ne: '' },
+            'paymentProof.verificationStatus': 'verified'
+        },
+        sparse: true,
+        name: 'unique_verified_utr'
+    }
+);
 
 export const Ticket = mongoose.model('Ticket', TicketSchema);

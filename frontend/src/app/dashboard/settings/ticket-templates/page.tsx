@@ -58,6 +58,7 @@ interface TicketTemplate {
     elements: TicketElement[];
     isDefault: boolean;
     isActive: boolean;
+    isGlobal?: boolean;
     createdAt: string;
 }
 
@@ -535,8 +536,13 @@ export default function TicketTemplatesPage() {
                                             </div>
                                         </div>
                                         {template.isDefault && (
-                                            <div className="absolute top-2 right-2">
+                                            <div className="absolute top-2 right-2 flex gap-1">
                                                 <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
+                                            </div>
+                                        )}
+                                        {template.isGlobal && (
+                                            <div className="absolute top-2 left-2 bg-indigo-600 text-white text-[10px] uppercase font-bold px-2 py-0.5 rounded-full shadow-sm">
+                                                Global
                                             </div>
                                         )}
                                     </div>
@@ -546,14 +552,16 @@ export default function TicketTemplatesPage() {
                                                 <p className="font-semibold text-slate-900">{template.name}</p>
                                                 <p className="text-sm text-slate-500">{template.width} × {template.height}px</p>
                                             </div>
-                                            <div className="flex gap-1">
-                                                <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); selectTemplate(template); }}>
-                                                    <Edit className="w-4 h-4" />
-                                                </Button>
-                                                <Button variant="ghost" size="sm" className="text-red-500" onClick={(e) => { e.stopPropagation(); deleteTemplate(template._id); }}>
-                                                    <Trash2 className="w-4 h-4" />
-                                                </Button>
-                                            </div>
+                                            {!template.isGlobal && (
+                                                <div className="flex gap-1">
+                                                    <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); selectTemplate(template); }}>
+                                                        <Edit className="w-4 h-4" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="sm" className="text-red-500" onClick={(e) => { e.stopPropagation(); deleteTemplate(template._id); }}>
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
+                                            )}
                                         </div>
                                     </CardContent>
                                 </Card>

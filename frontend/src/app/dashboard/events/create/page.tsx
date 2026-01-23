@@ -83,7 +83,10 @@ function CreateEventContent() {
     const [emailTemplates, setEmailTemplates] = useState<Array<{ _id: string; name: string; subject: string; type: string }>>([]);
 
     // Ticket Templates
-    const [ticketTemplates, setTicketTemplates] = useState<Array<{ _id: string; name: string; width: number; height: number; isDefault: boolean }>>([]);
+    const [ticketTemplates, setTicketTemplates] = useState<Array<{ _id: string; name: string; width: number; height: number; isDefault: boolean; isGlobal?: boolean }>>([]);
+
+
+
 
     // Validations & Async
     const [username, setUsername] = useState('');
@@ -957,12 +960,14 @@ function CreateEventContent() {
                                     >
                                         <option value="">Use default ticket design</option>
                                         {ticketTemplates.map((t) => (
-                                            <option key={t._id} value={t._id}>{t.name}</option>
+                                            <option key={t._id} value={t._id}>
+                                                {t.name} {t.isGlobal ? '(Global)' : ''}
+                                            </option>
                                         ))}
                                     </select>
                                     <p className="text-xs text-slate-500">
                                         Select a custom ticket design or use the default.
-                                        <a href="/dashboard/ticket-templates" className="text-indigo-600 ml-1 hover:underline">Design tickets →</a>
+                                        <a href="/dashboard/settings/ticket-templates" className="text-indigo-600 ml-1 hover:underline">Design tickets →</a>
                                     </p>
                                 </div>
                             )}

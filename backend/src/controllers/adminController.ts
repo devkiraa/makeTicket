@@ -9,6 +9,7 @@ import { Subscription } from '../models/Subscription';
 import { PlanConfig, DEFAULT_PLAN_CONFIGS } from '../models/PlanConfig';
 import { EmailTemplate } from '../models/EmailTemplate';
 import { SecurityEvent } from '../models/SecurityEvent';
+import { Session } from '../models/Session';
 import {
     getAllPlanConfigs,
     clearPlanConfigCache,
@@ -425,6 +426,62 @@ export const getUserActivity = async (req: Request, res: Response) => {
         });
     } catch (error: any) {
         res.status(500).json({ message: 'Failed to fetch activity' });
+    }
+};
+
+// Permanently Delete User
+export const deleteUser = async (req: Request, res: Response) => {
+    try {
+        const { userId } = req.params;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Prevent deleting self or other admins (unless super admin, but simplified here)
+        // @ts-ignore
+        if (userId === req.user.id) {
+            return res.status(400).json({ message: 'Cannot delete your own account' });
+        }
+
+        // Perform cascading delete
+        // 1. Delete Events hosted by user
+        await Event.deleteMany({ hostId: userId });
+
+        // 2. Delete Tickets owned by user
+        await Ticket.deleteMany({ $or: [{ ownerId: userId }, { userId: userId }] });
+
+        // 3. Delete Subscriptions
+        await Subscription.deleteMany({ userId });
+
+        // 4. Delete Payments
+        await Payment.deleteMany({ userId });
+
+        // 5. Delete Sessions
+        await Session.deleteMany({ userId });
+
+        // 6. Delete User Security Events
+        await SecurityEvent.deleteMany({ userId });
+
+        // 7. Finally, delete the User
+        await User.findByIdAndDelete(userId);
+
+        // Audit Log
+        await AuditLog.create({
+            // @ts-ignore
+            adminId: req.user.id,
+            action: 'DELETE_USER',
+            targetId: userId,
+            details: { email: user.email, name: user.name },
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent']
+        });
+
+        res.json({ message: 'User and all associated data permanently deleted' });
+    } catch (error: any) {
+        logger.error('admin.delete_user_failed', { error: error.message }, error);
+        res.status(500).json({ message: 'Failed to delete user' });
     }
 };
 

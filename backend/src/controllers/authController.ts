@@ -7,6 +7,9 @@ import crypto from 'crypto';
 
 import { SecurityEvent } from '../models/SecurityEvent';
 import { Session } from '../models/Session';
+import { createSignedState, verifySignedState, generateAuthCode } from '../utils/security';
+import { storeAuthCode, consumeAuthCode } from '../lib/redis';
+import { logger } from '../lib/logger';
 
 // Helper to parse user agent
 const parseUserAgent = (userAgent: string) => {
@@ -150,9 +153,9 @@ export const register = async (req: Request, res: Response) => {
 export const googleAuthRedirect = (req: Request, res: Response) => {
     const returnUrl = req.query.returnUrl || '/dashboard';
 
-    // Create state to preserve return URL and prevent CSRF
-    // In production, sign this state
-    const state = Buffer.from(JSON.stringify({ returnUrl })).toString('base64');
+    // SECURITY: Sign state parameter with HMAC to prevent CSRF and state tampering
+    const stateSecret = process.env.STATE_SECRET || process.env.JWT_SECRET!;
+    const state = createSignedState({ returnUrl, timestamp: Date.now() }, stateSecret);
 
     const redirectUri = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/google/callback`;
     const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -162,7 +165,7 @@ export const googleAuthRedirect = (req: Request, res: Response) => {
     }
 
     const scope = 'email profile';
-    const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&state=${state}`;
+    const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&state=${encodeURIComponent(state)}`;
 
     res.redirect(url);
 };
@@ -176,11 +179,13 @@ export const googleAuthCallback = async (req: Request, res: Response) => {
         // Decode state
         let returnUrl = '/';
         if (state) {
-            try {
-                const decodedState = JSON.parse(Buffer.from(state as string, 'base64').toString('utf-8'));
-                if (decodedState.returnUrl) returnUrl = decodedState.returnUrl;
-            } catch (e) {
-                console.error("Failed to decode state", e);
+            const stateSecret = process.env.STATE_SECRET || process.env.JWT_SECRET!;
+            const decodedState = verifySignedState(state as string, stateSecret) as any;
+            if (decodedState && decodedState.returnUrl) {
+                returnUrl = decodedState.returnUrl;
+            } else {
+                logger.warn('auth.google_callback_invalid_state', { state });
+                // We could block here, but for now just fallback to default returnUrl
             }
         }
 
@@ -288,23 +293,76 @@ export const googleAuthCallback = async (req: Request, res: Response) => {
         // Generate JWT
         const token = jwt.sign(
             { email: user!.email, id: user!._id, role: user!.role, sessionId: session._id },
-            process.env.JWT_SECRET || 'test_secret',
+            process.env.JWT_SECRET!,
             { expiresIn: '1d' }
         );
 
-        // Redirect to Frontend
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        // SECURITY: Instead of passing token in URL, use short-lived auth code
+        // This prevents token leakage via browser history, logs, and referrer headers
+        const authCode = generateAuthCode();
+        await storeAuthCode(authCode, {
+            token,
+            userId: user!._id.toString(),
+            createdAt: Date.now()
+        }, 300); // 5 minute expiry for auth code
 
-        // Append token to return URL
-        // If returnUrl already has query params, append with &
+        // Redirect to Frontend with auth code (not token)
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
         const separator = returnUrl.includes('?') ? '&' : '?';
-        const finalUrl = `${frontendUrl}${returnUrl}${separator}token=${token}`;
+        const finalUrl = `${frontendUrl}${returnUrl}${separator}code=${authCode}`;
 
         res.redirect(finalUrl);
 
     } catch (err: any) {
         console.error("Google Auth Error:", err?.response?.data || err.message);
         res.status(500).send("Authentication Failed");
+    }
+};
+
+/**
+ * Exchange auth code for JWT token
+ * SECURITY: One-time use, short-lived codes prevent replay attacks
+ */
+export const exchangeAuthCode = async (req: Request, res: Response) => {
+    try {
+        const { code } = req.body;
+
+        if (!code || typeof code !== 'string') {
+            return res.status(400).json({ message: 'Auth code is required' });
+        }
+
+        // Consume the auth code (one-time use)
+        const codeData = await consumeAuthCode(code) as any;
+
+        if (!codeData) {
+            await SecurityEvent.create({
+                type: 'auth_failure',
+                severity: 'medium',
+                ipAddress: req.ip || 'unknown',
+                userAgent: req.headers['user-agent'],
+                details: { reason: 'invalid_or_expired_auth_code' }
+            }).catch(() => { });
+
+            return res.status(401).json({ message: 'Invalid or expired auth code' });
+        }
+
+        // Set cookie for the token
+        res.cookie('auth_token', codeData.token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 24 * 60 * 60 * 1000 // 1 day
+        });
+
+        res.json({
+            success: true,
+            message: 'Authentication successful',
+            token: codeData.token // Also return token in response for client storage
+        });
+
+    } catch (error: any) {
+        console.error('Exchange auth code error:', error);
+        res.status(500).json({ message: 'Failed to exchange auth code', error: error.message });
     }
 };
 
@@ -383,20 +441,67 @@ export const login = async (req: Request, res: Response) => {
                 userAgent: req.headers['user-agent'],
                 details: { reason: 'user_not_found', emailAttempt: email }
             });
-            return res.status(404).json({ message: 'User not found' });
+            // SECURITY: Use generic message to prevent user enumeration
+            return res.status(401).json({ message: 'Invalid email or password' });
+        }
+
+        // SECURITY: Check if account is locked
+        const { isAccountLocked, recordFailedLogin, resetFailedLogins, checkAndNotifyNewDevice } = await import('../services/loginNotificationService');
+
+        const lockStatus = isAccountLocked(user);
+        if (lockStatus.locked) {
+            const remainingMinutes = Math.ceil((lockStatus.remainingMs || 0) / 60000);
+            await SecurityEvent.create({
+                type: 'auth_failure',
+                severity: 'high',
+                userId: user._id,
+                ipAddress: req.ip || 'Unknown',
+                userAgent: req.headers['user-agent'],
+                details: { reason: 'account_locked', remainingMinutes }
+            });
+            return res.status(423).json({
+                message: `Account is temporarily locked. Please try again in ${remainingMinutes} minutes.`,
+                locked: true,
+                remainingMinutes
+            });
         }
 
         const isPasswordCorrect = await bcrypt.compare(password, user.password);
         if (!isPasswordCorrect) {
+            // Record failed attempt and potentially lock account
+            const lockResult = await recordFailedLogin(user._id.toString());
+
             await SecurityEvent.create({
                 type: 'auth_failure',
                 severity: 'medium',
                 userId: user._id,
                 ipAddress: req.ip || req.headers['x-forwarded-for'] || 'Unknown',
                 userAgent: req.headers['user-agent'],
-                details: { reason: 'invalid_password' }
+                details: {
+                    reason: 'invalid_password',
+                    accountLocked: lockResult.locked,
+                    lockoutMinutes: lockResult.lockoutMinutes
+                }
             });
-            return res.status(400).json({ message: 'Invalid credentials' });
+
+            // Return 401 for invalid password
+            return res.status(401).json({ message: 'Invalid email or password' });
+        }
+
+        // Reset failed login attempts on successful login
+        await resetFailedLogins(user._id.toString());
+
+        // Anomaly Detection (Phase 4)
+        try {
+            const { checkLoginAnomaly, recordLoginHistory } = await import('../services/anomalyService');
+            const ip = req.ip || 'Unknown';
+            const ua = req.headers['user-agent'] || 'Unknown';
+            // Check anomaly BEFORE recording current login (to compare against previous)
+            await checkLoginAnomaly(user._id.toString(), ip, ua);
+            // Record current login
+            await recordLoginHistory(user._id.toString(), ip, ua);
+        } catch (e) {
+            console.error('Anomaly check failed', e);
         }
 
         // Check if user is suspended
@@ -433,7 +538,7 @@ export const login = async (req: Request, res: Response) => {
 
         const token = jwt.sign(
             { email: user!.email, id: user!._id, role: user!.role, sessionId: session._id },
-            process.env.JWT_SECRET || 'test_secret',
+            process.env.JWT_SECRET!,
             { expiresIn: '1d' }
         );
 
@@ -442,6 +547,15 @@ export const login = async (req: Request, res: Response) => {
             secure: process.env.NODE_ENV === 'production',
             maxAge: 24 * 60 * 60 * 1000 // 1 day
         });
+
+        // SECURITY: Check for new device and send notification (async, don't block response)
+        const userAgent = req.headers['user-agent'] || 'Unknown';
+        const ipAddress = req.ip || req.headers['x-forwarded-for']?.toString() || 'Unknown';
+        checkAndNotifyNewDevice({
+            userId: user!._id.toString(),
+            userAgent,
+            ipAddress
+        }).catch(() => { }); // Non-blocking
 
         res.status(200).json({ result: user, token });
     } catch (error) {

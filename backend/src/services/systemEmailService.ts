@@ -218,6 +218,46 @@ const systemTemplates = {
     </div>
 </body>
 </html>`
+    }),
+
+    deletionRequest: (data: { userName: string; platformName: string; code: string; expiryMinutes: number }) => ({
+        subject: `Confirm Account Deletion - ${data.platformName}`,
+        html: `
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 20px; margin: 0; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .header { background: #1f2937; color: white; padding: 30px; text-align: center; }
+        .header img { height: 50px; margin-bottom: 15px; }
+        .content { padding: 30px; color: #333; }
+        .code-box { background: #f3f4f6; padding: 20px; text-align: center; margin: 20px 0; font-size: 32px; letter-spacing: 5px; font-weight: bold; border-radius: 8px; }
+        .warning { color: #dc2626; font-weight: 600; margin-top: 20px; }
+        .footer { padding: 20px 30px; background: #f8fafc; text-align: center; color: #64748b; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="https://maketicket.app/logo.png" alt="${data.platformName}" />
+            <h1>⚠️ Confirm Deletion</h1>
+        </div>
+        <div class="content">
+            <p>Hi <strong>${data.userName}</strong>,</p>
+            <p>You have requested to permanently delete your ${data.platformName} account and all associated data.</p>
+            <p>This action is <strong>irreversible</strong>.</p>
+            <p>To confirm this request, please enter the following code:</p>
+            <div class="code-box">${data.code}</div>
+            <p>This code will expire in ${data.expiryMinutes} minutes.</p>
+            <p class="warning">If you did not request this, please change your password immediately.</p>
+        </div>
+        <div class="footer">
+            <p>© ${new Date().getFullYear()} ${data.platformName}. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>`
     })
 };
 
@@ -230,7 +270,7 @@ const replacePlaceholders = (template: string, data: any) => {
 
 // Send system email using configured system email account
 export const sendSystemEmail = async (
-    type: 'welcome' | 'passwordReset' | 'hostUpgrade' | 'suspension' | 'loginAlert',
+    type: 'welcome' | 'passwordReset' | 'hostUpgrade' | 'suspension' | 'loginAlert' | 'deletionRequest',
     recipientEmail: string,
     data: any
 ): Promise<boolean> => {
@@ -250,7 +290,8 @@ export const sendSystemEmail = async (
             passwordReset: 'passwordReset',
             hostUpgrade: 'hostUpgradeConfirmation',
             suspension: 'suspensionNotice',
-            loginAlert: 'loginAlert'
+            loginAlert: 'loginAlert',
+            deletionRequest: 'deletionRequest'
         };
 
         const settingKey = emailTypeMapping[type];
@@ -295,7 +336,8 @@ export const sendSystemEmail = async (
             passwordReset: 'passwordReset',
             hostUpgrade: 'hostUpgradeConfirmation',
             suspension: 'suspensionNotice',
-            loginAlert: 'loginAlert'
+            loginAlert: 'loginAlert',
+            deletionRequest: 'security'
         };
         const senderKey = senderTypeMapping[type] || 'welcomeEmail';
         const senderType = senderConfig[senderKey] || 'hello';
@@ -468,3 +510,6 @@ export const sendSuspensionEmail = (email: string, userName: string, reason: str
 
 export const sendLoginAlertEmail = (email: string, userName: string, loginTime: string, ipAddress: string, device: string) =>
     sendSystemEmail('loginAlert', email, { userName, loginTime, ipAddress, device });
+
+export const sendDeletionConfirmationEmail = (email: string, userName: string, code: string) =>
+    sendSystemEmail('deletionRequest', email, { userName, code, expiryMinutes: 15 });

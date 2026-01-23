@@ -90,12 +90,17 @@ export const metadata: Metadata = {
 };
 
 import { Toaster } from "@/components/ui/toaster";
+import { CaptchaProvider } from "@/providers/CaptchaProvider";
+import { headers } from "next/headers";
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const headersList = await headers();
+  const nonce = headersList.get('x-nonce') || undefined;
+
   return (
     <html lang="en">
       <body
@@ -104,8 +109,10 @@ export default function RootLayout({
           spaceGrotesk.className
         )}
       >
-        {children}
-        <Toaster />
+        <CaptchaProvider nonce={nonce}>
+          {children}
+          <Toaster />
+        </CaptchaProvider>
       </body>
     </html >
   );

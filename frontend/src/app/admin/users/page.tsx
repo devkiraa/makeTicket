@@ -20,7 +20,10 @@ import {
     Mail,
     Clock,
     Monitor,
-    User as UserIcon
+    Monitor,
+    User as UserIcon,
+    AlertTriangle,
+    Trash2
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -139,6 +142,9 @@ export default function UserManagementPage() {
     // Plan Management States
     const [planModalOpen, setPlanModalOpen] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<string>('free');
+
+    // Delete User State
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
     // Enterprise Quota Overrides
     const [quotaModalOpen, setQuotaModalOpen] = useState(false);
@@ -441,6 +447,28 @@ export default function UserManagementPage() {
         }
     };
 
+    const handleDeleteUser = async () => {
+        if (!selectedUser) return;
+        const token = localStorage.getItem('auth_token');
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/admin/users/${selectedUser._id}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.message || 'Failed to delete user');
+            }
+
+            toast({ title: "Success", description: "User and all data deleted permanently" });
+            setDeleteModalOpen(false);
+            fetchUsers();
+        } catch (error: any) {
+            toast({ title: "Error", description: error.message, variant: "destructive" });
+        }
+    };
+
     const exportUsers = () => {
         const csvContent = "data:text/csv;charset=utf-8,"
             + ["Name", "Email", "Role", "Status", "Joined"].join(",") + "\n"
@@ -651,11 +679,17 @@ export default function UserManagementPage() {
                                                             }}>
                                                                 <Ban className="mr-2 h-4 w-4" /> Suspend User
                                                             </DropdownMenuItem>
-                                                        ) : (
                                                             <DropdownMenuItem className="text-green-600" onClick={() => handleToggleStatus(user)}>
                                                                 <UserCheck className="mr-2 h-4 w-4" /> Activate User
                                                             </DropdownMenuItem>
                                                         )}
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem className="text-red-700 bg-red-50 focus:bg-red-100" onClick={() => {
+                                                            setSelectedUser(user);
+                                                            setDeleteModalOpen(true);
+                                                        }}>
+                                                            <Trash2 className="mr-2 h-4 w-4" /> Delete Permanently
+                                                        </DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
                                             </td>
@@ -899,6 +933,38 @@ export default function UserManagementPage() {
                         <Button variant="outline" onClick={() => setQuotaModalOpen(false)} disabled={quotaSaving}>Cancel</Button>
                         <Button variant="destructive" onClick={resetEnterpriseQuotas} disabled={quotaSaving}>Reset overrides</Button>
                         <Button onClick={saveEnterpriseQuotas} disabled={quotaSaving}>Save</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Permanent Deletion Dialog */}
+            <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-red-600">
+                            <AlertTriangle className="h-5 w-5" />
+                            Permanently Delete User
+                        </DialogTitle>
+                        <DialogDescription className="space-y-3">
+                            <p>
+                                Are you sure you want to <b>permanently delete</b> the user <b>{selectedUser?.email}</b>?
+                            </p>
+                            <div className="bg-red-50 text-red-800 p-3 rounded-md text-sm border border-red-100">
+                                <p className="font-semibold mb-1">Warning: This action is irreversible.</p>
+                                <ul className="list-disc pl-4 space-y-1">
+                                    <li>User account will be deleted.</li>
+                                    <li>All events created by this user will be deleted.</li>
+                                    <li>All tickets owned by this user explicitly will be deleted.</li>
+                                    <li>All payment records and subscriptions will be deleted.</li>
+                                </ul>
+                            </div>
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setDeleteModalOpen(false)}>Cancel</Button>
+                        <Button variant="destructive" onClick={handleDeleteUser}>
+                            Delete Permanently
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

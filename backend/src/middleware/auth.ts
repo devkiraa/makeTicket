@@ -5,16 +5,16 @@ import { Session } from '../models/Session';
 
 export const verifyToken = async (req: Request, res: Response, next: NextFunction) => {
     // Support token from: cookies, Authorization header, or query param (for SSE)
-    const token = req.cookies.auth_token || 
-                  req.headers.authorization?.split(' ')[1] ||
-                  req.query.token as string;
+    const token = req.cookies.auth_token ||
+        req.headers.authorization?.split(' ')[1] ||
+        req.query.token as string;
 
     if (!token) {
         return res.status(401).json({ message: 'Unauthorized - No Token' });
     }
 
     try {
-        const decoded: any = jwt.verify(token, process.env.JWT_SECRET || 'test_secret');
+        const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
 
         // Session validation is REQUIRED
         if (!decoded.sessionId) {
@@ -57,9 +57,9 @@ export const verifyToken = async (req: Request, res: Response, next: NextFunctio
  * Useful for routes that work for both guests and logged-in users
  */
 export const optionalAuth = async (req: Request, res: Response, next: NextFunction) => {
-    const token = req.cookies.auth_token || 
-                  req.headers.authorization?.split(' ')[1] ||
-                  req.query.token as string;
+    const token = req.cookies.auth_token ||
+        req.headers.authorization?.split(' ')[1] ||
+        req.query.token as string;
 
     if (!token) {
         // No token - continue as guest
@@ -67,21 +67,33 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
     }
 
     try {
-        const decoded: any = jwt.verify(token, process.env.JWT_SECRET || 'test_secret');
+        const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
 
         if (decoded.sessionId) {
             const session = await Session.findById(decoded.sessionId);
-            
+
             // If session is valid, attach user
             if (session && session.isValid && session.expiresAt > new Date()) {
                 // @ts-ignore
                 req.user = decoded;
             }
         }
-        
+
         next();
     } catch (error) {
         // Invalid token - continue as guest (don't block the request)
         next();
+    }
+};
+
+/**
+ * Middleware to require admin privileges
+ */
+export const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
+    // @ts-ignore
+    if (req.user && req.user.role === 'admin') {
+        next();
+    } else {
+        return res.status(403).json({ message: 'Forbidden - Admin Access Required' });
     }
 };

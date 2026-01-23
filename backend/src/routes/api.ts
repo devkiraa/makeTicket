@@ -1,7 +1,7 @@
 import express from 'express';
 import { createEvent, getEvent, getMyEvents, updateEvent, checkEventSlug, deleteEvent, toggleRegistrationPause } from '../controllers/eventController';
-import { registerTicket, validateTicket, getEventAttendees, checkRegistration, approveTicket, rejectTicket, getPendingTickets } from '../controllers/ticketController';
-import { verifyToken } from '../middleware/auth';
+import { registerTicket, validateTicket, getEventAttendees, checkRegistration, approveTicket, rejectTicket, getPendingTickets, transferTicket } from '../controllers/ticketController';
+import { verifyToken, requireAdmin } from '../middleware/auth';
 import {
     canCreateEvent,
     canAddAttendee,
@@ -11,6 +11,7 @@ import {
     requireExportData,
     requireBulkImport
 } from '../middleware/planLimits';
+import { scanLimiter, inviteAcceptLimiter } from '../middleware/security';
 import { googleAuthRedirect, googleAuthCallback, getProfile, getSessions, revokeSession, updateProfile, checkUsernameAvailability } from '../controllers/authController';
 import { getPublicUserProfile } from '../controllers/userController';
 import { getDashboardStats, getAllAttendees, getMyRegistrations, upgradeToHost } from '../controllers/dashboardController';
@@ -55,6 +56,7 @@ apiRouter.post('/events/:id/toggle-pause', verifyToken, toggleRegistrationPause)
 
 // Tickets & Coordinators (MUST be before :username/:slug to avoid conflicts)
 apiRouter.post('/events/:eventId/register', registerTicket);
+apiRouter.post('/tickets/:ticketId/transfer', verifyToken, transferTicket); // Transfer ticket
 apiRouter.get('/events/:eventId/check-registration', checkRegistration); // Check if email already registered
 apiRouter.get('/events/:eventId/attendees', verifyToken, getEventAttendees);
 apiRouter.get('/events/:eventId/coordinators', verifyToken, getEventCoordinators); // Get coordinators for event
@@ -66,7 +68,7 @@ apiRouter.post('/tickets/:ticketId/reject', verifyToken, rejectTicket); // Rejec
 apiRouter.post('/events/:eventId/interest', registerInterest); // Notify me
 apiRouter.get('/events/:username/:slug', getEvent);
 
-apiRouter.post('/validate', verifyToken, validateTicket);
+apiRouter.post('/validate', verifyToken, scanLimiter, validateTicket); // Rate limited
 
 // Dashboard
 apiRouter.get('/dashboard/stats', verifyToken, getDashboardStats);
@@ -79,12 +81,12 @@ apiRouter.post('/dashboard/upgrade-to-host', verifyToken, upgradeToHost); // Upg
 apiRouter.post('/coordinators', verifyToken, canAddCoordinator, addCoordinator); // Host adds coordinator
 apiRouter.get('/coordinators/my-events', verifyToken, getMyCoordinatedEvents); // Get events I'm coordinating
 apiRouter.get('/coordinators/invite/:token', getInviteDetails); // Public - get invite details
-apiRouter.post('/coordinators/invite/:token/accept', verifyToken, acceptInvite); // Accept invite
+apiRouter.post('/coordinators/invite/:token/accept', verifyToken, inviteAcceptLimiter, acceptInvite); // Accept invite (rate limited)
 apiRouter.patch('/coordinators/:coordinatorId', verifyToken, updateCoordinator); // Update permissions
 apiRouter.delete('/coordinators/:coordinatorId', verifyToken, removeCoordinator); // Remove coordinator
 
-// QR Scanning
-apiRouter.post('/scan/check-in', verifyToken, scanQRCheckIn); // Scan and check-in
+// QR Scanning (rate limited to prevent brute-force ticket enumeration)
+apiRouter.post('/scan/check-in', verifyToken, scanLimiter, scanQRCheckIn); // Scan and check-in
 
 // Email System
 import {
@@ -174,6 +176,21 @@ apiRouter.patch('/notifications/:notificationId/read', verifyToken, markAsRead);
 apiRouter.delete('/notifications/:notificationId', verifyToken, deleteNotification);
 apiRouter.delete('/notifications', verifyToken, clearAllNotifications);
 
+import {
+    getSecurityEvents,
+    getSecurityStats,
+    exportSecurityLogs,
+    forceLogoutUser,
+    streamSecurityLogs
+} from '../controllers/securityController';
+
+// Admin Security Dashboard
+apiRouter.get('/admin/security/events', verifyToken, requireAdmin, getSecurityEvents);
+apiRouter.get('/admin/security/stats', verifyToken, requireAdmin, getSecurityStats);
+apiRouter.get('/admin/security/export', verifyToken, requireAdmin, exportSecurityLogs);
+apiRouter.get('/admin/security/stream', verifyToken, requireAdmin, streamSecurityLogs); // New SIEM endpoint
+apiRouter.post('/admin/security/logout', verifyToken, requireAdmin, forceLogoutUser);
+
 // Contacts & Marketing
 import {
     getContacts,
@@ -226,3 +243,7 @@ apiRouter.post('/events/:eventId/announce', verifyToken, sendEventAnnouncement);
 apiRouter.post('/events/:eventId/cancel', verifyToken, cancelEvent);
 apiRouter.post('/events/:eventId/update-time', verifyToken, updateEventTime);
 apiRouter.post('/events/:eventId/announce/preview', verifyToken, getAnnouncementPreview);
+
+// GDPR Routes
+import { gdprRouter } from './gdpr';
+apiRouter.use('/gdpr', gdprRouter);

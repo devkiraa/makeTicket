@@ -7,21 +7,65 @@ import {
     FileText,
     Settings,
     ShieldCheck,
+    ShieldAlert,
     LogOut,
     ArrowLeft,
     Server,
-    Mail
+    Mail,
+    Users,
+    Monitor,
+    MessageSquare,
+    DollarSign,
+    Wallet,
+    CreditCard,
+    Ticket
 } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
 
-    const navItems = [
-        { name: 'Overview', href: '/admin', icon: LayoutDashboard },
-        { name: 'System Logs', href: '/admin/logs', icon: FileText },
-        { name: 'Email Templates', href: '/admin/email-templates', icon: Mail },
-        { name: 'Server Status', href: '/admin/status', icon: Server },
+    const navSections = [
+        {
+            title: 'General',
+            items: [
+                { name: 'Overview', href: '/admin', icon: LayoutDashboard },
+                { name: 'Revenue', href: '/admin/revenue', icon: DollarSign },
+            ]
+        },
+        {
+            title: 'Users & Support',
+            items: [
+                { name: 'All Users', href: '/admin/users', icon: Users },
+                { name: 'Active Sessions', href: '/admin/sessions', icon: Monitor },
+                { name: 'Support Tickets', href: '/admin/support', icon: MessageSquare },
+            ]
+        },
+        {
+            title: 'System & Security',
+            items: [
+                { name: 'System Logs', href: '/admin/logs', icon: FileText },
+                { name: 'Server Status', href: '/admin/status', icon: Server },
+                { name: 'Security Overview', href: '/admin/security', icon: ShieldCheck },
+                { name: 'Threat Events', href: '/admin/security/events', icon: ShieldAlert },
+            ]
+        },
+        {
+            title: 'Communications',
+            items: [
+                { name: 'System Email', href: '/admin/email', icon: Mail },
+                { name: 'Email Logs', href: '/admin/email-logs', icon: Mail },
+                { name: 'Email Templates', href: '/admin/email-templates', icon: FileText },
+            ]
+        },
+        {
+            title: 'Billing & Configuration',
+            items: [
+                { name: 'Plan Limits', href: '/admin/plans', icon: CreditCard },
+                { name: 'Payment Verification', href: '/admin/payments', icon: Wallet },
+                { name: 'Ticket Templates', href: '/admin/ticket-templates', icon: Ticket },
+            ]
+        }
     ];
 
     return (
@@ -35,22 +79,33 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     </div>
                 </div>
 
-                <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-                    {navItems.map((item) => {
-                        const Icon = item.icon;
-                        const isActive = pathname === item.href;
-                        return (
-                            <Button
-                                key={item.href}
-                                variant="ghost"
-                                className={`w-full justify-start font-medium ${isActive ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
-                                onClick={() => router.push(item.href)}
-                            >
-                                <Icon className="mr-3 h-5 w-5" />
-                                {item.name}
-                            </Button>
-                        )
-                    })}
+                <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
+                    {navSections.map((section, idx) => (
+                        <div key={idx}>
+                            {section.title && (
+                                <h3 className="mb-2 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                    {section.title}
+                                </h3>
+                            )}
+                            <div className="space-y-1">
+                                {section.items.map((item) => {
+                                    const Icon = item.icon;
+                                    const isActive = pathname === item.href;
+                                    return (
+                                        <Button
+                                            key={item.href}
+                                            variant="ghost"
+                                            className={`w-full justify-start font-medium ${isActive ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                                            onClick={() => router.push(item.href)}
+                                        >
+                                            <Icon className="mr-3 h-5 w-5" />
+                                            {item.name}
+                                        </Button>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    ))}
                 </nav>
 
                 <div className="p-4 border-t border-slate-800 space-y-1">

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { Ticket } from '../models/Ticket';
 import { Event } from '../models/Event';
+import { AuditLog } from '../models/AuditLog';
 import { logger } from '../lib/logger';
 import { sendTicketEmail } from '../services/emailService';
 import multer from 'multer';
@@ -59,6 +60,15 @@ export const uploadPaymentProof = async (req: Request, res: Response) => {
         // Store payment proof info
         const screenshotUrl = `/uploads/payment-proofs/${req.file.filename}`;
 
+        // FRAUD SCORING (Phase 5)
+        const { analyzePaymentRisk } = await import('../services/fraudService');
+        const risk = await analyzePaymentRisk(
+            ticket.userId?.toString() || '',
+            parseFloat(amount) || ticket.pricePaid || 0,
+            req.ip || req.headers['x-forwarded-for']?.toString() || 'unknown',
+            ticket.guestEmail || ''
+        );
+
         ticket.paymentProof = {
             screenshotUrl,
             utr: utr || '',
@@ -66,8 +76,18 @@ export const uploadPaymentProof = async (req: Request, res: Response) => {
             uploadedAt: new Date(),
             verificationStatus: 'pending',
             verificationMethod: 'none',
-            autoVerifyResponse: {}
+            autoVerifyResponse: {},
+            // Fraud Results
+            riskScore: risk.score,
+            riskLevel: risk.riskLevel,
+            riskReasons: risk.reasons
         };
+
+        if (risk.riskLevel === 'critical') {
+            ticket.paymentProof.verificationStatus = 'rejected';
+            ticket.paymentProof.rejectionReason = 'Automated Fraud Risk: ' + risk.reasons.join(', ');
+            logger.warn('payment.fraud_rejected', { ticketId, risk });
+        }
 
         await ticket.save();
 
@@ -177,6 +197,32 @@ export const verifyPaymentManual = async (req: Request, res: Response) => {
 
         const event = ticket.eventId as any;
 
+        // SECURITY: Hard block on duplicate verified UTRs (prevents payment reuse fraud)
+        if (status === 'verified' && ticket.paymentProof.utr) {
+            const existingVerified = await Ticket.findOne({
+                'paymentProof.utr': ticket.paymentProof.utr,
+                'paymentProof.verificationStatus': 'verified',
+                _id: { $ne: ticketId }
+            });
+
+            if (existingVerified) {
+                logger.warn('payment.duplicate_utr_blocked', {
+                    ticketId,
+                    duplicateTicketId: existingVerified._id,
+                    utr: ticket.paymentProof.utr,
+                    // @ts-ignore
+                    adminId: req.user.id
+                });
+
+                return res.status(400).json({
+                    message: 'This UTR has already been used for another ticket. Duplicate payments are not allowed.',
+                    duplicateBlocked: true,
+                    duplicateTicketId: existingVerified._id,
+                    canForceApprove: false // Never allow force approve for duplicates
+                });
+            }
+        }
+
         // Validation checks for approval (skip if forceApprove is true)
         if (status === 'verified' && !forceApprove) {
             // Check 1: Amount validation - payment proof amount should match ticket price
@@ -217,6 +263,41 @@ export const verifyPaymentManual = async (req: Request, res: Response) => {
                 });
                 // Don't reject, but log warning - organizer can still approve
             }
+        }
+
+        // SECURITY: Audit log for force approvals (bypassing validation)
+        if (forceApprove && status === 'verified') {
+            const proofAmount: number = Number(ticket.paymentProof.amount) || 0;
+            const ticketPrice: number = Number(ticket.pricePaid) || Number(event?.price) || 0;
+
+            logger.warn('payment.force_approved', {
+                ticketId,
+                // @ts-ignore
+                adminId: req.user.id,
+                expectedAmount: ticketPrice,
+                actualAmount: proofAmount,
+                discrepancy: ticketPrice - proofAmount,
+                utr: ticket.paymentProof.utr
+            });
+
+            // Create audit log entry for compliance
+            await AuditLog.create({
+                action: 'force_approve_payment',
+                // @ts-ignore
+                userId: req.user.id,
+                targetType: 'ticket',
+                targetId: ticketId,
+                details: {
+                    expectedAmount: ticketPrice,
+                    actualAmount: proofAmount,
+                    discrepancy: ticketPrice - proofAmount,
+                    utr: ticket.paymentProof.utr,
+                    eventId: event?._id
+                },
+                ipAddress: req.ip || req.headers['x-forwarded-for']?.toString() || 'unknown'
+            }).catch(err => {
+                logger.error('payment.audit_log_failed', { error: err.message });
+            });
         }
 
         ticket.paymentProof.verificationStatus = status as any;

@@ -39,7 +39,8 @@ const TicketTemplateSchema = new mongoose.Schema({
 
     // Meta
     isDefault: { type: Boolean, default: false },
-    isActive: { type: Boolean, default: true }
+    isActive: { type: Boolean, default: true },
+    isGlobal: { type: Boolean, default: false }, // Available to all users
 }, { timestamps: true });
 
 // Compound index for unique names per user

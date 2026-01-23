@@ -6,7 +6,7 @@ export const createTicketTemplate = async (req: Request, res: Response) => {
     try {
         // @ts-ignore
         const userId = req.user.id;
-        const { name, width, height, backgroundColor, backgroundImage, backgroundSize, qrCode, elements, isDefault } = req.body;
+        const { name, width, height, backgroundColor, backgroundImage, backgroundSize, qrCode, elements, isDefault, isGlobal } = req.body;
 
         // If setting as default, unset other defaults
         if (isDefault) {
@@ -23,7 +23,8 @@ export const createTicketTemplate = async (req: Request, res: Response) => {
             backgroundSize,
             qrCode,
             elements: elements || [],
-            isDefault: isDefault || false
+            isDefault: isDefault || false,
+            isGlobal: isGlobal || false
         });
 
         res.status(201).json(template);
@@ -42,7 +43,15 @@ export const getTicketTemplates = async (req: Request, res: Response) => {
         // @ts-ignore
         const userId = req.user.id;
 
-        const templates = await TicketTemplate.find({ userId }).sort({ createdAt: -1 });
+        // Fetch user's templates OR global templates
+        // We sort by local first, then global
+        const templates = await TicketTemplate.find({
+            $or: [
+                { userId },
+                { isGlobal: true }
+            ]
+        }).sort({ isGlobal: 1, createdAt: -1 });
+
         res.json(templates);
     } catch (error) {
         res.status(500).json({ message: 'Failed to fetch templates' });
@@ -56,7 +65,10 @@ export const getTicketTemplate = async (req: Request, res: Response) => {
         const userId = req.user.id;
         const { templateId } = req.params;
 
-        const template = await TicketTemplate.findOne({ _id: templateId, userId });
+        const template = await TicketTemplate.findOne({
+            _id: templateId,
+            $or: [{ userId }, { isGlobal: true }]
+        });
 
         if (!template) {
             return res.status(404).json({ message: 'Template not found' });
@@ -74,7 +86,7 @@ export const updateTicketTemplate = async (req: Request, res: Response) => {
         // @ts-ignore
         const userId = req.user.id;
         const { templateId } = req.params;
-        const { name, width, height, backgroundColor, backgroundImage, backgroundSize, qrCode, elements, isDefault, isActive } = req.body;
+        const { name, width, height, backgroundColor, backgroundImage, backgroundSize, qrCode, elements, isDefault, isActive, isGlobal } = req.body;
 
         // If setting as default, unset other defaults
         if (isDefault) {
@@ -93,7 +105,8 @@ export const updateTicketTemplate = async (req: Request, res: Response) => {
                 qrCode,
                 elements,
                 isDefault,
-                isActive
+                isActive,
+                isGlobal
             },
             { new: true }
         );

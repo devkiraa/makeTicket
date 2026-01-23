@@ -64,6 +64,7 @@ const EventSchema = new mongoose.Schema({
     // New features
     waitlistEnabled: { type: Boolean, default: false }, // Host can enable waitlist when event is full
     approvalRequired: { type: Boolean, default: false }, // Host must approve registrations before ticket is issued
+    capacityAlertSent: { type: Boolean, default: false }, // Internal flag for capacity alerts
 
     // Google Sheets Integration
     googleSheetId: { type: String },

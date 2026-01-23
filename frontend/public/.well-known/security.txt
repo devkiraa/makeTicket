@@ -1,0 +1,17 @@
+# Security Policy for MakeTicket
+Contact: mailto:security@maketicket.app
+Expires: 2027-01-11T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://maketicket.app/.well-known/security.txt
+Policy: https://maketicket.app/security-policy
+
+# Scope
+# We accept reports for the following:
+# - api.maketicket.app
+# - maketicket.app
+
+# What we're NOT looking for:
+# - Rate limiting issues (unless they lead to privilege escalation)
+# - Self-XSS
+# - Missing security headers (unless exploitable)
+# - Clickjacking on pages with no sensitive actions

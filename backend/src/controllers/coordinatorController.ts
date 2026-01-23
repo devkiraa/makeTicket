@@ -3,8 +3,10 @@ import { Coordinator } from '../models/Coordinator';
 import { Event } from '../models/Event';
 import { User } from '../models/User';
 import { Ticket } from '../models/Ticket';
+import { SecurityEvent } from '../models/SecurityEvent';
 import crypto from 'crypto';
 import { emailQueue } from '../queues/emailQueue';
+import { escapeRegex } from '../utils/security';
 
 // Generate unique invite token
 const generateInviteToken = () => {
@@ -32,7 +34,8 @@ export const addCoordinator = async (req: Request, res: Response) => {
 
         // Generate invite token
         const inviteToken = generateInviteToken();
-        const inviteExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+        // SECURITY: Reduced from 7 days to 24 hours to minimize attack window
+        const inviteExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
         // Create coordinator
         const coordinator = await Coordinator.create({
@@ -376,12 +379,25 @@ export const scanQRCheckIn = async (req: Request, res: Response) => {
 
         // Find the ticket - support multiple formats
         let ticket = null;
-        const code = ticketCode.trim();
+        let code = ticketCode.trim();
+
+        // QR ENCRYPTION (Phase 5) - Decrypt if necessary
+        try {
+            const { decryptQR } = await import('../utils/encryption');
+            const decrypted = decryptQR(code);
+            if (decrypted && decrypted !== code) {
+                code = decrypted; // Use decrypted hash
+            }
+        } catch (e) {
+            // If decryption fails, assume it's legacy code or raw
+            console.warn('QR Decryption failed/skipped', e);
+        }
 
         // Check if input is a ticket code (TKT-XXXXXXXX format)
         if (code.toUpperCase().startsWith('TKT-')) {
             // Extract the short code (8 characters after TKT-)
-            const shortCode = code.substring(4).toLowerCase();
+            // SECURITY: Escape to prevent NoSQL injection via regex
+            const shortCode = escapeRegex(code.substring(4).toLowerCase());
 
             // Search for ticket where qrCodeHash starts with this short code
             ticket = await Ticket.findOne({
@@ -394,14 +410,29 @@ export const scanQRCheckIn = async (req: Request, res: Response) => {
 
             // Try case-insensitive partial match
             if (!ticket) {
+                // SECURITY: Escape to prevent NoSQL injection via regex
+                const safeCode = escapeRegex(code);
                 ticket = await Ticket.findOne({
                     eventId,
-                    qrCodeHash: { $regex: `^${code}`, $options: 'i' }
+                    qrCodeHash: { $regex: `^${safeCode}`, $options: 'i' }
                 });
             }
         }
 
         if (!ticket) {
+            // SECURITY: Log failed scan attempts for monitoring
+            await SecurityEvent.create({
+                type: 'invalid_ticket_scan',
+                severity: 'medium',
+                userId,
+                ipAddress: req.ip || 'unknown',
+                details: {
+                    attemptedCode: code.substring(0, 20),
+                    eventId,
+                    endpoint: 'scanQRCheckIn'
+                }
+            }).catch(() => { });
+
             return res.status(404).json({
                 message: 'Invalid ticket - not found for this event',
                 valid: false,

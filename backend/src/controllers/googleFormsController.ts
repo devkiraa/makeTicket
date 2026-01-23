@@ -310,7 +310,11 @@ export const getGoogleForm = async (req: Request, res: Response) => {
         });
     } catch (error: any) {
         console.error('Get Google Form error:', error.response?.data || error);
-        res.status(500).json({ message: 'Failed to fetch Google Form' });
+
+        const status = error.response?.status || 500;
+        const message = error.response?.data?.error?.message || 'Failed to fetch Google Form';
+
+        res.status(status).json({ message });
     }
 };
 

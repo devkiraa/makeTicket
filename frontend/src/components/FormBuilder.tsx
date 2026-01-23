@@ -248,8 +248,12 @@ export function FormBuilder({ questions, onChange, draftId, headerImage, onHeade
 
     // Extract form ID from Google Form URL
     const extractFormId = (url: string): string | null => {
+        // Reject published view links (containing /d/e/) as API requires edit ID
+        if (url.includes('/d/e/')) return null;
+
         // Matches: https://docs.google.com/forms/d/FORM_ID/...
-        const match = url.match(/\/forms\/d\/([a-zA-Z0-9_-]+)/);
+        // Enforce min length to avoid capturing 'e' or other short segments
+        const match = url.match(/\/forms\/d\/([a-zA-Z0-9_-]{10,})/);
         return match ? match[1] : null;
     };
 
@@ -259,7 +263,11 @@ export function FormBuilder({ questions, onChange, draftId, headerImage, onHeade
         const formId = extractFormId(formUrl);
 
         if (!formId) {
-            setUrlError('Invalid Google Form URL. Please paste a valid URL like: https://docs.google.com/forms/d/...');
+            if (formUrl.includes('/d/e/')) {
+                setUrlError('This appears to be a public view link. Please use the form editor URL (from your address bar when editing).');
+            } else {
+                setUrlError('Invalid Google Form URL. Please use the format: https://docs.google.com/forms/d/FORM_ID/edit');
+            }
             return;
         }
 

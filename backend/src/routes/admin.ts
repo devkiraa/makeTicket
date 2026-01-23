@@ -19,6 +19,7 @@ import {
     getUserEvents,
     getUserActivity,
     updateUserRole,
+    deleteUser,
     toggleUserStatus,
     impersonateUser,
     getUserSessions,
@@ -62,8 +63,7 @@ import {
     seedDefaultTemplates,
     // Security Actions
     forceLogoutAllUsers,
-    rotateApiKeys,
-    getSecurityEvents
+    rotateApiKeys
 } from '../controllers/adminController';
 
 export const adminRouter = express.Router();
@@ -101,6 +101,7 @@ adminRouter.get('/users/:userId/events', getUserEvents);
 adminRouter.get('/users/:userId/activity', getUserActivity);
 adminRouter.patch('/users/:userId/role', updateUserRole);
 adminRouter.patch('/users/:userId/status', toggleUserStatus);
+adminRouter.delete('/users/:userId', deleteUser);
 adminRouter.post('/users/:userId/impersonate', impersonateUser);
 
 // Session Management
@@ -150,8 +151,19 @@ adminRouter.patch('/email-templates/:templateId', updateSystemEmailTemplate);
 adminRouter.patch('/email-templates/:templateId/toggle', toggleSystemTemplateStatus);
 adminRouter.delete('/email-templates/:templateId', deleteSystemEmailTemplate);
 
-// Security Actions
+// Security Actions (Migrated to SecurityController)
+import {
+    getSecurityEvents,
+    getSecurityStats,
+    exportSecurityLogs,
+    forceLogoutUser
+} from '../controllers/securityController';
+
 adminRouter.get('/security/events', getSecurityEvents);
+adminRouter.get('/security/stats', getSecurityStats);
+adminRouter.get('/security/export', exportSecurityLogs);
+adminRouter.post('/security/force-logout', forceLogoutUser);
+// Legacy actions from admin controller
 adminRouter.post('/security/force-logout-all', forceLogoutAllUsers);
 adminRouter.post('/security/rotate-api-keys', rotateApiKeys);
 
