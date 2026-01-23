@@ -897,8 +897,6 @@ export const disconnectLogsDrive = async (req: Request, res: Response) => {
 
 // ==================== SESSION MANAGEMENT ====================
 
-import { Session } from '../models/Session';
-
 // Get all active sessions for a specific user
 export const getUserSessions = async (req: Request, res: Response) => {
     try {
