@@ -55,120 +55,109 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     };
 
     useEffect(() => {
-        // Handle OAuth callback - exchange auth code for token
-        const handleOAuthCallback = async () => {
+        const initDashboard = async () => {
             const params = new URLSearchParams(window.location.search);
             const authCode = params.get('code');
-            const legacyToken = params.get('token'); // Backward compatibility
+            const legacyToken = params.get('token');
+            let token = localStorage.getItem('auth_token');
 
-            // Clean up URL params immediately
+            // 1. Handle OAuth Code Exchange or Legacy Token
             if (authCode || legacyToken) {
+                // Clean up URL params immediately
                 window.history.replaceState({}, document.title, window.location.pathname);
-            }
 
-            // Handle legacy token (if backend hasn't been updated yet)
-            if (legacyToken) {
-                localStorage.setItem('auth_token', legacyToken);
-                document.cookie = `auth_token=${legacyToken}; path=/`;
-                window.dispatchEvent(new Event('tokenReady'));
-                return;
-            }
+                if (legacyToken) {
+                    token = legacyToken;
+                    localStorage.setItem('auth_token', legacyToken);
+                    document.cookie = `auth_token=${legacyToken}; path=/`;
+                    window.dispatchEvent(new Event('tokenReady'));
+                } else if (authCode) {
+                    try {
+                        const res = await fetch(
+                            `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/exchange-code`,
+                            {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ code: authCode }),
+                                credentials: 'include'
+                            }
+                        );
 
-            // Exchange auth code for token (new secure flow)
-            if (authCode) {
-                try {
-                    const res = await fetch(
-                        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/exchange-code`,
-                        {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ code: authCode }),
-                            credentials: 'include'
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data.token) {
+                                token = data.token;
+                                localStorage.setItem('auth_token', data.token);
+                                document.cookie = `auth_token=${data.token}; path=/`;
+                                window.dispatchEvent(new Event('tokenReady'));
+                            }
+                        } else {
+                            console.error('Failed to exchange auth code');
+                            router.push('/login?error=auth_failed');
+                            return;
                         }
-                    );
-
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (data.token) {
-                            localStorage.setItem('auth_token', data.token);
-                            document.cookie = `auth_token=${data.token}; path=/`;
-                            window.dispatchEvent(new Event('tokenReady'));
-                        }
-                    } else {
-                        console.error('Failed to exchange auth code');
+                    } catch (err) {
+                        console.error('Auth code exchange failed:', err);
                         router.push('/login?error=auth_failed');
                         return;
                     }
-                } catch (err) {
-                    console.error('Auth code exchange failed:', err);
-                    router.push('/login?error=auth_failed');
-                    return;
                 }
             }
-        };
 
-        handleOAuthCallback();
+            // 2. Validate Token and Session
+            if (!token) {
+                router.push('/login');
+                return;
+            }
 
-        const token = localStorage.getItem('auth_token');
-        if (!token) {
-            router.push('/login');
-        } else {
             try {
+                // Parse Payload
                 const userPayload = JSON.parse(atob(token.split('.')[1]));
                 setUserEmail(userPayload.email);
                 setIsImpersonating(!!localStorage.getItem('admin_token'));
-            } catch (e) {
-                // ignore
-            }
 
-            // Check if user has any coordinated events
-            const checkUserStatus = async () => {
-                try {
-                    // Check Coordinator Status
-                    const coordRes = await fetch(
-                        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/coordinators/my-events`,
-                        { headers: { 'Authorization': `Bearer ${token}` } }
-                    );
+                // Verify Session & Role Status
+                // Check Coordinator Status
+                const coordRes = await fetch(
+                    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/coordinators/my-events`,
+                    { headers: { 'Authorization': `Bearer ${token}` } }
+                );
 
-                    // Handle session terminated
-                    if (coordRes.status === 401) {
-                        localStorage.removeItem('auth_token');
-                        localStorage.removeItem('admin_token');
-                        router.push('/login?sessionExpired=true');
-                        return;
-                    }
-
-                    if (coordRes.ok) {
-                        const events = await coordRes.json();
-                        setHasCoordinatorEvents(events.length > 0);
-                        setCoordinatorCount(events.length);
-                    }
-
-                    // Check Admin Status (fetch me)
-                    const meRes = await fetch(
-                        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/me`,
-                        { headers: { 'Authorization': `Bearer ${token}` } }
-                    );
-
-                    // Handle session terminated
-                    if (meRes.status === 401) {
-                        localStorage.removeItem('auth_token');
-                        localStorage.removeItem('admin_token');
-                        router.push('/login?sessionExpired=true');
-                        return;
-                    }
-
-                    if (meRes.ok) {
-                        const me = await meRes.json();
-                        if (me.role === 'admin') setIsAdmin(true);
-                        if (me.role === 'user') setIsUserRole(true);
-                    }
-                } catch (e) {
-                    console.error('Failed to check user status', e);
+                if (coordRes.status === 401) {
+                    throw new Error('Session expired');
                 }
-            };
-            checkUserStatus();
-        }
+
+                if (coordRes.ok) {
+                    const events = await coordRes.json();
+                    setHasCoordinatorEvents(events.length > 0);
+                    setCoordinatorCount(events.length);
+                }
+
+                // Check Admin Status (fetch me)
+                const meRes = await fetch(
+                    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/me`,
+                    { headers: { 'Authorization': `Bearer ${token}` } }
+                );
+
+                if (meRes.status === 401) {
+                    throw new Error('Session expired');
+                }
+
+                if (meRes.ok) {
+                    const me = await meRes.json();
+                    if (me.role === 'admin') setIsAdmin(true);
+                    if (me.role === 'user') setIsUserRole(true);
+                }
+
+            } catch (e) {
+                console.error('Session check failed', e);
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('admin_token');
+                router.push('/login?sessionExpired=true');
+            }
+        };
+
+        initDashboard();
     }, [router]);
 
     // Different nav items for user vs host/admin
