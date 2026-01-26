@@ -13,7 +13,7 @@
   "dependencies": {
     "@types/figlet": "^1.7.0",
     "@types/geoip-lite": "^1.4.4",
-    "@types/ioredis": "^4.28.10",
+    "@types/ioredis": "^5.0.0",
     "@types/json2csv": "^5.0.7",
     "@types/morgan": "^1.9.10",
     "@types/multer": "^2.0.0",
