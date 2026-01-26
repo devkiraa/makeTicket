@@ -40,6 +40,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isImpersonating, setIsImpersonating] = useState(false);
 
+    const [isLoadingRole, setIsLoadingRole] = useState(true); // Add loading state
+
     const stopImpersonating = () => {
         const adminToken = localStorage.getItem('admin_token');
         if (adminToken) {
@@ -111,12 +113,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             }
 
             try {
-                // Parse Payload
+                // Parse Payload immediately for UI state
                 const userPayload = JSON.parse(atob(token.split('.')[1]));
                 setUserEmail(userPayload.email);
+
+                // Optimistically set roles from token to prevent sidebar flicker
+                // This happens nearly instantly, unlike waiting for the API call
+                if (userPayload.role === 'admin') setIsAdmin(true);
+                if (userPayload.role === 'user') setIsUserRole(true);
+
+                // Set loading to false now that we have the role
+                setIsLoadingRole(false);
+
                 setIsImpersonating(!!localStorage.getItem('admin_token'));
 
-                // Verify Session & Role Status
+                // Verify Session & Role Status (still do this for security/updates)
                 // Check Coordinator Status
                 const coordRes = await fetch(
                     `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/coordinators/my-events`,
@@ -133,7 +144,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     setCoordinatorCount(events.length);
                 }
 
-                // Check Admin Status (fetch me)
+                // Check Admin Status (fetch me) - confirm role hasn't changed on server
                 const meRes = await fetch(
                     `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/me`,
                     { headers: { 'Authorization': `Bearer ${token}` } }
@@ -145,8 +156,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                 if (meRes.ok) {
                     const me = await meRes.json();
+                    // Update if changed
                     if (me.role === 'admin') setIsAdmin(true);
+                    else setIsAdmin(false);
+
                     if (me.role === 'user') setIsUserRole(true);
+                    else if (me.role !== 'user') setIsUserRole(false);
                 }
 
             } catch (e) {
@@ -324,8 +339,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             </Button>
                         </div>
                     </>
+                ) : isLoadingRole ? (
+                    <nav className="flex-1 p-4 space-y-3">
+                        <div className="h-4 w-20 bg-slate-200 rounded mb-2 animate-pulse" />
+                        {[1, 2, 3, 4].map(i => (
+                            <div key={i} className="h-10 w-full bg-slate-50 rounded-md animate-pulse" />
+                        ))}
+                    </nav>
                 ) : (
                     /* ===== USER SIDEBAR ===== */
+
                     <>
                         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
                             {/* Main Navigation */}
@@ -575,6 +598,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     </Button>
                                 </div>
                             </>
+                        ) : isLoadingRole ? (
+                            <nav className="flex-1 p-4 space-y-3">
+                                <div className="h-4 w-20 bg-slate-200 rounded mb-2 animate-pulse" />
+                                {[1, 2, 3, 4].map(i => (
+                                    <div key={i} className="h-10 w-full bg-slate-50 rounded-md animate-pulse" />
+                                ))}
+                            </nav>
                         ) : (
                             /* Mobile User Sidebar */
                             <>
