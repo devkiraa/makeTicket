@@ -514,7 +514,13 @@ app.use('/api/payment-verification', upiPaymentRouter);
 
 // Support Tickets
 import supportRouter from './routes/support';
+import promoCodeRouter from './routes/promoCode';
+import passRouter from './routes/pass';
+import waitlistRouter from './routes/waitlist';
 app.use('/api/support', supportRouter);
+app.use('/api/promo-codes', promoCodeRouter);
+app.use('/api/passes', passRouter);
+app.use('/api/waitlist', waitlistRouter);
 
 // External API (v1) - Public API with API key authentication
 import externalRouter from './routes/external';

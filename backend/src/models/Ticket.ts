@@ -10,10 +10,11 @@ const TicketSchema = new mongoose.Schema({
     pricePaid: { type: Number, default: 0 },
     paymentStatus: { type: String, enum: ['pending', 'completed', 'failed', 'free'], default: 'completed' },
     qrCodeHash: { type: String, required: true, unique: true },
+    promoCodeId: { type: mongoose.Schema.Types.ObjectId, ref: 'PromoCode' },
     // Updated status to include waitlist and pending approval states
     status: {
         type: String,
-        enum: ['issued', 'checked-in', 'pending', 'waitlisted'],
+        enum: ['issued', 'checked-in', 'pending', 'waitlisted', 'cancelled'],
         default: 'issued'
     },
     // Waitlist flag
@@ -22,6 +23,21 @@ const TicketSchema = new mongoose.Schema({
     approved: { type: Boolean, default: true },
     checkedInAt: { type: Date },
     checkedInBy: { type: String }, // Helper info
+
+    // Team Registration Details
+    isTeamTicket: { type: Boolean, default: false },
+    teamDetails: {
+        teamName: { type: String },
+        teamSize: { type: Number },
+        members: [{
+            name: { type: String },
+            email: { type: String },
+            phone: { type: String },
+            customFields: { type: mongoose.Schema.Types.Mixed, default: {} }, // Answers to individual questions
+            checkedIn: { type: Boolean, default: false },
+            checkedInAt: { type: Date }
+        }]
+    },
 
     // Payment Proof & Verification
     paymentProof: {
