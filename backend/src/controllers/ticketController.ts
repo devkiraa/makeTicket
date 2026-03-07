@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { Event } from '../models/Event';
+import { PromoCode } from '../models/PromoCode';
 import { Ticket } from '../models/Ticket';
 import { Contact } from '../models/Contact';
 import { SecurityEvent } from '../models/SecurityEvent';
@@ -18,7 +19,7 @@ import { logger } from '../lib/logger';
 export const registerTicket = async (req: Request, res: Response) => {
     try {
         const { eventId } = req.params;
-        const { formData, email } = req.body; // Basic email required for sending ticket
+        const { formData, email, promoCode, isTeamRegistration, teamName, teamMembers } = req.body; // Basic email required for sending ticket
 
         const event = await Event.findById(eventId);
         if (!event) return res.status(404).json({ message: 'Event not found' });
@@ -179,8 +180,69 @@ export const registerTicket = async (req: Request, res: Response) => {
         let userId = null;
         let paymentStatus = 'free'; // Default for free events
         let pricePaid = 0;
+        let finalPrice = event.price || 0;
 
-        if (event.price && event.price > 0) {
+        // Handle team pricing if applicable
+        if (isTeamRegistration && event.teamSettings?.enabled) {
+            if (event.teamSettings.teamPricing) {
+                finalPrice = event.teamSettings.teamPrice || 0;
+            } else if (teamMembers && teamMembers.length > 0) {
+                finalPrice = (event.price || 0) * teamMembers.length;
+            }
+        }
+        let appliedPromoCodeId = null;
+
+
+        // Apply Promo Code if provided atomically to prevent race conditions
+        if (promoCode && finalPrice > 0) {
+            const normalizedCode = promoCode.toUpperCase().trim();
+            const now = new Date();
+
+            // Atomically check usage and increment if valid
+            const validPromo = await PromoCode.findOneAndUpdate(
+                {
+                    eventId,
+                    code: normalizedCode,
+                    isActive: true,
+                    $and: [
+                        {
+                            $or: [
+                                { validFrom: { $exists: false } },
+                                { validFrom: { $lte: now } }
+                            ]
+                        },
+                        {
+                            $or: [
+                                { validUntil: { $exists: false } },
+                                { validUntil: { $gte: now } }
+                            ]
+                        }
+                    ],
+                    $expr: {
+                        $or: [
+                            { $eq: ['$maxUses', 0] },
+                            { $lt: ['$currentUses', '$maxUses'] }
+                        ]
+                    }
+                },
+                { $inc: { currentUses: 1 } },
+                { new: true }
+            );
+
+            if (validPromo) {
+                if (validPromo.discountType === 'percentage') {
+                    finalPrice = finalPrice * (1 - (validPromo.discountValue / 100));
+                } else if (validPromo.discountType === 'fixed') {
+                    finalPrice = Math.max(0, finalPrice - validPromo.discountValue);
+                }
+                appliedPromoCodeId = validPromo._id;
+            } else {
+                return res.status(400).json({ message: 'Invalid, expired, or fully used promo code.' });
+            }
+        }
+
+
+        if (finalPrice > 0) {
             // Check for Authorization Header since this route is public but paid events need auth
             const authHeader = req.headers.authorization;
             if (!authHeader) {
@@ -195,7 +257,7 @@ export const registerTicket = async (req: Request, res: Response) => {
                 const decoded = jwt.verify(token, process.env.JWT_SECRET || 'test_secret');
                 userId = decoded.id;
                 paymentStatus = 'completed'; // Assuming login was the barrier
-                pricePaid = event.price;
+                pricePaid = finalPrice;
             } catch (err) {
                 return res.status(401).json({ message: 'Invalid or expired session. Please login again.' });
             }
@@ -229,8 +291,17 @@ export const registerTicket = async (req: Request, res: Response) => {
             // New fields
             waitlist: isWaitlisted,
             approved: isApproved,
-            status: ticketStatus
+            status: ticketStatus,
+            promoCodeId: appliedPromoCodeId,
+            // Team details
+            isTeamTicket: isTeamRegistration || false,
+            teamDetails: isTeamRegistration ? {
+                teamName: teamName || 'Team',
+                teamSize: teamMembers ? teamMembers.length : 1,
+                members: teamMembers || []
+            } : undefined
         });
+
 
         // SECURITY: Post-creation validation for race condition handling
         // If we thought we had a slot but now we're over capacity, move to waitlist
@@ -619,6 +690,7 @@ export const approveTicket = async (req: Request, res: Response) => {
         // Update ticket status
         ticket.approved = true;
         ticket.status = 'issued';
+        ticket.waitlist = false;
         await ticket.save();
 
         // Send confirmation email now that it's approved

@@ -20,6 +20,15 @@ const EventSchema = new mongoose.Schema({
     price: { type: Number, default: 0 },
     maxRegistrations: { type: Number, default: 0 }, // 0 = unlimited
     allowMultipleRegistrations: { type: Boolean, default: true }, // Allow same person to register multiple times
+
+    // Team/Group Registrations
+    teamSettings: {
+        enabled: { type: Boolean, default: false },
+        minTeamSize: { type: Number, default: 2 },
+        maxTeamSize: { type: Number, default: 5 },
+        teamPricing: { type: Boolean, default: false }, // If true, price is per team. If false, price is per person.
+        teamPrice: { type: Number, default: 0 } // Overrides base price if teamPricing is true
+    },
     status: { type: String, enum: ['active', 'closed', 'draft'], default: 'draft' },
     // Dynamic Form Schema - using Mixed for flexibility with images and validation
     formSchema: [{
