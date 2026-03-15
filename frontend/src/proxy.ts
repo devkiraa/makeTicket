@@ -17,9 +17,9 @@ export function proxy(request: NextRequest) {
     default-src 'self';
     script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ 'nonce-${nonce}';
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-    img-src 'self' blob: data: https://maketicket.app https://*.googleusercontent.com;
+    img-src 'self' blob: data: https://maketicket.app https://*.maketicket.app https://*.googleusercontent.com http://localhost:5000;
     font-src 'self' https://fonts.gstatic.com;
-    connect-src 'self' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://api.zeptomail.in;
+    connect-src 'self' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://api.zeptomail.in http://localhost:5000 https://api.maketicket.app https://*.maketicket.app;
     frame-src 'self' https://www.google.com/recaptcha/ https://recaptcha.google.com;
     object-src 'none';
     base-uri 'self';

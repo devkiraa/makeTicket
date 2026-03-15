@@ -108,6 +108,8 @@ export const uploadPaymentProof = async (req: Request, res: Response) => {
     }
 };
 
+import { generateSignedUrl } from '../middleware/signedUrl';
+
 // Get pending payment verifications (for admin/host)
 export const getPendingPayments = async (req: Request, res: Response) => {
     try {
@@ -139,8 +141,19 @@ export const getPendingPayments = async (req: Request, res: Response) => {
             .limit(limit)
             .lean();
 
+        // Sign the screenshot URLs before sending to frontend
+        const signedTickets = tickets.map(t => {
+            if (t.paymentProof?.screenshotUrl) {
+                // Remove /uploads/ prefix if it exists as signedUrlMiddleware expects relative path
+                const relativePath = t.paymentProof.screenshotUrl.replace(/^\/uploads\//, '');
+                const signatureParams = generateSignedUrl(relativePath);
+                t.paymentProof.screenshotUrl = `${t.paymentProof.screenshotUrl}${signatureParams}`;
+            }
+            return t;
+        });
+
         // Check for duplicate UTRs across all tickets
-        const utrs = tickets.map(t => t.paymentProof?.utr).filter(Boolean);
+        const utrs = signedTickets.map(t => t.paymentProof?.utr).filter(Boolean);
         const duplicateChecks = await Ticket.find({
             'paymentProof.utr': { $in: utrs },
             'paymentProof.verificationStatus': { $in: ['pending', 'verified'] }
