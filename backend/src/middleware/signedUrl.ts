@@ -89,8 +89,10 @@ export const signedUrlMiddleware = (protectedPaths: string[] = ['payment-proofs'
             });
         }
 
-        // Get the file path from the URL (remove /uploads prefix)
-        const filePath = requestPath.replace(/^\/uploads\//, '');
+        // Get the file path from the URL
+        // Express strips the mount path (/uploads), so req.path is already relative
+        // e.g. /payment-proofs/file.jpg → payment-proofs/file.jpg
+        const filePath = requestPath.replace(/^\/uploads\//, '').replace(/^\//, '');
 
         if (!verifySignedUrl(filePath, expires as string, signature as string)) {
             logger.warn('upload.invalid_signature', {
