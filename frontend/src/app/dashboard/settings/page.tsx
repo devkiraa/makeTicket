@@ -203,10 +203,26 @@ export default function ProfilePage() {
 
     const handleRandomBanner = () => {
         setBannerLoading(true);
-        const seed = Math.floor(Math.random() * 10000);
-        // Use accessible AI generation for relevant banners
-        const url = `https://image.pollinations.ai/prompt/rick%20and%20morty%20space%20landscape%20art?width=1200&height=400&nologo=true&seed=${seed}`;
-        updateProfile({ banner: url });
+        // Generate a beautiful gradient banner as an SVG data URI (instant, no external dependency)
+        const colors = [
+            ['#667eea', '#764ba2'],
+            ['#f093fb', '#f5576c'],
+            ['#4facfe', '#00f2fe'],
+            ['#43e97b', '#38f9d7'],
+            ['#fa709a', '#fee140'],
+            ['#a18cd1', '#fbc2eb'],
+            ['#ffecd2', '#fcb69f'],
+            ['#ff9a9e', '#fecfef'],
+            ['#667eea', '#00c9ff'],
+            ['#6a11cb', '#2575fc'],
+            ['#00b09b', '#96c93d'],
+            ['#fc5c7d', '#6a82fb'],
+        ];
+        const pair = colors[Math.floor(Math.random() * colors.length)];
+        const angle = Math.floor(Math.random() * 360);
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%" gradientTransform="rotate(${angle} 0.5 0.5)"><stop offset="0%" stop-color="${pair[0]}"/><stop offset="100%" stop-color="${pair[1]}"/></linearGradient></defs><rect width="1200" height="400" fill="url(#g)"/></svg>`;
+        const dataUri = `data:image/svg+xml;base64,${btoa(svg)}`;
+        updateProfile({ banner: dataUri });
     };
 
     const handleRemoveBanner = () => {
@@ -367,7 +383,11 @@ export default function ProfilePage() {
                             alt="Cover"
                             className={`w-full h-full object-cover transition-opacity duration-300 ${bannerLoading ? 'opacity-50' : 'opacity-100'}`}
                             onLoad={() => setBannerLoading(false)}
-                            onError={() => setBannerLoading(false)}
+                            onError={() => {
+                                setBannerLoading(false);
+                                // If the saved banner URL is broken (e.g. old external service), clear it
+                                updateProfile({ banner: null });
+                            }}
                         />
                     ) : (
                         <div className="w-full h-full bg-gradient-to-r from-indigo-600 to-purple-600" />
