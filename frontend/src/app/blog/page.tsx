@@ -28,32 +28,36 @@ export const metadata: Metadata = {
 export default function BlogPage() {
     const posts = [
         {
+            title: 'How to Make Tickets for an Event (Free) — Step-by-Step',
+            excerpt: 'Everything you need to know about creating professional event tickets for free, from setup to check-in scanning.',
+            date: 'Mar 15, 2026',
+            category: 'Guides',
+            readTime: '7 min read',
+            href: '/blog/how-to-make-tickets-for-an-event',
+        },
+        {
+            title: 'How to Create QR Code Event Tickets (Step-by-Step)',
+            excerpt: 'QR code tickets are faster, safer, and free. Learn how to generate them for your event in minutes.',
+            date: 'Mar 15, 2026',
+            category: 'How-To',
+            readTime: '5 min read',
+            href: '/blog/how-to-create-qr-code-event-tickets',
+        },
+        {
             title: '10 Tips for Running a Successful Virtual Event',
             excerpt: 'Virtual events are here to stay. Learn how to make yours stand out with these proven strategies.',
             date: 'Dec 20, 2025',
             category: 'Tips & Tricks',
-            readTime: '5 min read'
+            readTime: '5 min read',
+            href: '#',
         },
         {
             title: 'Why QR Code Check-in is the Future',
             excerpt: 'Paper lists are so 2010. Discover why smart event organizers are switching to QR-based check-ins.',
             date: 'Dec 15, 2025',
             category: 'Technology',
-            readTime: '4 min read'
-        },
-        {
-            title: 'How We Scaled to 100K Events',
-            excerpt: 'A behind-the-scenes look at our infrastructure and the lessons we learned along the way.',
-            date: 'Dec 10, 2025',
-            category: 'Engineering',
-            readTime: '8 min read'
-        },
-        {
-            title: 'The Complete Guide to Event Email Marketing',
-            excerpt: 'From confirmation emails to post-event surveys, learn how to communicate effectively with attendees.',
-            date: 'Dec 5, 2025',
-            category: 'Marketing',
-            readTime: '6 min read'
+            readTime: '4 min read',
+            href: '#',
         },
     ];
 
@@ -64,7 +68,7 @@ export default function BlogPage() {
         >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl">
                 {posts.map((post, i) => (
-                    <Link href="#" key={i} className="group">
+                    <Link href={post.href} key={i} className="group">
                         <article className="p-6 rounded-2xl border border-slate-200 bg-white hover:shadow-lg transition-shadow h-full">
                             <div className="flex items-center gap-2 text-sm text-slate-500 mb-3">
                                 <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-medium">

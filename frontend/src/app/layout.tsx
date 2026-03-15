@@ -84,9 +84,6 @@ export const metadata: Metadata = {
     canonical: "https://maketicket.app",
   },
   category: "technology",
-  verification: {
-    google: "your-google-verification-code",
-  },
 };
 
 import { Toaster } from "@/components/ui/toaster";
