@@ -81,8 +81,8 @@ export const authLimiter = rateLimit({
     legacyHeaders: false,
     // Use Redis store if available
     store: createRateLimitStore('auth'),
-    // Explicitly validate IPv6 keys to suppress warning
-    validate: { xForwardedForHeader: false }
+    // Disable validation to prevent crash in newer express-rate-limit versions
+    validate: false
 });
 
 /**
@@ -97,7 +97,7 @@ export const passwordResetLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     store: createRateLimitStore('pwreset'),
-    validate: { xForwardedForHeader: false }
+    validate: false
 });
 
 /**
@@ -132,7 +132,7 @@ export const scanLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     store: createRateLimitStore('scan'),
-    validate: { xForwardedForHeader: false }
+    validate: false
 });
 
 /**
@@ -147,7 +147,7 @@ export const bulkEmailLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     store: createRateLimitStore('bulkemail'),
-    validate: { xForwardedForHeader: false }
+    validate: false
 });
 
 /**
@@ -161,7 +161,7 @@ export const inviteAcceptLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     store: createRateLimitStore('invite'),
-    validate: { xForwardedForHeader: false }
+    validate: false
 });
 
 /**
@@ -175,7 +175,7 @@ export const apiLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     store: createRateLimitStore('api'),
-    validate: { xForwardedForHeader: false }
+    validate: false
 });
 
 // ==================== MONGO SANITIZATION ====================

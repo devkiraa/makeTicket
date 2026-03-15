@@ -202,7 +202,7 @@ export default function SupportPage() {
                     </Button>
                     <div>
                         <h1 className="text-2xl font-bold">{selectedTicket.subject}</h1>
-                        <p className="text-sm text-slate-500">{selectedTicket.eventId.title}</p>
+                        <p className="text-sm text-slate-500">{selectedTicket.eventId?.title || 'Unknown Event'}</p>
                     </div>
                     <div className="ml-auto">
                         {getStatusBadge(selectedTicket.status)}
@@ -375,7 +375,7 @@ export default function SupportPage() {
                                             <Badge variant="outline">{ticket.category}</Badge>
                                         </div>
                                         <p className="text-sm text-slate-600 mb-2">
-                                            {ticket.eventId.title}
+                                            {ticket.eventId?.title || 'Unknown Event'}
                                         </p>
                                         <p className="text-sm text-slate-500 line-clamp-2">
                                             {ticket.description}

@@ -619,7 +619,7 @@ export default function PaymentVerificationPage() {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <Badge variant="outline" className="bg-white border-slate-200 text-slate-700 font-medium">
-                                                    {payment.eventId.title}
+                                                    {payment.eventId?.title || 'Unknown Event'}
                                                 </Badge>
                                             </td>
                                             <td className="px-6 py-4">
@@ -770,7 +770,7 @@ export default function PaymentVerificationPage() {
                                 </div>
                                 <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
                                     <p className="text-xs uppercase text-slate-500 font-medium mb-1">Event</p>
-                                    <p className="text-slate-900">{selectedPayment.eventId.title}</p>
+                                    <p className="text-slate-900">{selectedPayment.eventId?.title || 'Unknown Event'}</p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
