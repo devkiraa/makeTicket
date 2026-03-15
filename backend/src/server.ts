@@ -160,6 +160,10 @@ import { requireSignedUrl } from './middleware/signedUrl';
 app.use('/uploads', requireSignedUrl, express.static(path.join(process.cwd(), 'uploads')));
 
 // Database Connection
+mongoose.connection.on('connecting', () => logger.info('database.connecting', { provider: 'MongoDB Atlas' }));
+mongoose.connection.on('error', (err) => logger.error('database.error', { error: err.message }));
+mongoose.connection.on('disconnected', () => logger.warn('database.disconnected'));
+
 mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/maketicket')
     .then(() => logger.info('database.connected', { database: 'maketicket', provider: 'MongoDB Atlas' }))
     .catch((err) => logger.error('database.connection_failed', { error: err.message }, err));

@@ -89,6 +89,7 @@ export const metadata: Metadata = {
 import { Toaster } from "@/components/ui/toaster";
 import { CaptchaProvider } from "@/providers/CaptchaProvider";
 import { headers } from "next/headers";
+import { Analytics } from "@vercel/analytics/next";
 
 export default async function RootLayout({
   children,
@@ -109,6 +110,7 @@ export default async function RootLayout({
         <CaptchaProvider nonce={nonce}>
           {children}
           <Toaster />
+          <Analytics />
         </CaptchaProvider>
       </body>
     </html >
