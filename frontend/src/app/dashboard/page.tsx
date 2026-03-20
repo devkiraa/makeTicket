@@ -131,15 +131,15 @@ export default function Dashboard() {
             </div>
 
             {/* Stats Grid - Enhanced */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
                     <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                            <div>
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0 flex-1">
                                 <p className="text-sm font-medium text-slate-500">Total Revenue</p>
                                 <p className="text-2xl font-bold text-slate-900">₹{stats.totalRevenue?.toLocaleString() || 0}</p>
                             </div>
-                            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center shadow-lg shadow-green-200">
+                            <div className="h-12 w-12 shrink-0 rounded-xl bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center shadow-lg shadow-green-200">
                                 <span className="text-white font-bold text-xl">₹</span>
                             </div>
                         </div>
@@ -151,12 +151,12 @@ export default function Dashboard() {
 
                 <Card className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
                     <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                            <div>
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0 flex-1">
                                 <p className="text-sm font-medium text-slate-500">Tickets Sold</p>
                                 <p className="text-2xl font-bold text-slate-900">{stats.totalTickets || 0}</p>
                             </div>
-                            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-200">
+                            <div className="h-12 w-12 shrink-0 rounded-xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-200">
                                 <Ticket className="h-6 w-6 text-white" />
                             </div>
                         </div>
@@ -168,12 +168,12 @@ export default function Dashboard() {
 
                 <Card className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
                     <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                            <div>
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0 flex-1">
                                 <p className="text-sm font-medium text-slate-500">Active Events</p>
                                 <p className="text-2xl font-bold text-slate-900">{stats.activeEventsCount || 0}</p>
                             </div>
-                            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-purple-400 to-violet-500 flex items-center justify-center shadow-lg shadow-purple-200">
+                            <div className="h-12 w-12 shrink-0 rounded-xl bg-gradient-to-br from-purple-400 to-violet-500 flex items-center justify-center shadow-lg shadow-purple-200">
                                 <Calendar className="h-6 w-6 text-white" />
                             </div>
                         </div>
@@ -185,12 +185,12 @@ export default function Dashboard() {
 
                 <Card className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
                     <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                            <div>
+                        <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0 flex-1">
                                 <p className="text-sm font-medium text-slate-500">Check-ins Today</p>
                                 <p className="text-2xl font-bold text-slate-900">{stats.checkedInToday || 0}</p>
                             </div>
-                            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-200">
+                            <div className="h-12 w-12 shrink-0 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-200">
                                 <QrCode className="h-6 w-6 text-white" />
                             </div>
                         </div>
@@ -202,7 +202,7 @@ export default function Dashboard() {
             </div>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <button
                     onClick={() => router.push('/dashboard/events/create')}
                     className="flex items-center gap-3 p-4 bg-indigo-50 rounded-xl hover:bg-indigo-100 transition-colors group"
