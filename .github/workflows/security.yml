@@ -1,0 +1,333 @@
+# ============================================================================
+# 🔒 Security Scanning Pipeline
+# Runs on: every push, PR, and weekly schedule
+# 
+# Layers of protection:
+#   1. Secret scanning     — catches leaked API keys, passwords, tokens
+#   2. Dependency audit    — finds known CVEs in npm packages
+#   3. CodeQL SAST         — static analysis for SQL injection, XSS, etc.
+#   4. Custom security     — MakeTicket-specific checks
+# ============================================================================
+
+name: Security
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run every Monday at 6 AM UTC — catches new CVEs in existing deps
+    - cron: '0 6 * * 1'
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write  # Required for CodeQL to upload SARIF results
+
+jobs:
+  # ──────────────────────────────────────────────
+  # 1. SECRET SCANNING — Prevent credential leaks
+  # ──────────────────────────────────────────────
+  secret-scan:
+    name: 🔑 Secret Scanning
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for scanning all commits in PR
+
+      - name: Run Gitleaks (secret detection)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ──────────────────────────────────────────────
+  # 2. DEPENDENCY VULNERABILITY SCANNING
+  # ──────────────────────────────────────────────
+  dependency-scan:
+    name: 📦 Dependency Vulnerabilities
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      # Backend audit
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: backend
+
+      - name: Audit backend (critical/high only)
+        run: |
+          echo "## 🔍 Backend Dependency Audit" >> $GITHUB_STEP_SUMMARY
+          npm audit --audit-level=high --omit=dev 2>&1 | tee audit-backend.txt || true
+          
+          # Count vulnerabilities
+          HIGH=$(grep -c "high" audit-backend.txt || true)
+          CRITICAL=$(grep -c "critical" audit-backend.txt || true)
+          
+          echo "- High: $HIGH" >> $GITHUB_STEP_SUMMARY
+          echo "- Critical: $CRITICAL" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "::error::Critical vulnerabilities found in backend dependencies!"
+            exit 1
+          fi
+        working-directory: backend
+
+      # Frontend audit
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Audit frontend (critical/high only)
+        run: |
+          echo "## 🔍 Frontend Dependency Audit" >> $GITHUB_STEP_SUMMARY
+          npm audit --audit-level=high --omit=dev 2>&1 | tee audit-frontend.txt || true
+          
+          CRITICAL=$(grep -c "critical" audit-frontend.txt || true)
+          
+          if [ "$CRITICAL" -gt 0 ]; then
+            echo "::error::Critical vulnerabilities found in frontend dependencies!"
+            exit 1
+          fi
+        working-directory: frontend
+
+  # ──────────────────────────────────────────────
+  # 3. CodeQL SAST — Static Application Security Testing
+  #    Scans for: XSS, injection, auth bypass, etc.
+  # ──────────────────────────────────────────────
+  codeql-analysis:
+    name: 🛡️ CodeQL Analysis
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ['javascript-typescript']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # Focus on security queries, not code quality
+          queries: security-extended
+
+      - name: Auto-build
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Run CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:${{ matrix.language }}'
+
+  # ──────────────────────────────────────────────
+  # 4. CUSTOM SECURITY CHECKS — MakeTicket-specific
+  #    Catches things automated tools miss
+  # ──────────────────────────────────────────────
+  custom-security-checks:
+    name: 🔍 Custom Security Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Check 1: No secrets in committed files
+      - name: Check for hardcoded secrets
+        run: |
+          echo "## 🔑 Hardcoded Secret Check" >> $GITHUB_STEP_SUMMARY
+          FAILED=0
+
+          # Check for common secret patterns in source code (not .env files)
+          PATTERNS=(
+            "GOCSPX-"                    # Google OAuth client secret
+            "rzp_live_"                   # Razorpay live key
+            "sk_live_"                    # Stripe live key
+            "-----BEGIN PRIVATE KEY-----" # Private keys
+            "mongodb\+srv://[^{].*@"     # MongoDB connection strings with creds
+            "AbPLAAI"                     # Upstash Redis password prefix
+            "Zoho-enczapikey"            # ZeptoMail token
+          )
+
+          for pattern in "${PATTERNS[@]}"; do
+            # Search in source files, skip node_modules, .env, dist, .git
+            FOUND=$(grep -rl "$pattern" \
+              --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" \
+              --include="*.json" --include="*.yml" --include="*.yaml" \
+              --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.git \
+              --exclude-dir=.next --exclude="package-lock.json" \
+              . 2>/dev/null || true)
+            
+            if [ -n "$FOUND" ]; then
+              echo "::error::Found potential secret pattern '$pattern' in: $FOUND"
+              FAILED=1
+            fi
+          done
+
+          if [ "$FAILED" -eq 1 ]; then
+            echo "❌ Hardcoded secrets detected!" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "✅ No hardcoded secrets found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      # Check 2: Ensure .env files are not tracked
+      - name: Verify .env files are not tracked
+        run: |
+          echo "## 📁 .env File Check" >> $GITHUB_STEP_SUMMARY
+          
+          TRACKED_ENV=$(git ls-files '*.env' '**/.env' '**/.env.*' \
+            | grep -v '.env.example' \
+            | grep -v '.env.sample' \
+            | grep -v '.env.template' || true)
+          
+          if [ -n "$TRACKED_ENV" ]; then
+            echo "::error::🚨 .env files are tracked by Git: $TRACKED_ENV"
+            echo "❌ .env files found in Git!" >> $GITHUB_STEP_SUMMARY
+            echo "$TRACKED_ENV" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "✅ No .env files tracked" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      # Check 3: Verify security middleware is present
+      - name: Verify security middleware in server.ts
+        run: |
+          echo "## 🛡️ Security Middleware Check" >> $GITHUB_STEP_SUMMARY
+          FAILED=0
+
+          SERVER="backend/src/server.ts"
+
+          # Must have helmet
+          if ! grep -q "helmetMiddleware" "$SERVER"; then
+            echo "::error::Helmet middleware not found in server.ts"
+            FAILED=1
+          fi
+
+          # Must have mongo sanitize
+          if ! grep -q "mongoSanitize" "$SERVER"; then
+            echo "::error::Mongo sanitize middleware not found in server.ts"
+            FAILED=1
+          fi
+
+          # Must have CORS
+          if ! grep -q "cors(" "$SERVER"; then
+            echo "::error::CORS middleware not found in server.ts"
+            FAILED=1
+          fi
+
+          # Must have rate limiting imported
+          if ! grep -q "security" "$SERVER"; then
+            echo "::error::Security middleware import not found in server.ts"
+            FAILED=1
+          fi
+
+          # Check validateSecurityConfig is called
+          if ! grep -q "validateSecurityConfig" "$SERVER"; then
+            echo "::error::validateSecurityConfig() not called in server.ts"
+            FAILED=1
+          fi
+
+          if [ "$FAILED" -eq 1 ]; then
+            echo "❌ Missing security middleware!" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "✅ All security middleware present" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      # Check 4: Verify webhook signature validation exists
+      - name: Verify webhook signature validation
+        run: |
+          echo "## 💰 Webhook Security Check" >> $GITHUB_STEP_SUMMARY
+          
+          # Razorpay webhook must verify signature
+          if ! grep -q "x-razorpay-signature" backend/src/controllers/subscriptionController.ts; then
+            echo "::error::Razorpay webhook is not verifying signatures!"
+            echo "❌ Webhook signature verification missing!" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          if ! grep -q "verifyWebhookSignature" backend/src/controllers/subscriptionController.ts; then
+            echo "::error::verifyWebhookSignature call missing in webhook handler!"
+            echo "❌ Webhook signature verification missing!" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          echo "✅ Webhook signature verification present" >> $GITHUB_STEP_SUMMARY
+
+      # Check 5: No console.log with sensitive data
+      - name: Check for sensitive data logging
+        run: |
+          echo "## 📝 Sensitive Logging Check" >> $GITHUB_STEP_SUMMARY
+          
+          # Check for password/token/secret being logged
+          SENSITIVE_LOGS=$(grep -rn "console\.\(log\|debug\|info\)" \
+            --include="*.ts" --include="*.tsx" \
+            --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.next \
+            backend/src/ 2>/dev/null \
+            | grep -i "password\|secret\|token\|apiKey\|private" \
+            | grep -v "test\." \
+            | grep -v ".test." \
+            | grep -v "// " || true)
+          
+          if [ -n "$SENSITIVE_LOGS" ]; then
+            echo "::warning::Potential sensitive data in console logs:"
+            echo "$SENSITIVE_LOGS"
+            echo "⚠️ Review console logs for sensitive data" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ No sensitive data in console logs" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      # Check 6: Ensure auth middleware on protected routes
+      - name: Verify auth on protected routes
+        run: |
+          echo "## 🔐 Route Protection Check" >> $GITHUB_STEP_SUMMARY
+          
+          # Admin routes must use verifyToken + requireAdmin
+          if ! grep -q "verifyToken" backend/src/routes/admin.ts; then
+            echo "::error::Admin routes missing verifyToken middleware!"
+            exit 1
+          fi
+          
+          if ! grep -q "requireAdmin" backend/src/routes/admin.ts; then
+            echo "::error::Admin routes missing requireAdmin middleware!"
+            exit 1
+          fi
+
+          # API routes must use verifyToken
+          if ! grep -q "verifyToken" backend/src/routes/api.ts; then
+            echo "::error::API routes missing verifyToken middleware!"
+            exit 1
+          fi
+
+          # External routes must use validateApiKey
+          if ! grep -q "validateApiKey" backend/src/routes/external.ts; then
+            echo "::error::External API routes missing validateApiKey middleware!"
+            exit 1
+          fi
+
+          echo "✅ All protected routes have auth middleware" >> $GITHUB_STEP_SUMMARY
+
+      # Summary
+      - name: Security check summary
+        if: always()
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "🏁 Security checks completed at $(date -u)" >> $GITHUB_STEP_SUMMARY
