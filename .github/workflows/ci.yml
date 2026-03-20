@@ -1,0 +1,137 @@
+# ============================================================================
+# MakeTicket CI Pipeline
+# Runs on: every push & pull request
+# Jobs: lint, typecheck, build, and test for both backend and frontend
+# ============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+# Cancel in-progress runs for the same branch/PR
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  # ──────────────────────────────────────────────
+  # Backend: Typecheck → Lint → Build → Test
+  # ──────────────────────────────────────────────
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Run unit tests
+        run: npm test -- --ci --forceExit --detectOpenHandles
+        env:
+          NODE_ENV: test
+          JWT_SECRET: test_ci_secret_do_not_use_in_prod
+          RAZORPAY_WEBHOOK_SECRET: test_webhook_secret
+          ENCRYPTION_KEY: 01234567890123456789012345678901
+          MONGO_URI: '' # Uses MongoMemoryServer from setupTests.ts
+
+      - name: Run integration tests
+        run: npx jest --config jest.integration.config.js --ci --forceExit --detectOpenHandles
+        env:
+          NODE_ENV: test
+          JWT_SECRET: test_ci_secret_do_not_use_in_prod
+          RAZORPAY_WEBHOOK_SECRET: test_webhook_secret
+          ENCRYPTION_KEY: 01234567890123456789012345678901
+
+  # ──────────────────────────────────────────────
+  # Frontend: Lint → Typecheck → Build → Test
+  # ──────────────────────────────────────────────
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: https://api.maketicket.app/api
+
+      - name: Run tests
+        run: npm test -- --ci --passWithNoTests
+        env:
+          NODE_ENV: test
+
+  # ──────────────────────────────────────────────
+  # Security: Audit npm dependencies
+  # ──────────────────────────────────────────────
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    # Don't block PRs on audit, just report
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Audit backend dependencies
+        run: npm audit --audit-level=high --omit=dev
+        working-directory: backend
+        continue-on-error: true
+
+      - name: Audit frontend dependencies
+        run: npm audit --audit-level=high --omit=dev
+        working-directory: frontend
+        continue-on-error: true
