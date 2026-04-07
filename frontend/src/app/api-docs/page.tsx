@@ -77,7 +77,7 @@ export default function APIPage() {
                     </div>
                     <pre className="text-sm font-mono text-slate-300 overflow-x-auto">
                         {`curl -X GET "https://api.maketicket.app/v1/events" \\
-  -H "Authorization: Bearer YOUR_API_KEY" \\
+  -H "Authorization: Bearer {api_key}" \\
   -H "Content-Type: application/json"`}
                     </pre>
                 </div>

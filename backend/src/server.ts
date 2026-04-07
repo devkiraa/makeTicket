@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import figlet from 'figlet';
 import { authRouter } from './routes/auth';
 import { apiRouter } from './routes/api';
+import { authLimiter } from "./middleware/security";
 import { adminRouter } from './routes/admin';
 import { addLogEntry, scheduleDailyBackup } from './services/logService';
 
@@ -20,7 +21,8 @@ import {
     helmetMiddleware,
     mongoSanitizeMiddleware,
     validateSecurityConfig,
-    ipBlockerMiddleware
+    ipBlockerMiddleware,
+    apiLimiter
 } from './middleware/security';
 
 // Import Redis client
@@ -146,6 +148,7 @@ app.use(cors({
 
 // Security middlewares
 app.use(helmetMiddleware);
+app.use(apiLimiter);
 
 // Stricter body limits for sensitive routes (Auth, Webhooks) - prevents large payload DoS
 app.use('/api/auth', express.json({ limit: '500kb' }), express.urlencoded({ limit: '500kb', extended: true }));
@@ -499,7 +502,7 @@ app.get('/', (req, res) => {
         res.json(apiInfo);
     }
 });
-app.use('/api/auth', authRouter);
+app.use('/api/auth', authLimiter, authRouter);
 app.use('/api', apiRouter);
 app.use('/api/admin', adminRouter);
 

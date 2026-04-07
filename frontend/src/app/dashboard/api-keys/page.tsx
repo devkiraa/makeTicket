@@ -377,7 +377,7 @@ export default function ApiKeysPage() {
                             </p>
                             <div className="bg-slate-900 rounded-lg p-4 overflow-x-auto">
                                 <pre className="text-sm text-slate-300">
-                                    {`curl -H "X-API-Key: mt_your_key_here" \\
+                                    {`curl -H "X-API-Key: <YOUR_API_KEY>" \\
      https://api.maketicket.app/api/v1/events`}
                                 </pre>
                             </div>
