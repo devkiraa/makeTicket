@@ -17,7 +17,7 @@ interface SecurityEvent {
     type: string;
     severity: 'low' | 'medium' | 'high' | 'critical';
     ipAddress: string;
-    userId?: { email: string; name: string };
+    userId?: { _id: string; email: string; name: string };
     details: any;
     createdAt: string;
 }
@@ -251,7 +251,7 @@ export default function SecurityEventsPage() {
                                                         {event.userId && (
                                                             <>
                                                                 <DropdownMenuSeparator />
-                                                                <DropdownMenuItem onClick={() => handleForceLogout(event.userId?._id as unknown as string)}>
+                                                                <DropdownMenuItem onClick={() => handleForceLogout(event.userId?._id as string)}>
                                                                     <LogOut className="mr-2 h-4 w-4 text-orange-500" />
                                                                     Force Logout User
                                                                 </DropdownMenuItem>
