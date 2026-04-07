@@ -156,13 +156,19 @@ import {
     getSecurityEvents,
     getSecurityStats,
     exportSecurityLogs,
-    forceLogoutUser
+    forceLogoutUser,
+    blockIp,
+    unblockIp,
+    getActiveUserLocations
 } from '../controllers/securityController';
 
 adminRouter.get('/security/events', getSecurityEvents);
 adminRouter.get('/security/stats', getSecurityStats);
 adminRouter.get('/security/export', exportSecurityLogs);
 adminRouter.post('/security/force-logout', forceLogoutUser);
+adminRouter.post('/security/block-ip', blockIp);
+adminRouter.post('/security/unblock-ip', unblockIp);
+adminRouter.get('/security/locations', getActiveUserLocations);
 // Legacy actions from admin controller
 adminRouter.post('/security/force-logout-all', forceLogoutAllUsers);
 adminRouter.post('/security/rotate-api-keys', rotateApiKeys);

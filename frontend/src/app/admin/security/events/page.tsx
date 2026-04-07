@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Download, Search } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Loader2, Download, Search, MoreHorizontal, Ban, CheckCircle, LogOut } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 import api from '@/lib/api';
 
@@ -52,6 +53,33 @@ export default function SecurityEventsPage() {
             });
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleBlockIp = async (ipAddress: string) => {
+        try {
+            await api.post('/admin/security/block-ip', { ipAddress, reason: 'Blocked manually from events list' });
+            toast({ title: 'IP Blocked', description: `Blocked access from ${ipAddress}` });
+        } catch (error) {
+            toast({ title: 'Error', description: 'Failed to block IP', variant: 'destructive' });
+        }
+    };
+
+    const handleUnblockIp = async (ipAddress: string) => {
+        try {
+            await api.post('/admin/security/unblock-ip', { ipAddress });
+            toast({ title: 'IP Unblocked', description: `Restored access from ${ipAddress}` });
+        } catch (error) {
+            toast({ title: 'Error', description: 'Failed to unblock IP', variant: 'destructive' });
+        }
+    };
+
+    const handleForceLogout = async (userId: string) => {
+        try {
+            await api.post('/admin/security/force-logout', { userId });
+            toast({ title: 'User Logged Out', description: `Forcefully logged out user.` });
+        } catch (error) {
+            toast({ title: 'Error', description: 'Failed to force logout', variant: 'destructive' });
         }
     };
 
@@ -163,6 +191,7 @@ export default function SecurityEventsPage() {
                                     <TableHead>Type</TableHead>
                                     <TableHead>Source</TableHead>
                                     <TableHead>Details</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -200,6 +229,36 @@ export default function SecurityEventsPage() {
                                             </TableCell>
                                             <TableCell className="max-w-md truncate text-sm text-muted-foreground">
                                                 {JSON.stringify(event.details)}
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" className="h-8 w-8 p-0">
+                                                            <span className="sr-only">Open menu</span>
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                        <DropdownMenuItem onClick={() => handleBlockIp(event.ipAddress)}>
+                                                            <Ban className="mr-2 h-4 w-4 text-red-500" />
+                                                            Block IP
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleUnblockIp(event.ipAddress)}>
+                                                            <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
+                                                            Unblock IP
+                                                        </DropdownMenuItem>
+                                                        {event.userId && (
+                                                            <>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem onClick={() => handleForceLogout(event.userId?._id as unknown as string)}>
+                                                                    <LogOut className="mr-2 h-4 w-4 text-orange-500" />
+                                                                    Force Logout User
+                                                                </DropdownMenuItem>
+                                                            </>
+                                                        )}
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
                                             </TableCell>
                                         </TableRow>
                                     ))

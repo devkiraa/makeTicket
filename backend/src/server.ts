@@ -16,11 +16,11 @@ import { logger } from './lib/logger';
 import { requestContextMiddleware } from './middleware/requestContext';
 import { httpLoggingMiddleware } from './middleware/httpLogger';
 
-// Import security middleware
 import {
     helmetMiddleware,
     mongoSanitizeMiddleware,
-    validateSecurityConfig
+    validateSecurityConfig,
+    ipBlockerMiddleware
 } from './middleware/security';
 
 // Import Redis client
@@ -79,7 +79,10 @@ app.use(requestContextMiddleware);
 // 2. HTTP logging middleware (replaces morgan)
 app.use(httpLoggingMiddleware);
 
-// 3. Also write to rotating log file for backup/compliance
+// 3. Block malicious IPs before any core processing
+app.use(ipBlockerMiddleware);
+
+// 4. Also write to rotating log file for backup/compliance
 app.use((req, res, next) => {
     const start = Date.now();
     res.on('finish', () => {

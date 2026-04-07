@@ -9,6 +9,7 @@ import RedisStore from 'rate-limit-redis';
 import mongoSanitize from 'express-mongo-sanitize';
 import { logger } from '../lib/logger';
 import { SecurityEvent } from '../models/SecurityEvent';
+import { BlockedIp } from '../models/BlockedIp';
 import { getRedisClient, isRedisAvailable } from '../lib/redis';
 
 // ==================== HELMET CONFIGURATION ====================
@@ -253,7 +254,35 @@ export const logSecurityEvent = async (
             userAgent: req.headers['user-agent'],
             details
         });
-    } catch (error) {
         logger.error('security.event_log_failed', { type, error: (error as Error).message });
+    }
+};
+
+// ==================== IP BLOCKER MIDDLEWARE ====================
+let blockedIpsCache: Set<string> | null = null;
+let lastCacheUpdate = 0;
+
+export const ipBlockerMiddleware = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const clientIp = req.ip || req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() || 'unknown';
+        
+        // Refresh cache every 60 seconds
+        const now = Date.now();
+        if (!blockedIpsCache || now - lastCacheUpdate > 60000) {
+            const blocked = await BlockedIp.find({}, 'ipAddress').lean();
+            blockedIpsCache = new Set(blocked.map(b => b.ipAddress));
+            lastCacheUpdate = now;
+        }
+
+        if (blockedIpsCache.has(clientIp)) {
+            logger.warn('security.blocked_ip_access', { ip: clientIp, path: req.path });
+            res.status(403).json({ message: 'Access denied: Your IP has been blocked.' });
+            return;
+        }
+
+        next();
+    } catch (err) {
+        logger.error('security.ip_block_check_failed', { error: (err as Error).message });
+        next();
     }
 };

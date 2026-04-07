@@ -68,13 +68,31 @@ export async function exchangeAuthCode(code: string): Promise<{ success: boolean
 // API Client Wrapper matching axios-like interface
 const api = {
     get: async (url: string, config: any = {}) => {
-        const res = await authFetch(url, { ...config, method: 'GET' });
+        let finalUrl = url;
+        if (config.params) {
+            const searchParams = new URLSearchParams();
+            Object.entries(config.params).forEach(([key, val]) => {
+                if (val !== undefined && val !== null) {
+                    searchParams.append(key, String(val));
+                }
+            });
+            const qs = searchParams.toString();
+            if (qs) {
+                finalUrl += (url.includes('?') ? '&' : '?') + qs;
+            }
+        }
+        const res = await authFetch(finalUrl, { ...config, method: 'GET' });
         if (!res.ok && res.status !== 400 && res.status !== 401 && res.status !== 403 && res.status !== 404 && res.status !== 409 && res.status !== 422) { // Allow handle logic for business errors
             const error = new Error(`API Error: ${res.statusText}`);
             (error as any).response = res;
             throw error;
         }
-        const data = await res.json().catch(() => ({}));
+        let data;
+        if (config.responseType === 'blob') {
+            data = await res.blob();
+        } else {
+            data = await res.json().catch(() => ({}));
+        }
         return { data, status: res.status, ok: res.ok };
     },
     post: async (url: string, data: any, config: any = {}) => {

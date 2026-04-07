@@ -4,6 +4,7 @@
  */
 import { Request, Response } from 'express';
 import { SecurityEvent } from '../models/SecurityEvent';
+import { BlockedIp } from '../models/BlockedIp';
 import { User } from '../models/User';
 import { Parser } from 'json2csv';
 import { logger } from '../lib/logger';
@@ -185,5 +186,76 @@ export const streamSecurityLogs = async (req: Request, res: Response) => {
     } catch (error) {
         logger.error('security.stream_init_error', { error: (error as Error).message });
         res.status(500).json({ message: 'Failed to stream logs' });
+    }
+};
+
+/**
+ * Block an IP address
+ */
+export const blockIp = async (req: Request, res: Response) => {
+    try {
+        const { ipAddress, reason } = req.body;
+        if (!ipAddress) return res.status(400).json({ message: 'IP address is required' });
+
+        await BlockedIp.findOneAndUpdate(
+            { ipAddress },
+            { ipAddress, reason, blockedBy: (req as any).user?.id },
+            { upsert: true, new: true }
+        );
+
+        logger.warn('security.ip_blocked', { ipAddress, adminId: (req as any).user?.id, reason });
+        res.status(200).json({ message: 'IP address blocked successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to block IP' });
+    }
+};
+
+/**
+ * Unblock an IP address
+ */
+export const unblockIp = async (req: Request, res: Response) => {
+    try {
+        const { ipAddress } = req.body;
+        if (!ipAddress) return res.status(400).json({ message: 'IP address is required' });
+
+        await BlockedIp.findOneAndDelete({ ipAddress });
+
+        logger.info('security.ip_unblocked', { ipAddress, adminId: (req as any).user?.id });
+        res.status(200).json({ message: 'IP address unblocked successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to unblock IP' });
+    }
+};
+
+/**
+ * Get active user locations for map visualization
+ */
+export const getActiveUserLocations = async (req: Request, res: Response) => {
+    try {
+        const statusFilter = req.query.status as string || 'active';
+        const queryMatch: any = { 'loginHistory.location.lat': { $exists: true, $ne: null } };
+        
+        if (statusFilter !== 'all') {
+            queryMatch['status'] = statusFilter;
+        }
+
+        const locations = await User.aggregate([
+            { $match: queryMatch },
+            { $unwind: '$loginHistory' },
+            { $match: { 'loginHistory.location.lat': { $exists: true, $ne: null } } },
+            { $group: {
+                _id: '$_id',
+                lat: { $last: '$loginHistory.location.lat' },
+                lon: { $last: '$loginHistory.location.lon' },
+                city: { $last: '$loginHistory.location.city' },
+                country: { $last: '$loginHistory.location.country' },
+                size: { $sum: 0.1 } // relative size depending on logins
+            }}
+        ]);
+        
+        res.status(200).json(locations);
+    } catch (error) {
+        logger.error('security.locations_error', { error: (error as Error).message });
+        res.status(500).json({ message: 'Failed to fetch user locations' });
     }
 };

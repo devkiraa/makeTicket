@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, Calendar, Ticket, Activity, ShieldAlert, ArrowLeft, IndianRupee, ChevronRight, Server } from 'lucide-react';
+import { Users, Calendar, Ticket, Activity, ShieldAlert, ArrowLeft, IndianRupee, ChevronRight, Server, Globe } from 'lucide-react';
+import { EarthMap } from '@/components/admin/EarthMap';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import api from '@/lib/api';
 
 interface AdminStats {
     stats: {
@@ -26,7 +29,10 @@ interface AdminStats {
 export default function AdminDashboard() {
     const router = useRouter();
     const [data, setData] = useState<AdminStats | null>(null);
+    const [locations, setLocations] = useState<any[]>([]);
+    const [locationFilter, setLocationFilter] = useState('active');
     const [loading, setLoading] = useState(true);
+    const [mapLoading, setMapLoading] = useState(false);
     const [error, setError] = useState('');
 
     useEffect(() => {
@@ -56,6 +62,9 @@ export default function AdminDashboard() {
                 if (!res.ok) throw new Error('Failed to fetch admin stats');
                 const statsData = await res.json();
                 setData(statsData);
+                
+                // Fetch initial map locations (non-blocking)
+                fetchLocations('active');
             } catch (err) {
                 console.error(err);
                 setError('Failed to load admin dashboard. Ensure you have admin privileges.');
@@ -66,6 +75,23 @@ export default function AdminDashboard() {
 
         fetchAdminData();
     }, [router]);
+
+    const fetchLocations = async (status: string) => {
+        setMapLoading(true);
+        try {
+            const { data } = await api.get(`/admin/security/locations?status=${status}`);
+            setLocations(data);
+        } catch (err) {
+            console.error('Failed to fetch map locations', err);
+        } finally {
+            setMapLoading(false);
+        }
+    };
+
+    const handleFilterChange = (val: string) => {
+        setLocationFilter(val);
+        fetchLocations(val);
+    };
 
     if (loading) return (
         <div className="flex min-h-screen items-center justify-center bg-slate-50">
@@ -253,6 +279,41 @@ export default function AdminDashboard() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Earth Map Section */}
+            <Card className="shadow-sm border-slate-200 overflow-hidden">
+                <CardHeader className="flex flex-row items-center justify-between bg-slate-50 border-b border-slate-100 pb-4">
+                    <div>
+                        <CardTitle className="flex items-center gap-2">
+                            <Globe className="h-5 w-5 text-indigo-500" />
+                            Global Distribution
+                        </CardTitle>
+                        <p className="text-sm text-slate-500 mt-1">See where your users are connecting from.</p>
+                    </div>
+                    <div>
+                        <Select value={locationFilter} onValueChange={handleFilterChange}>
+                            <SelectTrigger className="w-[180px] bg-white">
+                                <SelectValue placeholder="Filter Users" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Users</SelectItem>
+                                <SelectItem value="active">Active Only</SelectItem>
+                                <SelectItem value="suspended">Suspended Only</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-0 bg-slate-50 relative flex items-center justify-center min-h-[400px]">
+                    {mapLoading && (
+                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-50/50 backdrop-blur-sm">
+                            <div className="animate-pulse flex flex-col items-center">
+                                <div className="h-8 w-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                            </div>
+                        </div>
+                    )}
+                    <EarthMap locations={locations} />
+                </CardContent>
+            </Card>
 
             {/* Recent Users Table */}
             <Card className="shadow-sm border-slate-200">
