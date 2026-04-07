@@ -33,13 +33,67 @@ export const getSecurityEvents = async (req: Request, res: Response) => {
             ];
         }
 
-        const events = await SecurityEvent.find(query)
-            .sort({ createdAt: -1 })
-            .skip((page - 1) * limit)
-            .limit(limit)
-            .populate('userId', 'email name');
+        const pipeline: any[] = [
+            { $match: query },
+            {
+                $group: {
+                    _id: { ipAddress: "$ipAddress", type: "$type", severity: "$severity" },
+                    count: { $sum: 1 },
+                    createdAt: { $max: "$createdAt" },
+                    firstSeen: { $min: "$createdAt" },
+                    userId: { $last: "$userId" },
+                    details: { $last: "$details" }
+                }
+            },
+            { $sort: { createdAt: -1 } },
+            {
+                $facet: {
+                    paginatedResults: [
+                        { $skip: (page - 1) * limit },
+                        { $limit: limit },
+                        {
+                            $lookup: {
+                                from: 'users',
+                                localField: 'userId',
+                                foreignField: '_id',
+                                as: 'userDoc'
+                            }
+                        },
+                        {
+                            $unwind: {
+                                path: '$userDoc',
+                                preserveNullAndEmptyArrays: true
+                            }
+                        },
+                        {
+                            $addFields: {
+                                _id: { $concat: ["$_id.ipAddress", "-", "$_id.type", "-", { $toString: "$_id.severity" }] },
+                                ipAddress: "$_id.ipAddress",
+                                type: "$_id.type",
+                                severity: "$_id.severity",
+                                userId: {
+                                    $cond: {
+                                        if: "$userDoc",
+                                        then: { _id: "$userDoc._id", email: "$userDoc.email", name: "$userDoc.name" },
+                                        else: null
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            $project: { userDoc: 0 }
+                        }
+                    ],
+                    totalCount: [
+                        { $count: "count" }
+                    ]
+                }
+            }
+        ];
 
-        const total = await SecurityEvent.countDocuments(query);
+        const [aggregationResult] = await SecurityEvent.aggregate(pipeline);
+        const events = aggregationResult.paginatedResults;
+        const total = aggregationResult.totalCount[0]?.count || 0;
 
         res.status(200).json({
             events,

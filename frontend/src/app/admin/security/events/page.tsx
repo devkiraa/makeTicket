@@ -20,6 +20,8 @@ interface SecurityEvent {
     userId?: { _id: string; email: string; name: string };
     details: any;
     createdAt: string;
+    firstSeen?: string;
+    count?: number;
 }
 
 export default function SecurityEventsPage() {
@@ -211,14 +213,28 @@ export default function SecurityEventsPage() {
                                     events.map((event) => (
                                         <TableRow key={event._id}>
                                             <TableCell className="whitespace-nowrap font-mono text-sm">
-                                                {new Date(event.createdAt).toLocaleString()}
+                                                <div>{new Date(event.createdAt).toLocaleString()}</div>
+                                                {event.firstSeen && event.count && event.count > 1 && (
+                                                    <div className="text-xs text-muted-foreground mt-1">
+                                                        First: {new Date(event.firstSeen).toLocaleDateString()}
+                                                    </div>
+                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 <Badge className={`${getSeverityColor(event.severity)} text-white border-0`}>
                                                     {event.severity.toUpperCase()}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell className="font-medium">{event.type}</TableCell>
+                                            <TableCell className="font-medium">
+                                                <div className="flex items-center gap-2">
+                                                    {event.type}
+                                                    {event.count && event.count > 1 && (
+                                                        <Badge variant="outline" className="text-xs bg-slate-100">
+                                                            {event.count}x hits
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            </TableCell>
                                             <TableCell>
                                                 <div className="flex flex-col">
                                                     <span className="font-mono text-xs">{event.ipAddress}</span>
