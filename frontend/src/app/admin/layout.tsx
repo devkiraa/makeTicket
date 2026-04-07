@@ -79,7 +79,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     </div>
                 </div>
 
-                <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
+                <nav className="flex-1 p-4 space-y-6 overflow-y-auto scrollbar-hide">
                     {navSections.map((section, idx) => (
                         <div key={idx}>
                             {section.title && (
