@@ -254,6 +254,7 @@ export const logSecurityEvent = async (
             userAgent: req.headers['user-agent'],
             details
         });
+    } catch (error) {
         logger.error('security.event_log_failed', { type, error: (error as Error).message });
     }
 };

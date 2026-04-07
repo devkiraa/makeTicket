@@ -41,11 +41,11 @@ export function EarthMap({ locations }: EarthMapProps) {
             markerColor: [0.25, 0.46, 0.92], // Indigo-500
             glowColor: [0.8, 0.8, 1],
             markers,
-            onRender: (state) => {
+            onRender: (state: any) => {
                 state.phi = phi;
                 phi += 0.005;
             },
-        });
+        } as any);
 
         return () => {
             globe.destroy();
