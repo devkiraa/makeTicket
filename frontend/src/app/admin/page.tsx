@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Users, Calendar, Ticket, Activity, ShieldAlert, ArrowLeft, IndianRupee, ChevronRight, Server, Globe } from 'lucide-react';
-import { EarthMap } from '@/components/admin/EarthMap';
+import dynamic from 'next/dynamic';
+const EarthMap = dynamic(() => import('@/components/admin/EarthMap').then(mod => mod.EarthMap), { ssr: false });
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import api from '@/lib/api';
 
