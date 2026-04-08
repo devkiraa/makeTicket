@@ -701,7 +701,7 @@ export default function LandingPage() {
         {/* Footer */}
         <footer className="py-16 bg-slate-900 text-white">
           <div className="container px-4 md:px-6">
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-8 mb-12">
               <div className="col-span-2 md:col-span-1">
                 <div className="flex items-center gap-2 mb-4">
                   <img src="/logo.png" alt="MakeTicket" className="h-8 w-8 rounded-lg" />
@@ -746,6 +746,15 @@ export default function LandingPage() {
                   <li><Link href="/refunds" className="hover:text-white transition-colors">Refunds</Link></li>
                   <li><Link href="/cookies" className="hover:text-white transition-colors">Cookies</Link></li>
                   <li><Link href="/licenses" className="hover:text-white transition-colors">Licenses</Link></li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="font-semibold mb-4">Free Tools</h3>
+                <ul className="space-y-2 text-slate-400 text-sm">
+                  <li><Link href="/create-event-tickets-online-free" className="hover:text-white transition-colors">Create Tickets Online</Link></li>
+                  <li><Link href="/ticket-maker" className="hover:text-white transition-colors">Free Ticket Maker</Link></li>
+                  <li><Link href="/event-ticket-generator" className="hover:text-white transition-colors">Ticket Generator</Link></li>
+                  <li><Link href="/ticket-creator" className="hover:text-white transition-colors">Ticket Creator</Link></li>
                 </ul>
               </div>
             </div>

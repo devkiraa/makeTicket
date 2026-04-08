@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import StaticPageLayout from '@/components/StaticPageLayout';
 import Link from 'next/link';
+import LiveTicketPreview from '@/components/marketing/LiveTicketPreview';
 import { Ban, Zap, ShieldCheck, BarChart3, Music, GraduationCap, Briefcase, PartyPopper, BookOpen, Trophy } from 'lucide-react';
 
 export const metadata: Metadata = {
@@ -109,7 +110,39 @@ export default function EventTicketGeneratorPage() {
       title="Free Event Ticket Generator"
       subtitle="Generate unique QR-code event tickets instantly. Share, scan, and manage — all for free."
     >
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify([
+            {
+              '@context': 'https://schema.org',
+              '@type': 'SoftwareApplication',
+              name: 'MakeTicket Event Ticket Generator',
+              applicationCategory: 'BusinessApplication',
+              operatingSystem: 'Web',
+              url: 'https://maketicket.app/event-ticket-generator',
+              offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+              description: 'Generate professional event tickets with QR codes for free.',
+            },
+            {
+              '@context': 'https://schema.org',
+              '@type': 'FAQPage',
+              mainEntity: faqs.map(faq => ({
+                '@type': 'Question',
+                name: faq.q,
+                acceptedAnswer: {
+                  '@type': 'Answer',
+                  text: faq.a
+                }
+              }))
+            }
+          ]),
+        }}
+      />
+
       <div className="space-y-20">
+        <LiveTicketPreview />
+
         {/* Why Generate Tickets Digitally */}
         <section>
           <h2 className="text-3xl font-bold text-slate-900 mb-4 text-center">

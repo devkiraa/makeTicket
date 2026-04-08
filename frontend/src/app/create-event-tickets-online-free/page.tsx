@@ -18,26 +18,25 @@ import {
 } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Free Online Ticket Maker — Create Beautiful Event Tickets | MakeTicket',
+  title: 'Create Event Tickets Online Free | MakeTicket',
   description:
-    'The easiest free online ticket maker. Create professional event tickets with QR codes in 60 seconds. No design skills needed. Try MakeTicket free.',
+    'Need to create event tickets online for free? MakeTicket lets you design, generate, and email QR code tickets for any event instantly.',
   keywords: [
-    'ticket maker',
-    'ticket maker online',
-    'online ticket maker',
-    'free ticket maker',
-    'free ticket maker online',
-    'free online ticket maker',
+    'create event tickets online free',
+    'create ticket online free',
+    'make event tickets online free',
+    'free event ticket creator',
+    'create a ticket online',
   ],
   openGraph: {
-    title: 'Free Online Ticket Maker — Create Beautiful Event Tickets | MakeTicket',
+    title: 'Create Event Tickets Online Free | MakeTicket',
     description:
-      'The easiest free online ticket maker. Create professional event tickets with QR codes in 60 seconds. No design skills needed.',
-    url: 'https://maketicket.app/ticket-maker',
+      'Create professional event tickets with QR codes online for free. Setup in 60 seconds.',
+    url: 'https://maketicket.app/create-event-tickets-online-free',
     type: 'website',
   },
   alternates: {
-    canonical: 'https://maketicket.app/ticket-maker',
+    canonical: 'https://maketicket.app/create-event-tickets-online-free',
   },
 };
 
@@ -142,11 +141,11 @@ const colorMap: Record<string, string> = {
   rose: 'bg-rose-50 text-rose-600 border-rose-100',
 };
 
-export default function TicketMakerPage() {
+export default function CreateEventTicketsPage() {
   return (
     <StaticPageLayout
-      title="Free Online Ticket Maker"
-      subtitle="Create professional event tickets in 60 seconds — completely free. No design skills required."
+      title="Create Event Tickets Online — 100% Free"
+      subtitle="Instantly generate, distribute, and scan event tickets. The easiest way to create a ticket online."
     >
       {/* JSON-LD Schema (Software + FAQ) */}
       <script
@@ -156,12 +155,12 @@ export default function TicketMakerPage() {
             {
               '@context': 'https://schema.org',
               '@type': 'SoftwareApplication',
-              name: 'MakeTicket',
+              name: 'MakeTicket Event Ticket Creator',
               applicationCategory: 'BusinessApplication',
               operatingSystem: 'Web',
-              url: 'https://maketicket.app/ticket-maker',
+              url: 'https://maketicket.app/create-event-tickets-online-free',
               offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-              description: 'Free online ticket maker. Create event tickets with QR codes instantly.',
+              description: 'Create event tickets online for free with QR codes instantly.',
             },
             {
               '@context': 'https://schema.org',

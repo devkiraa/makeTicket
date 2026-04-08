@@ -47,13 +47,48 @@ export default function StaticPageLayout({ title, subtitle, children, backLink =
             </main>
 
             {/* Footer */}
-            <footer className="py-8 border-t border-slate-100 bg-slate-50">
-                <div className="container px-4 md:px-6 flex flex-col md:flex-row justify-between items-center gap-4">
-                    <p className="text-sm text-slate-500">© 2026 MakeTicket. All rights reserved.</p>
-                    <div className="flex gap-6 text-sm text-slate-500">
-                        <Link href="/privacy" className="hover:text-slate-900">Privacy</Link>
-                        <Link href="/terms" className="hover:text-slate-900">Terms</Link>
-                        <Link href="/contact" className="hover:text-slate-900">Contact</Link>
+            <footer className="py-12 border-t border-slate-100 bg-slate-50">
+                <div className="container px-4 md:px-6">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+                        <div>
+                            <h3 className="font-semibold mb-4 text-slate-900">Product</h3>
+                            <ul className="space-y-2 text-slate-500 text-sm">
+                                <li><Link href="/features" className="hover:text-slate-900 transition-colors">Features</Link></li>
+                                <li><Link href="/pricing" className="hover:text-slate-900 transition-colors">Pricing</Link></li>
+                                <li><Link href="/integrations" className="hover:text-slate-900 transition-colors">Integrations</Link></li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 className="font-semibold mb-4 text-slate-900">Company</h3>
+                            <ul className="space-y-2 text-slate-500 text-sm">
+                                <li><Link href="/about" className="hover:text-slate-900 transition-colors">About</Link></li>
+                                <li><Link href="/blog" className="hover:text-slate-900 transition-colors">Blog</Link></li>
+                                <li><Link href="/contact" className="hover:text-slate-900 transition-colors">Contact</Link></li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 className="font-semibold mb-4 text-slate-900">Free Tools</h3>
+                            <ul className="space-y-2 text-slate-500 text-sm">
+                                <li><Link href="/create-event-tickets-online-free" className="hover:text-slate-900 transition-colors">Create Tickets Online</Link></li>
+                                <li><Link href="/ticket-maker" className="hover:text-slate-900 transition-colors">Free Ticket Maker</Link></li>
+                                <li><Link href="/event-ticket-generator" className="hover:text-slate-900 transition-colors">Ticket Generator</Link></li>
+                                <li><Link href="/ticket-creator" className="hover:text-slate-900 transition-colors">Ticket Creator</Link></li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h3 className="font-semibold mb-4 text-slate-900">Legal</h3>
+                            <ul className="space-y-2 text-slate-500 text-sm">
+                                <li><Link href="/privacy" className="hover:text-slate-900 transition-colors">Privacy Policy</Link></li>
+                                <li><Link href="/terms" className="hover:text-slate-900 transition-colors">Terms of Service</Link></li>
+                                <li><Link href="/refunds" className="hover:text-slate-900 transition-colors">Refunds</Link></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div className="pt-8 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <p className="text-sm text-slate-500">© 2026 MakeTicket. All rights reserved.</p>
+                        <div className="flex gap-6 text-sm text-slate-500">
+                            <Link href="/">Back to Home</Link>
+                        </div>
                     </div>
                 </div>
             </footer>
