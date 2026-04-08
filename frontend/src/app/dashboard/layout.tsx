@@ -27,7 +27,7 @@ import {
     Key,
     MessageSquare
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
@@ -39,8 +39,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [isUserRole, setIsUserRole] = useState(false); // Track if user has 'user' role (not host/admin)
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isImpersonating, setIsImpersonating] = useState(false);
-
     const [isLoadingRole, setIsLoadingRole] = useState(true); // Add loading state
+    
+    // Guard against React Strict Mode / multi-mount race conditions for one-time auth codes
+    const isExchangingRef = useRef(false);
 
     const stopImpersonating = () => {
         const adminToken = localStorage.getItem('admin_token');
@@ -74,6 +76,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     document.cookie = `auth_token=${legacyToken}; path=/`;
                     window.dispatchEvent(new Event('tokenReady'));
                 } else if (authCode) {
+                    // Prevent multi-firing which consumes the 1-time code twice and boots the user
+                    if (isExchangingRef.current) return;
+                    isExchangingRef.current = true;
+                    
                     try {
                         const res = await fetch(
                             `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/exchange-code`,
@@ -95,11 +101,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             }
                         } else {
                             console.error('Failed to exchange auth code');
+                            isExchangingRef.current = false;
                             router.push('/login?error=auth_failed');
                             return;
                         }
                     } catch (err) {
                         console.error('Auth code exchange failed:', err);
+                        isExchangingRef.current = false;
                         router.push('/login?error=auth_failed');
                         return;
                     }
