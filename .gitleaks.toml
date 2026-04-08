@@ -1,0 +1,10 @@
+[allowlist]
+description = "Ignore known false positives and rotated secrets in history"
+paths = [
+    '''upi\.py''',
+]
+commits = [
+    "77360a8",
+    "16a289f",
+    "52aebf5"
+]

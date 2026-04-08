@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, Download, Search, MoreHorizontal, Ban, CheckCircle, LogOut } from 'lucide-react';
 import { useToast } from "@/components/ui/use-toast";
 import api from '@/lib/api';
@@ -26,6 +27,7 @@ interface SecurityEvent {
 
 export default function SecurityEventsPage() {
     const { toast } = useToast();
+    const [selectedEvent, setSelectedEvent] = useState<SecurityEvent | null>(null);
     const [events, setEvents] = useState<SecurityEvent[]>([]);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
@@ -211,7 +213,11 @@ export default function SecurityEventsPage() {
                                     </TableRow>
                                 ) : (
                                     events.map((event) => (
-                                        <TableRow key={event._id}>
+                                        <TableRow 
+                                            key={event._id}
+                                            className="cursor-pointer hover:bg-slate-50 transition-colors"
+                                            onClick={() => setSelectedEvent(event)}
+                                        >
                                             <TableCell className="whitespace-nowrap font-mono text-sm">
                                                 <div>{new Date(event.createdAt).toLocaleString()}</div>
                                                 {event.firstSeen && event.count && event.count > 1 && (
@@ -247,34 +253,36 @@ export default function SecurityEventsPage() {
                                                 {JSON.stringify(event.details)}
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" className="h-8 w-8 p-0">
-                                                            <span className="sr-only">Open menu</span>
-                                                            <MoreHorizontal className="h-4 w-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                        <DropdownMenuItem onClick={() => handleBlockIp(event.ipAddress)}>
-                                                            <Ban className="mr-2 h-4 w-4 text-red-500" />
-                                                            Block IP
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleUnblockIp(event.ipAddress)}>
-                                                            <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
-                                                            Unblock IP
-                                                        </DropdownMenuItem>
-                                                        {event.userId && (
-                                                            <>
-                                                                <DropdownMenuSeparator />
-                                                                <DropdownMenuItem onClick={() => handleForceLogout(event.userId?._id as string)}>
-                                                                    <LogOut className="mr-2 h-4 w-4 text-orange-500" />
-                                                                    Force Logout User
-                                                                </DropdownMenuItem>
-                                                            </>
-                                                        )}
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
+                                                <div onClick={e => e.stopPropagation()} className="inline-block">
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="ghost" className="h-8 w-8 p-0">
+                                                                <span className="sr-only">Open menu</span>
+                                                                <MoreHorizontal className="h-4 w-4" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                            <DropdownMenuItem onClick={() => handleBlockIp(event.ipAddress)}>
+                                                                <Ban className="mr-2 h-4 w-4 text-red-500" />
+                                                                Block IP
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => handleUnblockIp(event.ipAddress)}>
+                                                                <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
+                                                                Unblock IP
+                                                            </DropdownMenuItem>
+                                                            {event.userId && (
+                                                                <>
+                                                                    <DropdownMenuSeparator />
+                                                                    <DropdownMenuItem onClick={() => handleForceLogout(event.userId?._id as string)}>
+                                                                        <LogOut className="mr-2 h-4 w-4 text-orange-500" />
+                                                                        Force Logout User
+                                                                    </DropdownMenuItem>
+                                                                </>
+                                                            )}
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))
@@ -309,6 +317,78 @@ export default function SecurityEventsPage() {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Event Details Dialog */}
+            <Dialog open={!!selectedEvent} onOpenChange={(open: boolean) => !open && setSelectedEvent(null)}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Security Event Details</DialogTitle>
+                        <DialogDescription>
+                            Detailed breakdown of {selectedEvent?.type} activity.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {selectedEvent && (
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-md border">
+                                <div>
+                                    <h4 className="font-medium text-xs text-slate-500 mb-1">IP Address</h4>
+                                    <p className="font-mono text-sm">{selectedEvent.ipAddress}</p>
+                                </div>
+                                <div>
+                                    <h4 className="font-medium text-xs text-slate-500 mb-1">Severity</h4>
+                                    <Badge className={`${getSeverityColor(selectedEvent.severity)} text-white`}>
+                                        {selectedEvent.severity.toUpperCase()}
+                                    </Badge>
+                                </div>
+                                <div>
+                                    <h4 className="font-medium text-xs text-slate-500 mb-1">Occurrences</h4>
+                                    <p className="text-sm font-semibold">{selectedEvent.count || 1} hits</p>
+                                </div>
+                                <div className="col-span-2 md:col-span-1">
+                                    <h4 className="font-medium text-xs text-slate-500 mb-1">Target Account</h4>
+                                    <p className="text-sm truncate">
+                                        {selectedEvent.userId?.email || 'Unauthenticated'}
+                                    </p>
+                                </div>
+                                <div>
+                                    <h4 className="font-medium text-xs text-slate-500 mb-1">Most Recent</h4>
+                                    <p className="text-sm text-slate-700">{new Date(selectedEvent.createdAt).toLocaleString()}</p>
+                                </div>
+                                <div>
+                                    <h4 className="font-medium text-xs text-slate-500 mb-1">First Seen</h4>
+                                    <p className="text-sm text-slate-700">{selectedEvent.firstSeen ? new Date(selectedEvent.firstSeen).toLocaleString() : 'N/A'}</p>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 className="font-medium text-sm text-slate-800 mb-2">Raw Payload Details</h4>
+                                <pre className="bg-slate-950 text-slate-50 p-4 rounded-md overflow-x-auto text-xs max-h-[300px]">
+                                    {JSON.stringify(selectedEvent.details, null, 2)}
+                                </pre>
+                            </div>
+                            
+                            <div className="flex justify-end gap-2 pt-2">
+                                <Button 
+                                    variant="outline" 
+                                    onClick={() => setSelectedEvent(null)}
+                                >
+                                    Close
+                                </Button>
+                                <Button 
+                                    variant="destructive"
+                                    onClick={() => {
+                                        handleBlockIp(selectedEvent.ipAddress);
+                                        setSelectedEvent(null);
+                                    }}
+                                >
+                                    <Ban className="w-4 h-4 mr-2" />
+                                    Block Source IP
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
