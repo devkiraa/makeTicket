@@ -1,37 +1,64 @@
-# MakeTicket Monorepo
+<div align="center">
+  <img src="https://maketicket.app/logo.png" alt="MakeTicket Logo" width="120" />
+</div>
 
-This repository contains both the backend and frontend for the MakeTicket application.
+<h1 align="center">MakeTicket</h1>
 
-## Structure
+<p align="center">
+  <strong>The frictionless, modern event ticketing platform for creators, organizers, and communities.</strong>
+</p>
 
-- **backend/**: Node.js/Express API with MongoDB.
-- **frontend/**: Next.js + React application.
+<p align="center">
+  <a href="https://maketicket.app">Live Platform</a> | 
+  <a href="https://maketicket.app/api-docs">API Documentation</a> |
+  <a href="https://maketicket.app/dashboard">Dashboard</a>
+</p>
 
-## Getting Started
+---
 
-### Prerequisites
+## 🎟️ Welcome to MakeTicket
 
-- Node.js (v18+)
-- MongoDB
+MakeTicket is the all-in-one platform built to eliminate the headache of managing event registrations, distributing tickets, and handling door check-ins. Whether you're organizing a local tech meetup, a campus fest, a corporate seminar, or a full-scale concert, MakeTicket provides enterprise-grade infrastructure without the exorbitant fees.
 
-### Installation
+Say goodbye to manual spreadsheets, easily faked PDF tickets, and confusing third-party email blasts. MakeTicket handles everything end-to-end.
 
-Install dependencies for all workspaces:
+## ✨ Key Features
 
-```bash
-npm install
-```
+### 🔐 Fraud-Proof QR Ecosystem
+Every attendee receives a unique, cryptographically secured QR code ticket. With the MakeTicket Coordinator Dashboard, event staff can scan QR codes at the door in milliseconds to instantly validate tickets and track live attendance.
 
-### Development
+### 🎨 Custom Ticket & Email Designer
+Don't settle for boring confirmation emails. Use our built-in Drag-and-Drop templates to customize exactly what your attendees see when they register—allowing you to inject your brand's unique identity directly into their inbox.
 
-Run both backend and frontend in development mode:
+### 👥 Coordinator Multi-Access
+Running a massive event? You can invite your team members as "Coordinators." They get secure, restricted access specifically designed for scanning attendees at the door without compromising your core admin settings or billing data.
 
-Backend:
-```bash
-npm run dev:backend
-```
+### 📱 Apple & Google Wallet Integration
+Provide a premium user experience. Attendees can add their MakeTicket digital passes directly to their native smartphone wallets in a single click, popping up on their lock screens right when they arrive at the venue.
 
-Frontend:
-```bash
-npm run dev:frontend
-```
+### 📊 Real-Time Analytics
+Track page views, daily ticket registrations, current revenue, and live scan-in statistics directly from your centralized command center.
+
+---
+
+## 🚀 How It Works
+
+1. **Create the Event:** Enter your event details, upload a beautiful banner, and customize your checkout page entirely for free.
+2. **Launch & Share:** Copy your MakeTicket URL and share it on Instagram, Twitter, email, or your personal website. 
+3. **Automated Fulfilment:** When attendees register, they are immediately emailed a gorgeous receipt and their unique QR-Code digital pass.
+4. **Scan & Check-in:** On the day of the event, organizers open the MakeTicket Portal on any mobile device and scan phones at the door. Live headcount stats update automatically.
+
+## 🎯 Built For Every Event
+
+* **Live Music & Concerts:** Seamless high-traffic admissions.
+* **Campus & University Fests:** Manage 1000s of students effortlessly.
+* **Corporate Events & Seminars:** Professional, branded digital badges.
+* **Weddings & Private Galas:** Exclusive, VIP-only entry links.
+* **Hackathons & Tech Meetups:** Easy check-ins via mobile wallets.
+
+---
+
+<div align="center">
+  <p><i>Ready to upgrade your attendee experience?</i></p>
+  <a href="https://maketicket.app/register"><strong>Create your first event for free today →</strong></a>
+</div>
