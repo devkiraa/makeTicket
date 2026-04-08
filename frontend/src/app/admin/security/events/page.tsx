@@ -28,6 +28,9 @@ interface SecurityEvent {
 export default function SecurityEventsPage() {
     const { toast } = useToast();
     const [selectedEvent, setSelectedEvent] = useState<SecurityEvent | null>(null);
+    const [exportOpen, setExportOpen] = useState(false);
+    const [exportDays, setExportDays] = useState('7');
+    const [exportType, setExportType] = useState('all');
     const [events, setEvents] = useState<SecurityEvent[]>([]);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
@@ -94,7 +97,11 @@ export default function SecurityEventsPage() {
 
     const handleExport = async () => {
         try {
-            const response = await api.get('/admin/security/export', { responseType: 'blob' });
+            const params: any = {};
+            if (exportDays !== 'all') params.days = exportDays;
+            if (exportType !== 'all') params.type = exportType;
+            
+            const response = await api.get('/admin/security/export', { params, responseType: 'blob' });
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
@@ -102,6 +109,8 @@ export default function SecurityEventsPage() {
             document.body.appendChild(link);
             link.click();
             link.parentNode?.removeChild(link);
+            setExportOpen(false);
+            toast({ title: "Export Started", description: "Your logs are successfully downloading." });
         } catch (error) {
             toast({
                 title: "Export Failed",
@@ -128,10 +137,58 @@ export default function SecurityEventsPage() {
                     <h1 className="text-3xl font-bold tracking-tight">Security & Threat Events</h1>
                     <p className="text-muted-foreground mt-2">Filter and inspect detailed security logs.</p>
                 </div>
-                <Button onClick={handleExport} variant="outline" className="gap-2">
-                    <Download className="h-4 w-4" />
-                    Export Log
-                </Button>
+                
+                <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+                    <Button onClick={() => setExportOpen(true)} variant="outline" className="gap-2">
+                        <Download className="h-4 w-4" />
+                        Export Log
+                    </Button>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Export Security Logs</DialogTitle>
+                            <DialogDescription>
+                                Select the time range and type of events you want to download.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                            <div className="grid gap-2">
+                                <label className="text-sm font-medium">Time Range</label>
+                                <Select value={exportDays} onValueChange={setExportDays}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select timeframe" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="1">Last 24 Hours</SelectItem>
+                                        <SelectItem value="7">Last 7 Days</SelectItem>
+                                        <SelectItem value="30">Last 30 Days</SelectItem>
+                                        <SelectItem value="all">All Time</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="grid gap-2">
+                                <label className="text-sm font-medium">Event Type</label>
+                                <Select value={exportType} onValueChange={setExportType}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Events</SelectItem>
+                                        <SelectItem value="auth_failure">Failed Logins</SelectItem>
+                                        <SelectItem value="rate_limit_exceeded">Rate Limit / DDoS Hits</SelectItem>
+                                        <SelectItem value="invalid_ticket_scan">Invalid Scans</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                            <Button variant="ghost" onClick={() => setExportOpen(false)}>Cancel</Button>
+                            <Button onClick={handleExport} className="gap-2">
+                                <Download className="h-4 w-4" />
+                                Download CSV
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </div>
 
             {/* Filters */}

@@ -169,7 +169,20 @@ export const getSecurityStats = async (req: Request, res: Response) => {
  */
 export const exportSecurityLogs = async (req: Request, res: Response) => {
     try {
-        const events = await SecurityEvent.find()
+        const { type, days } = req.query;
+        const query: any = {};
+        
+        if (type && type !== 'all') {
+            query.type = type;
+        }
+        
+        if (days && days !== 'all') {
+            const date = new Date();
+            date.setDate(date.getDate() - parseInt(days as string));
+            query.createdAt = { $gte: date };
+        }
+
+        const events = await SecurityEvent.find(query)
             .sort({ createdAt: -1 })
             .limit(10000) // Limit export size
             .populate('userId', 'email');

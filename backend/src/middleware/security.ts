@@ -39,6 +39,29 @@ const createRateLimitStore = (prefix: string) => {
     return undefined;
 };
 
+// ==================== TELEMETRY EXTRACTOR ====================
+export const extractRequestDetails = (req: Request) => {
+    const rawHeaders = { ...req.headers };
+    // Strip sensitive / noisy headers
+    delete rawHeaders['authorization'];
+    delete rawHeaders['cookie'];
+    
+    // Strip sensitive body details
+    const bodyCopy = { ...req.body };
+    if (bodyCopy.password) bodyCopy.password = '***';
+    if (bodyCopy.token) bodyCopy.token = '***';
+    if (bodyCopy.secret) bodyCopy.secret = '***';
+
+    return {
+        method: req.method,
+        url: req.originalUrl || req.url,
+        protocol: req.protocol,
+        headers: rawHeaders,
+        query: Object.keys(req.query).length > 0 ? req.query : undefined,
+        body: Object.keys(bodyCopy).length > 0 ? bodyCopy : undefined
+    };
+};
+
 // ==================== RATE LIMITERS ====================
 
 /**
@@ -78,7 +101,8 @@ export const authLimiter = rateLimit({
                     details: {
                         endpoint: req.path,
                         email: req.body?.email,
-                        requestCount: 1
+                        requestCount: 1,
+                        ...extractRequestDetails(req)
                     }
                 }
             },
@@ -142,7 +166,12 @@ export const scanLimiter = rateLimit({
                 $setOnInsert: {
                     severity: 'high',
                     userId: (req as any).user?.id,
-                    details: { endpoint: 'scan', reason: 'potential_enumeration', requestCount: 1 }
+                    details: { 
+                        endpoint: 'scan', 
+                        reason: 'potential_enumeration', 
+                        requestCount: 1,
+                        ...extractRequestDetails(req)
+                    }
                 }
             },
             { upsert: true, new: true }
@@ -275,7 +304,10 @@ export const logSecurityEvent = async (
             userId: (req as any).user?.id,
             ipAddress: req.ip || req.headers['x-forwarded-for']?.toString() || 'unknown',
             userAgent: req.headers['user-agent'],
-            details
+            details: {
+                ...details,
+                ...extractRequestDetails(req)
+            }
         });
     } catch (error) {
         logger.error('security.event_log_failed', { type, error: (error as Error).message });
