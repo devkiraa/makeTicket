@@ -141,8 +141,28 @@ app.use((req, res, next) => {
     next();
 });
 
+// Extract the frontend URL and ensure we support both non-www and www variants
+const getCorsOrigins = () => {
+    const defaultUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const origins = [defaultUrl];
+    
+    // Auto-allow www variant if not explicitly set
+    if (defaultUrl.startsWith('https://') && !defaultUrl.startsWith('https://www.')) {
+        origins.push(defaultUrl.replace('https://', 'https://www.'));
+    }
+    // Also auto-allow non-www if explicitly set to www
+    if (defaultUrl.startsWith('https://www.')) {
+        origins.push(defaultUrl.replace('https://www.', 'https://'));
+    }
+    
+    // Always allow localhost for local dev
+    origins.push('http://localhost:3000');
+    
+    return origins;
+};
+
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: getCorsOrigins(),
     credentials: true
 }));
 
