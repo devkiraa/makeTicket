@@ -286,7 +286,7 @@ export default function UserDetailPage() {
                 <Button
                     variant="ghost"
                     className="mb-4 text-slate-500 hover:text-slate-700 -ml-3"
-                    onClick={() => router.push('/dashboard/admin/users')}
+                    onClick={() => router.push('/admin/users')}
                 >
                     <ArrowLeft className="w-4 h-4 mr-2" />
                     Back to Users

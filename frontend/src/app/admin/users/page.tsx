@@ -574,7 +574,7 @@ export default function UserManagementPage() {
                                             <td className="px-6 py-4">
                                                 <div
                                                     className="flex items-center gap-3 cursor-pointer"
-                                                    onClick={() => router.push(`/dashboard/admin/users/${user._id}`)}
+                                                    onClick={() => router.push(`/admin/users/${user._id}`)}
                                                 >
                                                     <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold uppercase shrink-0">
                                                         {user.avatar ? (
@@ -641,7 +641,7 @@ export default function UserManagementPage() {
                                                     <DropdownMenuContent align="end" className="w-48">
                                                         <DropdownMenuLabel>User Actions</DropdownMenuLabel>
                                                         <DropdownMenuSeparator />
-                                                        <DropdownMenuItem onClick={() => router.push(`/dashboard/admin/users/${user._id}`)}>
+                                                        <DropdownMenuItem onClick={() => router.push(`/admin/users/${user._id}`)}>
                                                             <UserIcon className="mr-2 h-4 w-4" /> View Details
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => {
@@ -667,7 +667,7 @@ export default function UserManagementPage() {
                                                         <DropdownMenuItem onClick={() => router.push(`mailto:${user.email}`)}>
                                                             <Mail className="mr-2 h-4 w-4" /> Send Email
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => router.push(`/dashboard/admin/sessions?userId=${user._id}`)}>
+                                                        <DropdownMenuItem onClick={() => router.push(`/admin/sessions?userId=${user._id}`)}>
                                                             <Monitor className="mr-2 h-4 w-4" /> View Sessions
                                                         </DropdownMenuItem>
                                                         <DropdownMenuSeparator />
