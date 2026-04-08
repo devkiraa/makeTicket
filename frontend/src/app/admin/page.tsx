@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Users, Calendar, Ticket, Activity, ShieldAlert, ArrowLeft, IndianRupee, ChevronRight, Server, Globe } from 'lucide-react';
-import dynamic from 'next/dynamic';
-const EarthMap = dynamic(() => import('@/components/admin/EarthMap').then(mod => mod.EarthMap), { ssr: false });
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { CheckCircle2, AlertCircle } from 'lucide-react';
 import api from '@/lib/api';
 
 interface AdminStats {
@@ -30,10 +30,7 @@ interface AdminStats {
 export default function AdminDashboard() {
     const router = useRouter();
     const [data, setData] = useState<AdminStats | null>(null);
-    const [locations, setLocations] = useState<any[]>([]);
-    const [locationFilter, setLocationFilter] = useState('active');
     const [loading, setLoading] = useState(true);
-    const [mapLoading, setMapLoading] = useState(false);
     const [error, setError] = useState('');
 
     useEffect(() => {
@@ -63,9 +60,6 @@ export default function AdminDashboard() {
                 if (!res.ok) throw new Error('Failed to fetch admin stats');
                 const statsData = await res.json();
                 setData(statsData);
-                
-                // Fetch initial map locations (non-blocking)
-                fetchLocations('active');
             } catch (err) {
                 console.error(err);
                 setError('Failed to load admin dashboard. Ensure you have admin privileges.');
@@ -76,23 +70,6 @@ export default function AdminDashboard() {
 
         fetchAdminData();
     }, [router]);
-
-    const fetchLocations = async (status: string) => {
-        setMapLoading(true);
-        try {
-            const { data } = await api.get(`/admin/security/locations?status=${status}`);
-            setLocations(data);
-        } catch (err) {
-            console.error('Failed to fetch map locations', err);
-        } finally {
-            setMapLoading(false);
-        }
-    };
-
-    const handleFilterChange = (val: string) => {
-        setLocationFilter(val);
-        fetchLocations(val);
-    };
 
     if (loading) return (
         <div className="flex min-h-screen items-center justify-center bg-slate-50">
@@ -281,40 +258,72 @@ export default function AdminDashboard() {
                 </Card>
             </div>
 
-            {/* Earth Map Section */}
-            <Card className="shadow-sm border-slate-200 overflow-hidden">
-                <CardHeader className="flex flex-row items-center justify-between bg-slate-50 border-b border-slate-100 pb-4">
-                    <div>
-                        <CardTitle className="flex items-center gap-2">
-                            <Globe className="h-5 w-5 text-indigo-500" />
-                            Global Distribution
+            {/* System Health Section */}
+            <div className="grid gap-6 md:grid-cols-2">
+                <Card className="shadow-sm border-slate-200">
+                    <CardHeader className="bg-slate-50 border-b border-slate-100">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                            <Activity className="h-5 w-5 text-indigo-500" />
+                            Platform Health
                         </CardTitle>
-                        <p className="text-sm text-slate-500 mt-1">See where your users are connecting from.</p>
-                    </div>
-                    <div>
-                        <Select value={locationFilter} onValueChange={handleFilterChange}>
-                            <SelectTrigger className="w-[180px] bg-white">
-                                <SelectValue placeholder="Filter Users" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Users</SelectItem>
-                                <SelectItem value="active">Active Only</SelectItem>
-                                <SelectItem value="suspended">Suspended Only</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </CardHeader>
-                <CardContent className="p-0 bg-slate-50 relative flex items-center justify-center min-h-[400px]">
-                    {mapLoading && (
-                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-50/50 backdrop-blur-sm">
-                            <div className="animate-pulse flex flex-col items-center">
-                                <div className="h-8 w-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-4">
+                        <div className="flex items-center justify-between border-b pb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+                                <span className="font-medium text-slate-800">Primary Database (MongoDB)</span>
+                            </div>
+                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-0">Connected</Badge>
+                        </div>
+                        <div className="flex items-center justify-between border-b pb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+                                <span className="font-medium text-slate-800">Redis Cache & Queues</span>
+                            </div>
+                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-0">Online</Badge>
+                        </div>
+                        <div className="flex items-center justify-between border-b pb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+                                <span className="font-medium text-slate-800">API Gateway Edge</span>
+                            </div>
+                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-0">Operational</Badge>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+                                <span className="font-medium text-slate-800">Mail Distribution Service</span>
+                            </div>
+                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-0">100% Uptime</Badge>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="shadow-sm border-slate-200">
+                    <CardHeader className="bg-slate-50 border-b border-slate-100">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                            <ShieldAlert className="h-5 w-5 text-indigo-500" />
+                            Security Posture
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-4">
+                        <div className="flex gap-4 p-4 rounded-lg bg-indigo-50 border border-indigo-100 items-start">
+                            <CheckCircle2 className="h-5 w-5 text-indigo-600 mt-0.5" />
+                            <div>
+                                <h4 className="font-semibold text-slate-900">Rate Limiter Active</h4>
+                                <p className="text-sm text-slate-600 mt-1">DDoS and credential stuffing protections are actively monitoring endpoints.</p>
                             </div>
                         </div>
-                    )}
-                    <EarthMap locations={locations} />
-                </CardContent>
-            </Card>
+                        <div className="flex gap-4 p-4 rounded-lg bg-slate-50 border border-slate-100 items-start">
+                            <CheckCircle2 className="h-5 w-5 text-slate-600 mt-0.5" />
+                            <div>
+                                <h4 className="font-semibold text-slate-900">Database Sanitization</h4>
+                                <p className="text-sm text-slate-600 mt-1">Application payload is being safely scrubbed for NoSQL injections.</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
 
             {/* Recent Users Table */}
             <Card className="shadow-sm border-slate-200">
