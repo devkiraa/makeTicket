@@ -61,17 +61,29 @@ export const authLimiter = rateLimit({
             path: req.path
         });
 
-        // Log security event
-        await SecurityEvent.create({
-            type: 'rate_limit_exceeded',
-            severity: 'medium',
-            ipAddress: req.ip || 'unknown',
-            userAgent: req.headers['user-agent'],
-            details: {
-                endpoint: req.path,
-                email: req.body?.email
-            }
-        }).catch(() => { }); // Don't fail if logging fails
+        const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+        // Upsert log to save database from insert floods during brute force
+        await SecurityEvent.findOneAndUpdate(
+            {
+                type: 'rate_limit_exceeded',
+                ipAddress: req.ip || 'unknown',
+                'details.endpoint': req.path,
+                createdAt: { $gte: hourAgo }
+            },
+            {
+                $inc: { 'details.requestCount': 1 },
+                $setOnInsert: {
+                    severity: 'medium',
+                    userAgent: req.headers['user-agent'],
+                    details: {
+                        endpoint: req.path,
+                        email: req.body?.email,
+                        requestCount: 1
+                    }
+                }
+            },
+            { upsert: true, new: true }
+        ).catch(() => { });
 
         res.status(429).json({
             message: 'Too many attempts. Please try again in 15 minutes.',
@@ -117,13 +129,24 @@ export const scanLimiter = rateLimit({
             userId: (req as any).user?.id
         });
 
-        await SecurityEvent.create({
-            type: 'rate_limit_exceeded',
-            severity: 'high',
-            userId: (req as any).user?.id,
-            ipAddress: req.ip || 'unknown',
-            details: { endpoint: 'scan', reason: 'potential_enumeration' }
-        }).catch(() => { });
+        const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+        await SecurityEvent.findOneAndUpdate(
+            {
+                type: 'rate_limit_exceeded',
+                ipAddress: req.ip || 'unknown',
+                'details.endpoint': 'scan',
+                createdAt: { $gte: hourAgo }
+            },
+            {
+                $inc: { 'details.requestCount': 1 },
+                $setOnInsert: {
+                    severity: 'high',
+                    userId: (req as any).user?.id,
+                    details: { endpoint: 'scan', reason: 'potential_enumeration', requestCount: 1 }
+                }
+            },
+            { upsert: true, new: true }
+        ).catch(() => { });
 
         res.status(429).json({
             message: 'Too many scan attempts. Please slow down.',

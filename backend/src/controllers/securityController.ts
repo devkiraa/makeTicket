@@ -38,7 +38,7 @@ export const getSecurityEvents = async (req: Request, res: Response) => {
             {
                 $group: {
                     _id: { ipAddress: "$ipAddress", type: "$type", severity: "$severity" },
-                    count: { $sum: 1 },
+                    count: { $sum: { $cond: [{ $ifNull: ["$details.requestCount", false] }, "$details.requestCount", 1] } },
                     createdAt: { $max: "$createdAt" },
                     firstSeen: { $min: "$createdAt" },
                     userId: { $last: "$userId" },
