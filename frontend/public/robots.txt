@@ -4,20 +4,20 @@
 User-agent: *
 Allow: /
 
-# Allow all search engines
-User-agent: Googlebot
-Allow: /
+# Allow signup and login process explicitly
+Allow: /login
+Allow: /register
+Allow: /forgot-password
 
-User-agent: Bingbot
-Allow: /
-
-User-agent: DuckDuckBot
-Allow: /
-
-# Block admin and API routes from indexing
+# Block all private, user-specific, and authenticated areas so crawlers do not index them
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /coordinator/
 Disallow: /api/
-Disallow: /dashboard/admin/
 Disallow: /_next/
+Disallow: /validate/
+Disallow: /e/
+Disallow: /u/
 
 # Sitemap location
 Sitemap: https://maketicket.app/sitemap.xml
