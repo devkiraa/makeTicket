@@ -311,6 +311,20 @@ export default function ProfilePage() {
         setTimeout(() => setMessage({ type: '', text: '' }), 3000);
     };
 
+    const handleGeneralShare = () => {
+        if (navigator.share) {
+            navigator.share({
+                title: 'MakeTicket',
+                text: 'Create and manage your event tickets easily with MakeTicket!',
+                url: window.location.origin,
+            }).catch(() => {});
+        } else {
+            navigator.clipboard.writeText(window.location.origin);
+            setMessage({ type: 'success', text: 'Platform link copied!' });
+            setTimeout(() => setMessage({ type: '', text: '' }), 3000);
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex justify-center items-center h-64">
@@ -755,7 +769,10 @@ export default function ProfilePage() {
             <div className="flex justify-between items-center pt-8 border-t border-slate-200 mt-12 mb-8">
                 <div className="font-bold text-slate-400">MakeTicket</div>
                 <div className="flex gap-4 text-slate-400">
-                    <Share2 className="w-5 h-5 cursor-pointer hover:text-indigo-600 transition-colors" />
+                    <Share2 
+                        className="w-5 h-5 cursor-pointer hover:text-indigo-600 transition-colors" 
+                        onClick={handleGeneralShare}
+                    />
                 </div>
             </div>
 
