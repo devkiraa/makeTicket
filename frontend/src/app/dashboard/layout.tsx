@@ -135,14 +135,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                 setIsImpersonating(!!localStorage.getItem('admin_token'));
 
-                // Verify Session & Role Status (still do this for security/updates)
-                // Check Coordinator Status
-                const coordRes = await fetch(
-                    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/coordinators/my-events`,
-                    { headers: { 'Authorization': `Bearer ${token}` } }
-                );
+                // 3. Verify Session & Role Status in parallel
+                const [coordRes, meRes] = await Promise.all([
+                    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/coordinators/my-events`, { headers: { 'Authorization': `Bearer ${token}` } }),
+                    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/me`, { headers: { 'Authorization': `Bearer ${token}` } })
+                ]);
 
-                if (coordRes.status === 401) {
+                if (coordRes.status === 401 || meRes.status === 401) {
                     throw new Error('Session expired');
                 }
 
@@ -150,16 +149,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     const events = await coordRes.json();
                     setHasCoordinatorEvents(events.length > 0);
                     setCoordinatorCount(events.length);
-                }
-
-                // Check Admin Status (fetch me) - confirm role hasn't changed on server
-                const meRes = await fetch(
-                    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/me`,
-                    { headers: { 'Authorization': `Bearer ${token}` } }
-                );
-
-                if (meRes.status === 401) {
-                    throw new Error('Session expired');
                 }
 
                 if (meRes.ok) {

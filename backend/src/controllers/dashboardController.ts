@@ -8,31 +8,49 @@ export const getDashboardStats = async (req: Request, res: Response) => {
         const userId = req.user.id;
 
         // 1. Get all events hosted by user
-        const events = await Event.find({ hostId: userId }).select('title slug date status price');
+        const events = await Event.find({ hostId: userId }).select('title slug date status price').lean();
         const eventIds = events.map(e => e._id);
 
-        // 2. Count active/draft/closed events
-        const now = new Date();
-        const activeEventsCount = events.filter(e => e.status === 'active').length;
-        const draftEventsCount = events.filter(e => e.status === 'draft').length;
-        const closedEventsCount = events.filter(e => e.status === 'closed').length;
+        if (eventIds.length === 0) {
+            return res.json({
+                totalRevenue: 0, totalTickets: 0, checkedInTickets: 0, checkedInToday: 0,
+                activeEventsCount: 0, draftEventsCount: 0, closedEventsCount: 0,
+                totalEvents: 0, eventStats: [], registrationTrend: [], recentRegistrations: [], checkInRate: 0
+            });
+        }
 
-        // 3. Get all tickets with detailed info
+        // 2. Count active/draft/closed events from the lean array
+        let activeEventsCount = 0, draftEventsCount = 0, closedEventsCount = 0;
+        events.forEach(e => {
+            if (e.status === 'active') activeEventsCount++;
+            else if (e.status === 'draft') draftEventsCount++;
+            else if (e.status === 'closed') closedEventsCount++;
+        });
+
+        // 3. Get essential ticket data only - using .lean() is much faster
         const allTickets = await Ticket.find({ eventId: { $in: eventIds } })
             .select('eventId pricePaid status createdAt')
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
 
         const totalTickets = allTickets.length;
-        const checkedInTickets = allTickets.filter(t => t.status === 'checked-in').length;
+        let totalRevenue = 0;
+        let checkedInTickets = 0;
 
-        // Calculate Revenue (INR)
-        // @ts-ignore
-        const totalRevenue = allTickets.reduce((sum, ticket) => sum + (ticket.pricePaid || 0), 0);
+        // One-pass calculation for totals and per-event grouping
+        const eventTicketsMap: Record<string, any[]> = {};
+        allTickets.forEach(t => {
+            totalRevenue += (t.pricePaid || 0);
+            if (t.status === 'checked-in') checkedInTickets++;
+            
+            const eId = t.eventId.toString();
+            if (!eventTicketsMap[eId]) eventTicketsMap[eId] = [];
+            eventTicketsMap[eId].push(t);
+        });
 
         // 4. Per-Event Stats
         const eventStats = events.map(event => {
-            const eventTickets = allTickets.filter(t => t.eventId.toString() === event._id.toString());
-            // @ts-ignore
+            const eventTickets = eventTicketsMap[event._id.toString()] || [];
             const eventRevenue = eventTickets.reduce((sum, t) => sum + (t.pricePaid || 0), 0);
             return {
                 id: event._id,
@@ -44,52 +62,46 @@ export const getDashboardStats = async (req: Request, res: Response) => {
                 checkedIn: eventTickets.filter(t => t.status === 'checked-in').length,
                 revenue: eventRevenue
             };
-        }).sort((a, b) => b.ticketsSold - a.ticketsSold); // Sort by most tickets
+        }).sort((a, b) => b.ticketsSold - a.ticketsSold);
 
-        // 5. Daily Registration Trend (last 30 days)
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-        const dailyRegistrations: { [key: string]: number } = {};
+        // 5. Daily Registration Trend (last 30 days) - Optimized loop
+        const now = new Date();
+        const dailyRegistrations: Record<string, number> = {};
         for (let i = 0; i < 30; i++) {
-            const d = new Date();
+            const d = new Date(now);
             d.setDate(d.getDate() - i);
-            const key = d.toISOString().split('T')[0];
-            dailyRegistrations[key] = 0;
+            dailyRegistrations[d.toISOString().split('T')[0]] = 0;
         }
 
         allTickets.forEach(ticket => {
-            // @ts-ignore
-            const dateKey = new Date(ticket.createdAt).toISOString().split('T')[0];
+            const dateKey = (ticket.createdAt as Date).toISOString().split('T')[0];
             if (dailyRegistrations[dateKey] !== undefined) {
                 dailyRegistrations[dateKey]++;
             }
         });
 
-        // Convert to sorted array
         const registrationTrend = Object.entries(dailyRegistrations)
             .map(([date, count]) => ({ date, count }))
             .sort((a, b) => a.date.localeCompare(b.date));
 
-        // 6. Recent Registrations (last 5 for efficiency)
+        // 6. Recent Registrations
         const recentTickets = allTickets.slice(0, 5).map(t => {
             const event = events.find(e => e._id.toString() === t.eventId.toString());
             return {
                 id: t._id,
                 eventTitle: event?.title || 'Unknown',
-                // @ts-ignore
                 date: t.createdAt,
                 amount: t.pricePaid || 0
             };
         });
 
-        // Count check-ins today
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        // Today's Check-ins count
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
         const checkedInToday = await Ticket.countDocuments({
             eventId: { $in: eventIds },
             status: 'checked-in',
-            checkedInAt: { $gte: today }
+            checkedInAt: { $gte: startOfToday }
         });
 
         res.status(200).json({
@@ -163,15 +175,13 @@ export const getMyRegistrations = async (req: Request, res: Response) => {
         // @ts-ignore
         const userEmail = req.user.email;
 
-        // Find all tickets where the form data email matches the user's email
-        const tickets = await Ticket.find({}).populate('eventId').sort({ createdAt: -1 });
-
-        // Filter tickets by email in formData
-        const userTickets = tickets.filter(ticket => {
-            const fd = ticket.formData instanceof Map ? Object.fromEntries(ticket.formData) : (ticket.formData || {});
-            const ticketEmail = fd.email || fd.Email || fd['Email Address'] || '';
-            return ticketEmail.toLowerCase() === userEmail.toLowerCase();
-        });
+        // Find only tickets belonging to this user (prioritizing userId, falling back to guestEmail)
+        const userTickets = await Ticket.find({
+            $or: [
+                { userId: (req as any).user.id },
+                { guestEmail: userEmail.toLowerCase() }
+            ]
+        }).populate('eventId').sort({ createdAt: -1 });
 
         // Map to response format
         const registrations = userTickets.map(ticket => {

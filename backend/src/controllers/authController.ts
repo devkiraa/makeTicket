@@ -239,18 +239,20 @@ export const googleAuthCallback = async (req: Request, res: Response) => {
                 username = `${baseUsername}${Date.now()}`;
             }
 
-            // Download the avatar image and convert to base64
-            const avatarBase64 = await downloadImageAsBase64(profile.picture);
-
             user = await User.create({
                 email: profile.email,
                 username: username,
-                name: profile.name, // Save Google name
+                name: profile.name,
                 password: hashedPassword,
                 googleId: profile.id,
-                googleAvatar: profile.picture, // Store Google avatar URL for reference
-                avatar: avatarBase64 || profile.picture, // Store base64 or fallback to URL
-                role: 'user' // Default role for new signups
+                googleAvatar: profile.picture,
+                avatar: profile.picture, // Use URL initially
+                role: 'user'
+            });
+
+            // Background download of avatar to base64
+            downloadImageAsBase64(profile.picture).then(base64 => {
+                if (base64) User.findByIdAndUpdate(user!._id, { avatar: base64 }).catch(() => {});
             });
 
             // Send welcome email to new users (async, don't wait)
@@ -267,6 +269,7 @@ export const googleAuthCallback = async (req: Request, res: Response) => {
             if (!user.googleId) updates.googleId = profile.id;
             // Only set name if missing
             if (!user.name && profile.name) updates.name = profile.name;
+            
             // Set avatar to Google picture if:
             // 1. User doesn't have an avatar, OR
             // 2. User's current avatar is a Google URL (not a custom data:image upload)
@@ -275,11 +278,10 @@ export const googleAuthCallback = async (req: Request, res: Response) => {
             const isNotBase64 = !user.avatar?.startsWith('data:');
 
             if (hasNoAvatar || isGoogleAvatar || (isNotBase64 && user.googleId)) {
-                // Download and store as base64
-                const avatarBase64 = await downloadImageAsBase64(profile.picture);
-                if (avatarBase64) {
-                    updates.avatar = avatarBase64;
-                }
+                // Background download of avatar to base64
+                downloadImageAsBase64(profile.picture).then(base64 => {
+                    if (base64) User.findByIdAndUpdate(user!._id, { avatar: base64 }).catch(() => {});
+                });
             }
 
             if (Object.keys(updates).length > 0) {

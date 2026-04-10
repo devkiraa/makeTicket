@@ -65,6 +65,8 @@ const TicketSchema = new mongoose.Schema({
 
 // Indexes for performance
 TicketSchema.index({ eventId: 1, guestEmail: 1 });
+TicketSchema.index({ userId: 1 });
+TicketSchema.index({ 'paymentProof.utr': 1 });
 TicketSchema.index({ 'paymentProof.verificationStatus': 1 });
 
 // SECURITY: Unique partial index on verified UTRs to prevent payment reuse fraud

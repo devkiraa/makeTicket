@@ -163,7 +163,8 @@ const getCorsOrigins = () => {
 
 app.use(cors({
     origin: getCorsOrigins(),
-    credentials: true
+    credentials: true,
+    maxAge: 86400 // 24 hours
 }));
 
 // Security middlewares
