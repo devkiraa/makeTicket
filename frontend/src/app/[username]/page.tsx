@@ -4,12 +4,44 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 
+import { Metadata } from 'next';
+
 async function getPublicProfile(username: string) {
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/users/${username}`, {
-        cache: 'no-store'
+        next: { revalidate: 3600 } // Cache for 1 hour
     });
     if (!res.ok) return null;
     return res.json();
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ username: string }> }): Promise<Metadata> {
+    const { username } = await params;
+    const data = await getPublicProfile(username);
+
+    if (!data || !data.user) {
+        return {
+            title: 'User Not Found | MakeTicket',
+            description: 'The requested user profile does not exist on MakeTicket.'
+        };
+    }
+
+    const { user } = data;
+    const displayName = user.name || user.username || username;
+
+    return {
+        title: `${displayName} (@${user.username}) | MakeTicket`,
+        description: `View ${displayName}'s hosted events and profile on MakeTicket. Join their upcoming events, workshops, and gatherings.`,
+        openGraph: {
+            title: `${displayName} on MakeTicket`,
+            description: `Check out ${displayName}'s profile and events on MakeTicket.`,
+            images: [user.avatar || user.googleAvatar || '/icon.png'],
+        },
+        twitter: {
+            card: 'summary_large_image',
+            title: `${displayName} on MakeTicket`,
+            images: [user.avatar || user.googleAvatar || '/icon.png'],
+        }
+    };
 }
 
 export default async function PublicProfilePage({ params }: { params: Promise<{ username: string }> }) {

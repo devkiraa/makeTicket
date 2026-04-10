@@ -1,5 +1,5 @@
 import express from 'express';
-import { createEvent, getEvent, getMyEvents, updateEvent, checkEventSlug, deleteEvent, toggleRegistrationPause } from '../controllers/eventController';
+import { createEvent, getEvent, getMyEvents, updateEvent, checkEventSlug, deleteEvent, toggleRegistrationPause, getSitemapData } from '../controllers/eventController';
 import { registerTicket, validateTicket, getEventAttendees, checkRegistration, approveTicket, rejectTicket, getPendingTickets, transferTicket } from '../controllers/ticketController';
 import { verifyToken, requireAdmin } from '../middleware/auth';
 import {
@@ -31,6 +31,7 @@ export const apiRouter = express.Router();
 
 // Public User Profile
 apiRouter.get('/users/:username', getPublicUserProfile);
+apiRouter.get('/sitemap-data', getSitemapData);
 
 // Google Auth
 // Google Auth

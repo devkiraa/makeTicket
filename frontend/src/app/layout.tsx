@@ -112,6 +112,24 @@ export default async function RootLayout({
         )}
       >
         <CaptchaProvider nonce={nonce}>
+          <Script
+            id="org-schema"
+            type="application/ld+json"
+            strategy="beforeInteractive"
+          >
+            {JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              "name": "MakeTicket",
+              "url": "https://maketicket.app",
+              "logo": "https://maketicket.app/logo.png",
+              "description": "The easiest way to make free tickets online for events, conferences, workshops and more. Generate QR code tickets and manage registrations with zero commission.",
+              "sameAs": [
+                "https://twitter.com/maketicket",
+                "https://linkedin.com/company/maketicket"
+              ]
+            })}
+          </Script>
           {children}
           <Toaster />
           <Analytics />

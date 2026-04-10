@@ -264,3 +264,37 @@ export const toggleRegistrationPause = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Failed to toggle registration pause', error: error.message || error });
     }
 };
+
+/**
+ * Get data for public sitemap (slight/active events and hosts)
+ */
+export const getSitemapData = async (_req: Request, res: Response) => {
+    try {
+        const [activeEvents, hosts] = await Promise.all([
+            Event.find({ status: 'active' })
+                .populate('hostId', 'username')
+                .select('slug hostId updatedAt')
+                .lean(),
+            User.find({ username: { $exists: true }, status: 'active' })
+                .select('username updatedAt')
+                .lean()
+        ]);
+
+        const data = {
+            events: activeEvents.map((e: any) => ({
+                username: e.hostId?.username || 'user',
+                slug: e.slug,
+                updatedAt: e.updatedAt
+            })),
+            users: hosts.map((h: any) => ({
+                username: h.username,
+                updatedAt: h.updatedAt
+            })),
+            timestamp: new Date().toISOString()
+        };
+
+        res.json(data);
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to fetch sitemap data' });
+    }
+};

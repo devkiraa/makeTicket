@@ -28,7 +28,7 @@ import type { Metadata } from "next"
 export const metadata: Metadata = {
   title: "MakeTicket - Create Event Tickets Online Free | #1 Ticketing Platform",
   description: "Make tickets for any event in minutes! Free event ticketing platform with QR code tickets, instant check-in, and real-time analytics. Perfect for conferences, concerts, workshops, and festivals. Start creating tickets today!",
-  keywords: "make ticket, create ticket online, event ticketing, free ticket maker, QR code tickets, event registration, ticket generator, conference tickets, concert tickets, workshop tickets",
+  keywords: "make ticket, create ticket online, event ticketing, free ticket maker, QR code tickets, event registration, ticket generator, conference tickets, concert tickets, workshop tickets, eventbrite alternative, free eventbrite alternative, best event ticketing platform, best ticketing platform for college events, event management platform india, townscript alternative, zoho backstage alternative, ticket tailor alternative, free event management software",
 }
 
 export default function LandingPage() {
@@ -122,6 +122,38 @@ export default function LandingPage() {
             "acceptedAnswer": {
               "@type": "Answer",
               "text": "Each ticket has a unique QR code. At your event, use our mobile-optimized scanner or any smartphone camera to scan tickets. The system validates tickets in under a second and prevents duplicate entries."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How does MakeTicket compare to Eventbrite or Zoho Backstage?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Unlike Eventbrite or Zoho Backstage, MakeTicket offers a completely free tier for small events with zero commission on ticket sales. We focus on speed and simplicity, allowing you to generate professional QR code tickets in minutes without complex setup or high fees."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What is the best free event ticketing platform?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "MakeTicket is one of the best free event ticketing platforms available. It offers a free forever tier with QR code tickets, email confirmations, and real-time analytics — with zero commission on ticket sales. Unlike Eventbrite (which charges 3.7% + fees) or Ticket Tailor (which has no free tier), MakeTicket lets you start for free."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Which ticketing platform is best for college fests and hackathons?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "MakeTicket is ideal for college fests, hackathons, and student events. The free tier supports 2 events per month with 50 attendees each, includes QR code tickets, team collaboration with coordinators, and native UPI payment support for Indian events. It takes under 5 minutes to set up."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is MakeTicket a good alternative to Townscript?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. MakeTicket is a strong Townscript alternative, especially for free events and college fests. Unlike Townscript which charges 2-4% per ticket, MakeTicket charges zero commission. Both support UPI payments, but MakeTicket also offers team collaboration and coordinator permissions."
             }
           }
         ]

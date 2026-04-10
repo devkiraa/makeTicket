@@ -28,6 +28,14 @@ export const metadata: Metadata = {
 export default function BlogPage() {
     const posts = [
         {
+            title: 'Best Event Ticketing Platforms in 2026 — MakeTicket vs Eventbrite vs Zoho',
+            excerpt: 'A comprehensive comparison of the top event ticketing platforms. Compare features, pricing, and find the best fit for your next event.',
+            date: 'Apr 10, 2026',
+            category: 'Comparison',
+            readTime: '8 min read',
+            href: '/blog/best-event-ticketing-platforms',
+        },
+        {
             title: 'How to Make Tickets for an Event (Free) — Step-by-Step',
             excerpt: 'Everything you need to know about creating professional event tickets for free, from setup to check-in scanning.',
             date: 'Mar 15, 2026',

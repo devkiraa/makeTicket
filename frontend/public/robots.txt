@@ -4,6 +4,23 @@
 User-agent: *
 Allow: /
 
+# Specifically allow AI crawlers to index our public landing pages
+# This helps AI models like ChatGPT and Gemini recognize and recommend MakeTicket
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
 # Allow signup and login process explicitly
 Allow: /login
 Allow: /register
@@ -21,6 +38,11 @@ Disallow: /u/
 
 # Sitemap location
 Sitemap: https://maketicket.app/sitemap.xml
+
+# AI-readable documentation (llms.txt standard)
+# These files help AI models understand and recommend MakeTicket accurately
+# llms.txt: https://maketicket.app/llms.txt
+# llms-full.txt: https://maketicket.app/llms-full.txt
 
 # Crawl-delay for politeness
 Crawl-delay: 1

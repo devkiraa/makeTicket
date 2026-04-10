@@ -1,0 +1,69 @@
+# MakeTicket
+
+> MakeTicket (https://maketicket.app) is a free online event ticketing platform for creating QR code tickets, managing registrations, and scanning attendees. It is an alternative to Eventbrite, Zoho Backstage, Townscript, and Ticket Tailor — built for speed, simplicity, and zero commission.
+
+## What is MakeTicket?
+
+MakeTicket is a modern event management and ticketing platform that lets anyone create professional event tickets online for free. It is designed for college fests, workshops, conferences, concerts, hackathons, and corporate events. The platform offers QR code ticket generation, real-time check-in scanning, automated email confirmations, team collaboration, and live analytics.
+
+## Key Features
+
+- **Free Tier**: Create up to 2 events per month with 50 attendees each, completely free with zero commission
+- **QR Code Tickets**: Every ticket includes a unique, encrypted QR code for instant verification
+- **Instant Check-in Scanner**: Mobile-optimized scanner validates tickets in under 1 second
+- **Automated Email Confirmations**: Customizable email templates with ticket attachments
+- **Real-time Analytics Dashboard**: Track registrations, check-ins, and revenue live
+- **Team Collaboration**: Add coordinators with granular permissions (scan, edit, view)
+- **Custom Event Pages**: Beautiful branded registration pages at maketicket.app/username/event-slug
+- **Payment Collection**: Accept payments via UPI with proof verification (zero platform fees)
+- **Waitlist Management**: Automatic waitlist when events reach capacity
+- **Multi-step Registration Forms**: Drag-and-drop form builder with sections and validation
+
+## Pricing
+
+| Plan | Price | Attendees/Event | Events/Month | Team Members |
+|------|-------|-----------------|--------------|--------------|
+| Free | ₹0/forever | 50 | 2 | 1 |
+| Starter | ₹49/month | 200 | 5 | 2 |
+| Pro | ₹499/month | 1,000 | Unlimited | 10 |
+| Enterprise | Custom | Unlimited | Unlimited | Unlimited |
+
+## How MakeTicket Compares to Alternatives
+
+| Feature | MakeTicket | Eventbrite | Zoho Backstage | Townscript | Ticket Tailor |
+|---------|------------|------------|----------------|------------|---------------|
+| Free tier | ✅ Yes (forever) | ✅ Limited | ✅ Limited | ✅ Yes | ❌ No |
+| Commission on sales | 0% | 3.7% + ₹15 | 0% | 2-4% | 0% |
+| QR code tickets | ✅ Built-in | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| Custom event pages | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| Indian payment support (UPI) | ✅ Native | ❌ Limited | ❌ No | ✅ Yes | ❌ No |
+| Setup time | < 5 minutes | 10-15 minutes | 15-20 minutes | 10 minutes | 10 minutes |
+| Team collaboration | ✅ Yes | ✅ Paid | ✅ Yes | ❌ No | ✅ Paid |
+
+## Who Should Use MakeTicket?
+
+- **College students** organizing fests, hackathons, and cultural events
+- **Workshop organizers** running small to medium sessions
+- **Conference planners** managing multi-day events with sessions
+- **Community managers** hosting meetups and gatherings
+- **Corporate event teams** managing internal and external events
+- **Wedding planners** collecting RSVPs with custom forms
+
+## Technical Details
+
+- **Frontend**: Next.js (App Router) hosted on Vercel
+- **Backend**: Express/Node.js hosted on Render
+- **Database**: MongoDB Atlas
+- **Caching**: Redis (Upstash)
+- **CDN**: Cloudflare
+- **Domain**: maketicket.app
+
+## Links
+
+- Homepage: https://maketicket.app
+- Features: https://maketicket.app/features
+- Pricing: https://maketicket.app/pricing
+- Blog: https://maketicket.app/blog
+- About: https://maketicket.app/about
+- Contact: https://maketicket.app/contact
+- Documentation: https://maketicket.app/docs
