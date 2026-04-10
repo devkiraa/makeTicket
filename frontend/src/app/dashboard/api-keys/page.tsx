@@ -60,6 +60,8 @@ export default function ApiKeysPage() {
     const [logsLoading, setLogsLoading] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+    const [confirmingId, setConfirmingId] = useState<string | null>(null);
+    const [confirmingType, setConfirmingType] = useState<'regenerate' | 'delete' | null>(null);
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -162,12 +164,13 @@ export default function ApiKeysPage() {
     };
 
     const regenerateKey = async (keyId: string) => {
-        if (!confirm('Are you sure? Your old API key will stop working immediately.')) return;
-
         const token = localStorage.getItem('auth_token');
         if (!token) return;
 
         setRegeneratingId(keyId);
+        setConfirmingId(null);
+        setConfirmingType(null);
+        
         try {
             const res = await fetch(`${API_URL}/api-keys/${keyId}/regenerate`, {
                 method: 'POST',
@@ -187,12 +190,13 @@ export default function ApiKeysPage() {
     };
 
     const deleteKey = async (keyId: string) => {
-        if (!confirm('Are you sure you want to delete this API key? This cannot be undone.')) return;
-
         const token = localStorage.getItem('auth_token');
         if (!token) return;
 
         setDeletingId(keyId);
+        setConfirmingId(null);
+        setConfirmingType(null);
+        
         try {
             const res = await fetch(`${API_URL}/api-keys/${keyId}`, {
                 method: 'DELETE',
@@ -347,24 +351,58 @@ export default function ApiKeysPage() {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => regenerateKey(key.id)}
-                                            disabled={regeneratingId === key.id}
-                                            className="text-slate-600"
-                                        >
-                                            <RefreshCw className={`w-4 h-4 ${regeneratingId === key.id ? 'animate-spin' : ''}`} />
-                                        </Button>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => deleteKey(key.id)}
-                                            disabled={deletingId === key.id}
-                                            className="text-red-600 hover:bg-red-50 hover:border-red-200"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </Button>
+                                        {confirmingId === key.id ? (
+                                            <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-200">
+                                                <Button
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    className="h-8 text-[10px] uppercase font-bold"
+                                                    onClick={() => {
+                                                        setConfirmingId(null);
+                                                        setConfirmingType(null);
+                                                    }}
+                                                >
+                                                    Cancel
+                                                </Button>
+                                                <Button
+                                                    variant={confirmingType === 'delete' ? 'destructive' : 'default'}
+                                                    size="sm"
+                                                    className="h-8 text-[10px] uppercase font-bold bg-indigo-600 hover:bg-indigo-700"
+                                                    onClick={() => confirmingType === 'delete' ? deleteKey(key.id) : regenerateKey(key.id)}
+                                                >
+                                                    Confirm {confirmingType}
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setConfirmingId(key.id);
+                                                        setConfirmingType('regenerate');
+                                                    }}
+                                                    disabled={regeneratingId === key.id || deletingId === key.id}
+                                                    className="text-slate-600"
+                                                    title="Regenerate Key"
+                                                >
+                                                    <RefreshCw className={`w-4 h-4 ${regeneratingId === key.id ? 'animate-spin' : ''}`} />
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setConfirmingId(key.id);
+                                                        setConfirmingType('delete');
+                                                    }}
+                                                    disabled={deletingId === key.id || regeneratingId === key.id}
+                                                    className="text-red-600 hover:bg-red-50 hover:border-red-200"
+                                                    title="Delete Key"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </Button>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             </div>
