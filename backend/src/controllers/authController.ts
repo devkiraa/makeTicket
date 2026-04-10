@@ -457,7 +457,7 @@ export const login = async (req: Request, res: Response) => {
     try {
         const { email, password } = req.body;
 
-        let user = await User.findOne({ email });
+        let user = await User.findOne({ email }).select('-loginHistory -knownDevices');
         if (!user) {
             await SecurityEvent.create({
                 type: 'auth_failure',
@@ -592,7 +592,9 @@ export const getProfile = async (req: Request, res: Response) => {
     try {
         // @ts-ignore
         const userId = req.user.id;
-        const user = await User.findById(userId).select('-password -smtpConfig');
+        const user = await User.findById(userId)
+            .select('-password -smtpConfig -loginHistory -knownDevices')
+            .lean();
 
         if (!user) return res.status(404).json({ message: 'User not found' });
 

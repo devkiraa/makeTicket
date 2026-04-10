@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
 import { Session } from '../models/Session';
+import { getSessionCache, storeSessionCache } from '../lib/redis';
 
 export const verifyToken = async (req: Request, res: Response, next: NextFunction) => {
     // Support token from: cookies, Authorization header, or query param (for SSE)
@@ -21,7 +22,20 @@ export const verifyToken = async (req: Request, res: Response, next: NextFunctio
             return res.status(401).json({ message: 'Unauthorized - Session required. Please log in again.' });
         }
 
-        const session = await Session.findById(decoded.sessionId);
+        // 1. Check Redis Cache First
+        let session = await getSessionCache(decoded.sessionId);
+        let fromCache = true;
+
+        if (!session) {
+            // 2. Fallback to Database
+            session = await Session.findById(decoded.sessionId).lean();
+            fromCache = false;
+            
+            if (session) {
+                // Store in cache for 10 minutes
+                await storeSessionCache(decoded.sessionId, session, 600);
+            }
+        }
 
         // Check if session exists and is valid
         if (!session) {
@@ -33,14 +47,21 @@ export const verifyToken = async (req: Request, res: Response, next: NextFunctio
         }
 
         // Check if session is expired
-        if (session.expiresAt < new Date()) {
+        const expiresAt = fromCache ? new Date(session.expiresAt) : session.expiresAt;
+        if (expiresAt < new Date()) {
             return res.status(401).json({ message: 'Unauthorized - Session expired. Please log in again.' });
         }
 
         // Update lastActiveAt (throttled to every 5 minutes to reduce DB writes)
+        const lastActiveAt = fromCache ? new Date(session.lastActiveAt) : session.lastActiveAt;
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-        if (session.lastActiveAt < fiveMinutesAgo) {
+        
+        if (lastActiveAt < fiveMinutesAgo) {
+            // Update DB
             await Session.findByIdAndUpdate(decoded.sessionId, { lastActiveAt: new Date() });
+            // Update Cache too to keep it fresh
+            session.lastActiveAt = new Date().toISOString(); 
+            await storeSessionCache(decoded.sessionId, session, 600);
         }
 
         // @ts-ignore

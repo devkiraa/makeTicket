@@ -16,5 +16,7 @@ SecurityEventSchema.index({ createdAt: -1 });
 SecurityEventSchema.index({ type: 1 });
 SecurityEventSchema.index({ severity: 1 });
 SecurityEventSchema.index({ status: 1 });
+SecurityEventSchema.index({ userId: 1, createdAt: -1 });
+SecurityEventSchema.index({ ipAddress: 1, createdAt: -1 });
 
 export const SecurityEvent = mongoose.model('SecurityEvent', SecurityEventSchema);

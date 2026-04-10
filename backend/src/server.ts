@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import compression from 'compression';
 import figlet from 'figlet';
 import { authRouter } from './routes/auth';
 import { apiRouter } from './routes/api';
@@ -54,6 +55,7 @@ const PORT = process.env.PORT || 5000;
 // Trust proxy - needed to get real client IP behind Render/Vercel/nginx
 // Must be set before any middleware reads req.ip
 app.set('trust proxy', true);
+app.use(compression());
 
 import fs from 'fs';
 import path from 'path';
@@ -191,7 +193,10 @@ mongoose.connection.on('connecting', () => logger.info('database.connecting', { 
 mongoose.connection.on('error', (err) => logger.error('database.error', { error: err.message }));
 mongoose.connection.on('disconnected', () => logger.warn('database.disconnected'));
 
-mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/maketicket')
+mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/maketicket', {
+    maxPoolSize: 20,
+    serverSelectionTimeoutMS: 5000,
+})
     .then(() => logger.info('database.connected', { database: 'maketicket', provider: 'MongoDB Atlas' }))
     .catch((err) => logger.error('database.connection_failed', { error: err.message }, err));
 

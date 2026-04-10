@@ -187,15 +187,62 @@ export const consumeAuthCode = async (code: string): Promise<object | null> => {
     }
 };
 
-// In-memory fallback for auth codes (single instance only)
+/**
+ * Session Caching
+ * Used to reduce DB hits on every authenticated request
+ */
+export const storeSessionCache = async (sessionId: string, sessionData: object, ttlSeconds: number = 600): Promise<void> => {
+    if (!redisClient || !isRedisConnected) {
+        sessionCacheStore.set(sessionId, { data: sessionData, expiresAt: Date.now() + ttlSeconds * 1000 });
+        return;
+    }
+    try {
+        await redisClient.setex(`session:${sessionId}`, ttlSeconds, JSON.stringify(sessionData));
+    } catch (e) {
+        logger.error('redis.session_cache_failed', { error: (e as Error).message });
+    }
+};
+
+export const getSessionCache = async (sessionId: string): Promise<any | null> => {
+    if (!redisClient || !isRedisConnected) {
+        const entry = sessionCacheStore.get(sessionId);
+        if (!entry || entry.expiresAt < Date.now()) {
+            sessionCacheStore.delete(sessionId);
+            return null;
+        }
+        return entry.data;
+    }
+    try {
+        const data = await redisClient.get(`session:${sessionId}`);
+        if (!data) return null;
+        return JSON.parse(data);
+    } catch (e) {
+        return null;
+    }
+};
+
+export const invalidateSessionCache = async (sessionId: string): Promise<void> => {
+    if (!redisClient || !isRedisConnected) {
+        sessionCacheStore.delete(sessionId);
+        return;
+    }
+    try {
+        await redisClient.del(`session:${sessionId}`);
+    } catch (e) {}
+};
+
+// In-memory fallbacks
 const authCodeStore = new Map<string, { data: object; expiresAt: number }>();
+const sessionCacheStore = new Map<string, { data: object; expiresAt: number }>();
 
 // Cleanup expired entries periodically
 setInterval(() => {
     const now = Date.now();
-    for (const [key, value] of authCodeStore.entries()) {
-        if (value.expiresAt < now) {
-            authCodeStore.delete(key);
+    [authCodeStore, sessionCacheStore].forEach(store => {
+        for (const [key, value] of store.entries()) {
+            if (value.expiresAt < now) {
+                store.delete(key);
+            }
         }
-    }
+    });
 }, 60000); // Every minute
