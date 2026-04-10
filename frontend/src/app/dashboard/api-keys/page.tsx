@@ -62,6 +62,7 @@ export default function ApiKeysPage() {
     const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
     const [confirmingId, setConfirmingId] = useState<string | null>(null);
     const [confirmingType, setConfirmingType] = useState<'regenerate' | 'delete' | null>(null);
+    const [showDocs, setShowDocs] = useState(false);
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 

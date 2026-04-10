@@ -603,7 +603,7 @@ export const getProfile = async (req: Request, res: Response) => {
         const eventCount = await import('../models/Event').then(m => m.Event.countDocuments({ hostId: userId }));
 
         res.status(200).json({
-            ...user.toObject(),
+            ...user,
             hostedEvents: eventCount
         });
     } catch (error) {

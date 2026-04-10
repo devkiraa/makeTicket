@@ -217,9 +217,6 @@ export const getMyRegistrations = async (req: Request, res: Response) => {
 };
 
 // Upgrade user from 'user' to 'host' role
-import { User } from '../models/User';
-import { sendHostUpgradeEmail } from '../services/systemEmailService';
-
 export const upgradeToHost = async (req: Request, res: Response) => {
     try {
         // @ts-ignore
