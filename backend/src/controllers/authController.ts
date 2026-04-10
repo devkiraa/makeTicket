@@ -170,22 +170,52 @@ export const googleAuthRedirect = (req: Request, res: Response) => {
     res.redirect(url);
 };
 
+// Google Profile Sync Redirect
+export const googleSyncRedirect = (req: Request, res: Response) => {
+    // @ts-ignore
+    const userId = req.user.id;
+    const stateSecret = process.env.STATE_SECRET || process.env.JWT_SECRET!;
+    
+    // Sign state with sync_profile flag and userId
+    const state = createSignedState({ 
+        action: 'sync_profile', 
+        userId, 
+        timestamp: Date.now() 
+    }, stateSecret);
+
+    const redirectUri = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/google/callback`;
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+
+    const scope = 'email profile';
+    const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&state=${encodeURIComponent(state)}`;
+
+    res.redirect(url);
+};
+
 export const googleAuthCallback = async (req: Request, res: Response) => {
     const { code, state } = req.query;
 
     if (!code) return res.status(400).send('No code provided');
 
     try {
-        // Decode state
-        let returnUrl = '/';
+        // 1. Decode and verify state
+        let returnUrl = '/dashboard';
+        let isSyncRequest = false;
+        let syncUserId = null;
+
         if (state) {
             const stateSecret = process.env.STATE_SECRET || process.env.JWT_SECRET!;
             const decodedState = verifySignedState(state as string, stateSecret) as any;
-            if (decodedState && decodedState.returnUrl) {
-                returnUrl = decodedState.returnUrl;
+            if (decodedState) {
+                if (decodedState.action === 'sync_profile') {
+                    isSyncRequest = true;
+                    syncUserId = decodedState.userId;
+                    returnUrl = '/dashboard/settings?synced=true';
+                } else if (decodedState.returnUrl) {
+                    returnUrl = decodedState.returnUrl;
+                }
             } else {
                 logger.warn('auth.google_callback_invalid_state', { state });
-                // We could block here, but for now just fallback to default returnUrl
             }
         }
 
@@ -197,7 +227,7 @@ export const googleAuthCallback = async (req: Request, res: Response) => {
             return res.status(500).send("Google Auth not configured (Missing ID/Secret)");
         }
 
-        // Exchange code for tokens
+        // 2. Exchange code for tokens
         const tokenRes = await axios.post('https://oauth2.googleapis.com/token', {
             client_id: clientId,
             client_secret: clientSecret,
@@ -208,14 +238,25 @@ export const googleAuthCallback = async (req: Request, res: Response) => {
 
         const { access_token } = tokenRes.data;
 
-        // Get User Profile
+        // 3. Get User Profile from Google
         const profileRes = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
             headers: { Authorization: `Bearer ${access_token}` }
         });
 
         const profile = profileRes.data;
 
-        // Find or Create User
+        // 4. Handle Profile Sync Request
+        if (isSyncRequest && syncUserId) {
+            const avatarBase64 = await downloadImageAsBase64(profile.picture);
+            await User.findByIdAndUpdate(syncUserId, {
+                name: profile.name,
+                googleAvatar: profile.picture,
+                avatar: avatarBase64 || profile.picture
+            });
+            return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}${returnUrl}`);
+        }
+
+        // 5. Normal Login/Signup Flow
         let user = await User.findOne({ email: profile.email });
 
         if (!user) {
@@ -262,30 +303,12 @@ export const googleAuthCallback = async (req: Request, res: Response) => {
                     .catch((err: any) => console.log('Welcome email failed:', err.message));
             });
         } else {
-            // Update googleId and googleAvatar (always keep in sync with Google)
-            let updates: any = {
-                googleAvatar: profile.picture // Always update Google avatar URL for reference
-            };
-            if (!user.googleId) updates.googleId = profile.id;
-            // Only set name if missing
-            if (!user.name && profile.name) updates.name = profile.name;
-            
-            // Set avatar to Google picture if:
-            // 1. User doesn't have an avatar, OR
-            // 2. User's current avatar is a Google URL (not a custom data:image upload)
-            const isGoogleAvatar = user.avatar?.includes('googleusercontent.com');
-            const hasNoAvatar = !user.avatar;
-            const isNotBase64 = !user.avatar?.startsWith('data:');
-
-            if (hasNoAvatar || isGoogleAvatar || (isNotBase64 && user.googleId)) {
-                // Background download of avatar to base64
-                downloadImageAsBase64(profile.picture).then(base64 => {
-                    if (base64) User.findByIdAndUpdate(user!._id, { avatar: base64 }).catch(() => {});
+            // User already exists - Just ensure googleId is linked if it wasn't before
+            if (!user.googleId) {
+                await User.findByIdAndUpdate(user._id, { 
+                    googleId: profile.id,
+                    googleAvatar: profile.picture 
                 });
-            }
-
-            if (Object.keys(updates).length > 0) {
-                user = await User.findByIdAndUpdate(user._id, updates, { new: true });
             }
         }
 

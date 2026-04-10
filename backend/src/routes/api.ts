@@ -12,7 +12,7 @@ import {
     requireBulkImport
 } from '../middleware/planLimits';
 import { scanLimiter, inviteAcceptLimiter } from '../middleware/security';
-import { googleAuthRedirect, googleAuthCallback, getProfile, getSessions, revokeSession, updateProfile, checkUsernameAvailability } from '../controllers/authController';
+import { googleAuthRedirect, googleSyncRedirect, googleAuthCallback, getProfile, getSessions, revokeSession, updateProfile, checkUsernameAvailability } from '../controllers/authController';
 import { getPublicUserProfile } from '../controllers/userController';
 import { getDashboardStats, getAllAttendees, getMyRegistrations, upgradeToHost } from '../controllers/dashboardController';
 import { registerInterest } from '../controllers/interestController';
@@ -35,6 +35,7 @@ apiRouter.get('/users/:username', getPublicUserProfile);
 // Google Auth
 // Google Auth
 apiRouter.get('/auth/google', googleAuthRedirect);
+apiRouter.get('/auth/google/sync', verifyToken, googleSyncRedirect);
 apiRouter.get('/auth/google/callback', googleAuthCallback);
 
 // User Profile & Sessions
