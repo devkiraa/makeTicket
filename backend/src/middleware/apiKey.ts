@@ -94,6 +94,28 @@ export const validateApiKey = async (req: Request, res: Response, next: NextFunc
         // Attach key info to request
         req.apiKey = keyDoc;
 
+        // Logging: Record request start time
+        const startTime = Date.now();
+
+        // After the response is sent, log the access
+        res.on('finish', async () => {
+            try {
+                const { ApiLog } = require('../models/ApiLog');
+                await ApiLog.create({
+                    apiKeyId: keyDoc._id,
+                    ownerId: keyDoc.ownerId,
+                    method: req.method,
+                    url: req.originalUrl || req.url,
+                    ipAddress: req.ip || req.connection.remoteAddress || 'unknown',
+                    statusCode: res.statusCode,
+                    duration: Date.now() - startTime,
+                    userAgent: req.headers['user-agent']
+                });
+            } catch (logError) {
+                logger.error('api.log_failed', { error: (logError as Error).message });
+            }
+        });
+
         next();
     } catch (error) {
         logger.error('api.auth_error', { error: (error as Error).message });

@@ -56,7 +56,8 @@ export default function ApiKeysPage() {
     const [showNewKeyModal, setShowNewKeyModal] = useState(false);
     const [newlyCreatedKey, setNewlyCreatedKey] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
-    const [showDocs, setShowDocs] = useState(false);
+    const [apiLogs, setApiLogs] = useState<any[]>([]);
+    const [logsLoading, setLogsLoading] = useState(false);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
@@ -65,6 +66,7 @@ export default function ApiKeysPage() {
     useEffect(() => {
         fetchApiKeys();
         fetchUsageStats();
+        fetchApiLogs();
     }, []);
 
     const fetchApiKeys = async () => {
@@ -102,6 +104,28 @@ export default function ApiKeysPage() {
             console.error('Failed to fetch usage stats:', error);
         }
     };
+
+    const fetchApiLogs = async () => {
+        const token = localStorage.getItem('auth_token');
+        if (!token) return;
+
+        setLogsLoading(true);
+        try {
+            const res = await fetch(`${API_URL}/api-keys/logs`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setApiLogs(data.logs || []);
+            }
+        } catch (error) {
+            console.error('Failed to fetch API logs:', error);
+        } finally {
+            setLogsLoading(false);
+        }
+    };
+
+
 
     const createApiKey = async () => {
         if (!newKeyName.trim()) return;
@@ -347,6 +371,93 @@ export default function ApiKeysPage() {
                         ))}
                     </div>
                 )}
+            </div>
+
+            {/* Recent API Access Logs */}
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+                    <div>
+                        <h2 className="font-semibold text-slate-900">Recent API Access Logs</h2>
+                        <p className="text-sm text-slate-500">Last 50 programmatic requests across all your keys</p>
+                    </div>
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={fetchApiLogs}
+                        disabled={logsLoading}
+                    >
+                        <RefreshCw className={`w-4 h-4 mr-2 ${logsLoading ? 'animate-spin' : ''}`} />
+                        Refresh
+                    </Button>
+                </div>
+                
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-slate-50 border-b border-slate-100">
+                                <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Method</th>
+                                <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Endpoint</th>
+                                <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                                <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Key</th>
+                                <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Duration</th>
+                                <th className="px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Time</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {logsLoading && apiLogs.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="px-5 py-10 text-center text-slate-500 text-sm">
+                                        Loading logs...
+                                    </td>
+                                </tr>
+                            ) : apiLogs.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="px-5 py-10 text-center text-slate-500 text-sm">
+                                        No recent API activity found
+                                    </td>
+                                </tr>
+                            ) : (
+                                apiLogs.map((log) => (
+                                    <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-5 py-4">
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                                log.method === 'GET' ? 'bg-green-100 text-green-700' : 
+                                                log.method === 'POST' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'
+                                            }`}>
+                                                {log.method}
+                                            </span>
+                                        </td>
+                                        <td className="px-5 py-4">
+                                            <code className="text-xs font-mono text-slate-600 truncate max-w-[200px] block">
+                                                {log.url}
+                                            </code>
+                                        </td>
+                                        <td className="px-5 py-4">
+                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                                log.statusCode < 300 ? 'bg-green-100 text-green-700' : 
+                                                log.statusCode < 500 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                                            }`}>
+                                                {log.statusCode}
+                                            </span>
+                                        </td>
+                                        <td className="px-5 py-4">
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-medium text-slate-700">{log.apiKeyName}</span>
+                                                <span className="text-[10px] text-slate-400 font-mono">{log.apiKeyPrefix}••••</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-5 py-4 text-xs text-slate-500">
+                                            {log.duration}ms
+                                        </td>
+                                        <td className="px-5 py-4 text-xs text-slate-500 whitespace-nowrap">
+                                            {relativeTime(log.timestamp)}
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             {/* API Documentation */}

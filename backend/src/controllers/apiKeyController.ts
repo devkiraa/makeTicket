@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { ApiKey } from '../models/ApiKey';
+import { ApiLog } from '../models/ApiLog';
 import { logger } from '../lib/logger';
 
 /**
@@ -227,5 +228,38 @@ export const getUserApiKeyUsage = async (req: Request, res: Response) => {
     } catch (error: any) {
         logger.error('api_key.user_usage_failed', { error: error.message });
         res.status(500).json({ message: 'Failed to fetch usage statistics' });
+    }
+};
+
+/**
+ * Get detailed logs for user's API calls
+ */
+export const getUserApiLogs = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const userId = req.user?.id;
+        const limit = parseInt(req.query.limit as string) || 50;
+
+        const logs = await ApiLog.find({ ownerId: userId })
+            .sort({ timestamp: -1 })
+            .limit(limit)
+            .populate('apiKeyId', 'name keyPrefix');
+
+        res.json({
+            logs: logs.map(l => ({
+                id: l._id,
+                apiKeyName: (l.apiKeyId as any)?.name || 'Unknown Key',
+                apiKeyPrefix: (l.apiKeyId as any)?.keyPrefix || '••••',
+                method: l.method,
+                url: l.url,
+                statusCode: l.statusCode,
+                duration: l.duration,
+                ipAddress: l.ipAddress,
+                timestamp: l.timestamp
+            }))
+        });
+    } catch (error: any) {
+        logger.error('api_key.get_logs_failed', { error: error.message });
+        res.status(500).json({ message: 'Failed to fetch API logs' });
     }
 };

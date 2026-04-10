@@ -11,10 +11,10 @@ import {
     requireExportData,
     requireBulkImport
 } from '../middleware/planLimits';
-import { scanLimiter, inviteAcceptLimiter } from '../middleware/security';
+import { scanLimiter, inviteAcceptLimiter, apiLimiter, authLimiter } from '../middleware/security';
 import { googleAuthRedirect, googleSyncRedirect, googleAuthCallback, getProfile, getSessions, revokeSession, updateProfile, checkUsernameAvailability } from '../controllers/authController';
 import { getPublicUserProfile } from '../controllers/userController';
-import { getDashboardStats, getAllAttendees, getMyRegistrations, upgradeToHost } from '../controllers/dashboardController';
+import { getDashboardStats, getAllAttendees, getMyRegistrations, upgradeToHost, getPublicPlatformStats } from '../controllers/dashboardController';
 import { registerInterest } from '../controllers/interestController';
 import {
     addCoordinator,
@@ -29,9 +29,13 @@ import {
 
 export const apiRouter = express.Router();
 
+// Global Rate Limiting for all API routes (DDoS Protection)
+apiRouter.use(apiLimiter);
+
 // Public User Profile
 apiRouter.get('/users/:username', getPublicUserProfile);
 apiRouter.get('/sitemap-data', getSitemapData);
+apiRouter.get('/stats', getPublicPlatformStats);
 
 // Google Auth
 // Google Auth
@@ -223,12 +227,14 @@ import {
     updateUserApiKey,
     regenerateUserApiKey,
     deleteUserApiKey,
-    getUserApiKeyUsage
+    getUserApiKeyUsage,
+    getUserApiLogs
 } from '../controllers/apiKeyController';
 
 apiRouter.get('/api-keys', verifyToken, getUserApiKeys);
 apiRouter.post('/api-keys', verifyToken, createUserApiKey);
 apiRouter.get('/api-keys/usage', verifyToken, getUserApiKeyUsage);
+apiRouter.get('/api-keys/logs', verifyToken, getUserApiLogs);
 apiRouter.patch('/api-keys/:keyId', verifyToken, updateUserApiKey);
 apiRouter.post('/api-keys/:keyId/regenerate', verifyToken, regenerateUserApiKey);
 apiRouter.delete('/api-keys/:keyId', verifyToken, deleteUserApiKey);
