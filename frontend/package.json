@@ -28,7 +28,7 @@
     "next": "16.1.0",
     "pdfjs-dist": "^5.4.530",
     "qrcode": "^1.5.4",
-    "react": "19.2.3",
+    "react": "19.2.7",
     "react-dom": "19.2.3",
     "react-google-recaptcha-v3": "^1.11.0",
     "tailwindcss-animate": "^1.0.7",
